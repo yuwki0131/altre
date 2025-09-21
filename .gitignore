@@ -1,0 +1,126 @@
+# Rust関連
+# Cargoビルド成果物
+/app/target/
+app/target/
+**/target/
+
+# Cargo.lockファイル（バイナリクレートの場合は含める、ライブラリの場合は除外）
+# この場合はバイナリなので含める
+# Cargo.lock
+
+# 依存関係のキャッシュ
+**/.cargo/
+
+# IDE・エディタ関連
+# VS Code
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA / CLion
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# OS関連
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# 一時ファイル・ログ
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+
+# デバッグ・プロファイリング
+*.pdb
+*.prof
+flamegraph.svg
+perf.data*
+
+# テスト関連
+.coverage
+coverage/
+.nyc_output/
+.pytest_cache/
+
+# ビルド・リリース関連
+dist/
+build/
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# 設定ファイル（機密情報を含む可能性）
+.env
+.env.local
+.env.*.local
+config.local.*
+
+# ドキュメント生成
+/docs/book/
+/docs/target/
+
+# プロジェクト固有
+# 一時作業ディレクトリの内容は除外しない（.gitkeepがあるため）
+# ただし一時ファイルは除外
+temp/*.tmp
+temp/*.log
+temp/*.bak
+
+# 開発時のメモや個人的なファイル
+NOTES.md
+TODO.personal.md
+*.personal.*
+
+# NixOS関連（将来的に追加される可能性）
+result
+result-*
+.direnv/
+
+# プロファイル・ベンチマーク結果
+*.prof
+criterion/
+benches/results/

@@ -1,0 +1,23 @@
+[package]
+name = "altre"
+version = "0.1.0"
+edition = "2021"
+description = "Modern Emacs-inspired text editor built with Rust"
+authors = ["altre development team"]
+repository = "https://github.com/yuwki0131/altre"
+readme = "../README.md"
+license = "TBD"
+keywords = ["text-editor", "emacs", "tui", "terminal"]
+categories = ["command-line-utilities", "text-editors"]
+
+[dependencies]
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.28"
+
+# File path handling and completion
+shellexpand = "3.1"
+
+# Testing framework
+[dev-dependencies]
+proptest = "1.4"

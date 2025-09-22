@@ -3,6 +3,19 @@
 //! 効率的なテキスト編集のためのギャップバッファデータ構造
 
 use crate::error::{AltreError, BufferError, Result};
+use std::cmp::Ordering;
+
+const DEFAULT_GAP_CAPACITY: usize = 4096;
+const MIN_GAP_RESERVE: usize = 1024;
+const MAX_GAP_CAPACITY: usize = 64 * 1024;
+const GAP_GROWTH_FACTOR: usize = 2;
+
+#[derive(Debug, Clone)]
+struct CharBoundaryCache {
+    last_char_pos: usize,
+    last_byte_pos: usize,
+    line_starts: Vec<usize>,
+}
 
 /// ギャップバッファ構造体
 ///
@@ -13,18 +26,35 @@ use crate::error::{AltreError, BufferError, Result};
 pub struct GapBuffer {
     /// 内部バッファ（UTF-8バイト列）
     buffer: Vec<u8>,
-    /// ギャップの開始位置（バイト単位）
+    /// ギャップの開始位置（バイト単位、テキストインデックスと同一）
     gap_start: usize,
     /// ギャップの終了位置（排他的、バイト単位）
     gap_end: usize,
+    /// 文字境界キャッシュ（最適化用）
+    char_cache: Option<CharBoundaryCache>,
 }
 
 impl GapBuffer {
+    fn compute_line_starts(prefix: &str, suffix: &str) -> Vec<usize> {
+        let mut starts = vec![0];
+        let mut cumulative = 0usize;
+        let total_chars = prefix.chars().count() + suffix.chars().count();
+
+        for ch in prefix.chars().chain(suffix.chars()) {
+            cumulative += 1;
+            if ch == '\n' && cumulative < total_chars {
+                starts.push(cumulative);
+            }
+        }
+
+        starts
+    }
+
     /// 新しいギャップバッファを作成
     ///
     /// デフォルトで4KBの初期容量を持つ
     pub fn new() -> Self {
-        Self::with_capacity(4096)
+        Self::with_capacity(DEFAULT_GAP_CAPACITY)
     }
 
     /// 指定容量で新しいギャップバッファを作成
@@ -36,13 +66,14 @@ impl GapBuffer {
             buffer,
             gap_start: 0,
             gap_end: capacity,
+            char_cache: None,
         }
     }
 
     /// 文字列からギャップバッファを作成
     pub fn from_str(s: &str) -> Self {
         let bytes = s.as_bytes();
-        let gap_size = (bytes.len().max(4096) / 4).max(1024); // 25%以上、最低1KB
+        let gap_size = (bytes.len().max(DEFAULT_GAP_CAPACITY) / 4).max(MIN_GAP_RESERVE);
         let total_size = bytes.len() + gap_size;
 
         let mut buffer = Vec::with_capacity(total_size);
@@ -53,7 +84,32 @@ impl GapBuffer {
             buffer,
             gap_start: bytes.len(),
             gap_end: total_size,
+            char_cache: None,
         }
+    }
+
+    fn prefix_bytes(&self) -> &[u8] {
+        &self.buffer[..self.gap_start]
+    }
+
+    fn suffix_bytes(&self) -> &[u8] {
+        &self.buffer[self.gap_end..]
+    }
+
+    fn prefix_str(&self) -> &str {
+        std::str::from_utf8(self.prefix_bytes()).expect("GapBuffer prefix must be valid UTF-8")
+    }
+
+    fn suffix_str(&self) -> &str {
+        std::str::from_utf8(self.suffix_bytes()).expect("GapBuffer suffix must be valid UTF-8")
+    }
+
+    fn total_text_len(&self) -> usize {
+        self.prefix_bytes().len() + self.suffix_bytes().len()
+    }
+
+    fn invalidate_cache(&mut self) {
+        self.char_cache = None;
     }
 
     /// 現在のギャップサイズを取得
@@ -63,8 +119,7 @@ impl GapBuffer {
 
     /// 有効な文字数を取得（バイト数ではなく文字数）
     pub fn len_chars(&self) -> usize {
-        let text = self.get_text();
-        text.chars().count()
+        self.prefix_str().chars().count() + self.suffix_str().chars().count()
     }
 
     /// 下位互換のためのエイリアス
@@ -74,7 +129,7 @@ impl GapBuffer {
 
     /// 有効なバイト数を取得
     pub fn len_bytes(&self) -> usize {
-        self.buffer.len() - self.gap_size()
+        self.total_text_len()
     }
 
     /// 下位互換のためのエイリアス
@@ -89,12 +144,10 @@ impl GapBuffer {
 
     /// 全テキストを文字列として取得
     pub fn to_string(&self) -> String {
-        let mut result = Vec::new();
-        result.extend_from_slice(&self.buffer[0..self.gap_start]);
-        result.extend_from_slice(&self.buffer[self.gap_end..]);
-
-        // UTF-8として解釈できない場合は空文字列を返す
-        String::from_utf8(result).unwrap_or_default()
+        let mut result = String::with_capacity(self.total_text_len());
+        result.push_str(self.prefix_str());
+        result.push_str(self.suffix_str());
+        result
     }
 
     /// 下位互換のためのエイリアス
@@ -162,6 +215,8 @@ impl GapBuffer {
         self.buffer[gap_pos..gap_pos + bytes.len()].copy_from_slice(bytes);
         self.gap_start += bytes.len();
 
+        self.invalidate_cache();
+
         Ok(())
     }
 
@@ -179,6 +234,7 @@ impl GapBuffer {
 
         self.move_gap_to_internal(byte_pos + char_byte_len)?;
         self.gap_start = byte_pos;
+        self.invalidate_cache();
         Ok(deleted_char)
     }
 
@@ -195,9 +251,16 @@ impl GapBuffer {
 
         let deleted_text = self.substring(start, end)?;
 
-        for _ in start..end {
-            self.delete(start)?;
+        if deleted_text.is_empty() {
+            return Ok(deleted_text);
         }
+
+        let start_byte = self.char_to_byte_pos_internal(start)?;
+        let end_byte = self.char_to_byte_pos_internal(end)?;
+
+        self.move_gap_to_internal(end_byte)?;
+        self.gap_start = start_byte;
+        self.invalidate_cache();
 
         Ok(deleted_text)
     }
@@ -211,36 +274,93 @@ impl GapBuffer {
 
     /// 指定位置の文字を取得
     fn char_at(&self, pos: usize) -> std::result::Result<char, BufferError> {
-        let text = self.get_text();
-        text.chars().nth(pos).ok_or(BufferError::InvalidCursorPosition { position: pos })
+        let prefix = self.prefix_str();
+        let prefix_len = prefix.chars().count();
+
+        if pos < prefix_len {
+            return prefix
+                .chars()
+                .nth(pos)
+                .ok_or(BufferError::InvalidCursorPosition { position: pos });
+        }
+
+        let suffix = self.suffix_str();
+        let suffix_pos = pos - prefix_len;
+
+        suffix
+            .chars()
+            .nth(suffix_pos)
+            .ok_or(BufferError::InvalidCursorPosition { position: pos })
     }
 
     /// 文字位置をバイト位置に変換
-    fn char_to_byte_pos_internal(&self, char_pos: usize) -> std::result::Result<usize, BufferError> {
-        let text = self.get_text();
-        let char_indices: Vec<_> = text.char_indices().collect();
+    fn char_to_byte_pos_internal(&mut self, char_pos: usize) -> std::result::Result<usize, BufferError> {
+        if let Some(cache) = &self.char_cache {
+            if cache.last_char_pos == char_pos {
+                return Ok(cache.last_byte_pos);
+            }
+        }
 
-        if char_pos > char_indices.len() {
+        let total_chars = self.len_chars();
+        if char_pos > total_chars {
             return Err(BufferError::InvalidCursorPosition { position: char_pos });
         }
 
-        if char_pos == char_indices.len() {
-            Ok(text.len())
+        let prefix = self.prefix_str();
+        let prefix_char_count = prefix.chars().count();
+        let prefix_byte_len = prefix.len();
+
+        let byte_pos = if char_pos < prefix_char_count {
+            // Within prefix
+            let mut iter = prefix.char_indices();
+            let mut result = prefix_byte_len;
+            for (idx, (byte_idx, _)) in iter.by_ref().enumerate() {
+                if idx == char_pos {
+                    result = byte_idx;
+                    break;
+                }
+            }
+            result
+        } else if char_pos == prefix_char_count {
+            prefix_byte_len
         } else {
-            Ok(char_indices[char_pos].0)
-        }
+            let suffix = self.suffix_str();
+            let suffix_target = char_pos - prefix_char_count;
+            let suffix_chars = suffix.chars().count();
+            if suffix_target > suffix_chars {
+                return Err(BufferError::InvalidCursorPosition { position: char_pos });
+            }
+
+            if suffix_target == suffix_chars {
+                prefix_byte_len + suffix.len()
+            } else {
+                let mut iter = suffix.char_indices();
+                let mut offset = suffix.len();
+                for (idx, (byte_idx, _)) in iter.by_ref().enumerate() {
+                    if idx == suffix_target {
+                        offset = byte_idx;
+                        break;
+                    }
+                }
+                prefix_byte_len + offset
+            }
+        };
+
+        let cache_entry = CharBoundaryCache {
+            last_char_pos: char_pos,
+            last_byte_pos: byte_pos,
+            line_starts: Self::compute_line_starts(prefix, self.suffix_str()),
+        };
+
+        self.char_cache = Some(cache_entry);
+
+        Ok(byte_pos)
     }
 
     /// 指定位置の文字のバイト長を取得
     fn char_byte_len_at_internal(&self, char_pos: usize) -> std::result::Result<usize, BufferError> {
-        let text = self.get_text();
-        let chars: Vec<char> = text.chars().collect();
-
-        if char_pos >= chars.len() {
-            return Err(BufferError::InvalidCursorPosition { position: char_pos });
-        }
-
-        Ok(chars[char_pos].len_utf8())
+        let ch = self.char_at(char_pos)?;
+        Ok(ch.len_utf8())
     }
 
     /// ギャップ（カーソル）を指定位置に移動
@@ -250,7 +370,23 @@ impl GapBuffer {
 
     /// 現在のギャップ位置を取得（文字単位）
     pub fn gap_position(&self) -> usize {
-        self.byte_to_char_pos_internal(self.gap_start).unwrap_or(0)
+        // SAFETY: gap_start は常にテキスト境界に揃っているため UTF-8 境界となる
+        let text = self.prefix_str();
+        text.chars().count()
+    }
+
+    /// 行の開始位置（文字単位）のリストを取得
+    pub fn line_start_positions(&mut self) -> Vec<usize> {
+        if let Some(cache) = &self.char_cache {
+            return cache.line_starts.clone();
+        }
+
+        // キャッシュが存在しない場合は末尾位置での変換を行い構築する
+        let _ = self.char_to_byte_pos_internal(self.len_chars());
+        self.char_cache
+            .as_ref()
+            .map(|cache| cache.line_starts.clone())
+            .unwrap_or_else(|| vec![0])
     }
 
     /// ギャップを指定位置に移動（内部用）
@@ -294,25 +430,73 @@ impl GapBuffer {
 
 
     /// バイト位置を文字位置に変換
-    fn byte_to_char_pos_internal(&self, byte_pos: usize) -> std::result::Result<usize, BufferError> {
-        let text = self.get_text();
-        let bytes = text.as_bytes();
+    #[allow(dead_code)]
+    fn byte_to_char_pos_internal(&mut self, byte_pos: usize) -> std::result::Result<usize, BufferError> {
+        if let Some(cache) = &self.char_cache {
+            if cache.last_byte_pos == byte_pos {
+                return Ok(cache.last_char_pos);
+            }
+        }
 
-        if byte_pos > bytes.len() {
+        if byte_pos > self.len_bytes() {
             return Err(BufferError::InvalidCursorPosition { position: byte_pos });
         }
 
-        let prefix = &bytes[0..byte_pos];
-        match std::str::from_utf8(prefix) {
-            Ok(s) => Ok(s.chars().count()),
-            Err(_) => Err(BufferError::Utf8Boundary { position: byte_pos }),
-        }
+        let prefix = self.prefix_str();
+        let prefix_byte_len = prefix.len();
+
+        let char_pos = match byte_pos.cmp(&prefix_byte_len) {
+            Ordering::Less => {
+                let mut count = 0;
+                for (idx, _) in prefix.char_indices() {
+                    if idx >= byte_pos {
+                        break;
+                    }
+                    count += 1;
+                }
+                count
+            }
+            Ordering::Equal => prefix.chars().count(),
+            Ordering::Greater => {
+                let suffix = self.suffix_str();
+                let suffix_offset = byte_pos - prefix_byte_len;
+                if suffix_offset > suffix.len() {
+                    return Err(BufferError::InvalidCursorPosition { position: byte_pos });
+                }
+
+                if suffix_offset == suffix.len() {
+                    prefix.chars().count() + suffix.chars().count()
+                } else if !suffix.is_char_boundary(suffix_offset) {
+                    return Err(BufferError::Utf8Boundary { position: byte_pos });
+                } else {
+                    let mut count = 0;
+                    for (idx, _) in suffix.char_indices() {
+                        if idx >= suffix_offset {
+                            break;
+                        }
+                        count += 1;
+                    }
+                    prefix.chars().count() + count
+                }
+            }
+        };
+
+        let cache_entry = CharBoundaryCache {
+            last_char_pos: char_pos,
+            last_byte_pos: byte_pos,
+            line_starts: Self::compute_line_starts(prefix, self.suffix_str()),
+        };
+        self.char_cache = Some(cache_entry);
+
+        Ok(char_pos)
     }
 
     /// ギャップサイズを拡張
     fn grow_gap_internal(&mut self, min_additional: usize) -> std::result::Result<(), BufferError> {
-        let current_gap = self.gap_size();
-        let new_gap_size = (current_gap * 2).max(min_additional + 1024).min(65536);
+        let current_gap = self.gap_size().max(MIN_GAP_RESERVE);
+        let required = min_additional + MIN_GAP_RESERVE;
+        let mut new_gap_size = current_gap.saturating_mul(GAP_GROWTH_FACTOR).max(required);
+        new_gap_size = new_gap_size.min(MAX_GAP_CAPACITY.max(required));
         let additional_size = new_gap_size - current_gap;
 
         // 新しいバッファサイズ
@@ -326,6 +510,7 @@ impl GapBuffer {
 
         self.buffer = new_buffer;
         self.gap_end = self.gap_start + new_gap_size;
+        self.invalidate_cache();
 
         Ok(())
     }
@@ -341,6 +526,17 @@ impl Default for GapBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    fn char_to_byte_index(s: &str, char_pos: usize) -> usize {
+        if char_pos >= s.chars().count() {
+            return s.len();
+        }
+        s.char_indices()
+            .nth(char_pos)
+            .map(|(idx, _)| idx)
+            .unwrap_or(s.len())
+    }
 
     #[test]
     fn test_new_gap_buffer() {
@@ -366,6 +562,14 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_char_middle() {
+        let mut gap_buffer = GapBuffer::from_str("abcd");
+        gap_buffer.insert_char(2, 'X').unwrap();
+        assert_eq!(gap_buffer.get_text(), "abXcd");
+        assert_eq!(gap_buffer.char_len(), 5);
+    }
+
+    #[test]
     fn test_insert_str() {
         let mut gap_buffer = GapBuffer::new();
         gap_buffer.insert_str(0, "Hello").unwrap();
@@ -382,6 +586,21 @@ mod tests {
     }
 
     #[test]
+    fn test_delete_range() {
+        let mut gap_buffer = GapBuffer::from_str("abcdef");
+        let deleted = gap_buffer.delete_range(1, 4).unwrap();
+        assert_eq!(deleted, "bcd");
+        assert_eq!(gap_buffer.get_text(), "aef");
+    }
+
+    #[test]
+    fn test_line_start_positions() {
+        let mut gap_buffer = GapBuffer::from_str("line1\nline2\nline3");
+        let lines = gap_buffer.line_start_positions();
+        assert_eq!(lines, vec![0, 6, 12]);
+    }
+
+    #[test]
     fn test_utf8_support() {
         let mut gap_buffer = GapBuffer::new();
         gap_buffer.insert_str(0, "こんにちは").unwrap();
@@ -390,5 +609,62 @@ mod tests {
 
         gap_buffer.insert_char(2, '!').unwrap();
         assert_eq!(gap_buffer.get_text(), "こん!にちは");
+    }
+
+    proptest! {
+        #[test]
+        fn prop_matches_string_model(initial_text in "[ -~ぁ-んァ-ヶー一-龠０-９]*", ops in prop::collection::vec(any::<(u8, String)>(), 0..20)) {
+            let mut gap = GapBuffer::from_str(&initial_text);
+            let mut model = initial_text;
+
+            for (selector, payload) in ops {
+                let len = gap.len_chars();
+                if len == 0 {
+                    let insert_pos = 0usize;
+                    let chs: Vec<char> = payload.chars().collect();
+                    if chs.is_empty() {
+                        continue;
+                    }
+                    let insert_str: String = chs.into_iter().collect();
+                    gap.insert_str(insert_pos, &insert_str).unwrap();
+                    model.insert_str(insert_pos, &insert_str);
+                    continue;
+                }
+
+                match selector % 3 {
+                    0 => {
+                        // Insert a single character if payload not empty
+                        if let Some(ch) = payload.chars().next() {
+                            let pos = (selector as usize) % (len + 1);
+                            gap.insert(pos, ch).unwrap();
+                            let byte_idx = char_to_byte_index(&model, pos);
+                            model.insert(byte_idx, ch);
+                        }
+                    }
+                    1 => {
+                        // Insert string (limited length)
+                        if !payload.is_empty() {
+                            let pos = (selector as usize) % (len + 1);
+                            let snippet: String = payload.chars().take(4).collect();
+                            gap.insert_str(pos, &snippet).unwrap();
+                            let byte_idx = char_to_byte_index(&model, pos);
+                            model.insert_str(byte_idx, &snippet);
+                        }
+                    }
+                    _ => {
+                        if len == 0 {
+                            continue;
+                        }
+                        let pos = (selector as usize) % len;
+                        gap.delete(pos).unwrap();
+                        let start = char_to_byte_index(&model, pos);
+                        let end = char_to_byte_index(&model, pos + 1);
+                        model.replace_range(start..end, "");
+                    }
+                }
+            }
+
+            prop_assert_eq!(gap.get_text(), model);
+        }
     }
 }

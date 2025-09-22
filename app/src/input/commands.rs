@@ -90,6 +90,7 @@ pub enum Command {
     // アプリケーション制御
     SaveBuffersKillTerminal,
     Quit,
+    ExecuteCommand,
 
     // 未知のコマンド
     Unknown(String),
@@ -110,6 +111,7 @@ impl Command {
             "save-buffer" => Command::SaveBuffer,
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
             "quit" => Command::Quit,
+            "execute-command" => Command::ExecuteCommand,
             _ => Command::Unknown(cmd.to_string()),
         }
     }
@@ -129,6 +131,7 @@ impl Command {
             Command::SaveBuffer => "バッファを保存",
             Command::SaveBuffersKillTerminal => "保存して終了",
             Command::Quit => "終了",
+            Command::ExecuteCommand => "コマンドを実行",
             Command::Unknown(_) => "不明なコマンド",
         }
     }
@@ -160,6 +163,7 @@ impl CommandProcessor {
             Command::SaveBuffer => self.execute_save_buffer(),
             Command::SaveBuffersKillTerminal => self.execute_quit(),
             Command::Quit => self.execute_quit(),
+            Command::ExecuteCommand => self.execute_execute_command(),
             Command::Unknown(cmd) => CommandResult::error(
                 format!("不明なコマンド: {}", cmd)
             ),
@@ -219,6 +223,10 @@ impl CommandProcessor {
 
     fn execute_quit(&mut self) -> CommandResult {
         CommandResult::quit()
+    }
+
+    fn execute_execute_command(&mut self) -> CommandResult {
+        CommandResult::success_with_message("M-x は現在未実装です".to_string())
     }
 }
 

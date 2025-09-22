@@ -2,6 +2,7 @@
 //!
 //! Emacs風キーバインドの処理とアクション実行を管理
 
+use super::commands::Command;
 use crossterm::event::{KeyCode as CrosstermKeyCode, KeyEvent, KeyModifiers as CrosstermModifiers};
 use std::collections::HashMap;
 
@@ -97,6 +98,13 @@ impl Key {
         }
     }
 
+    pub fn ctrl_d() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('d'),
+        }
+    }
+
     pub fn alt_x() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
@@ -166,6 +174,25 @@ pub enum Action {
     Quit,
     /// コマンド実行
     ExecuteCommand,
+}
+
+impl Action {
+    pub fn to_command(&self) -> Option<Command> {
+        match self {
+            Action::MoveCursor(Direction::Up) => Some(Command::PreviousLine),
+            Action::MoveCursor(Direction::Down) => Some(Command::NextLine),
+            Action::MoveCursor(Direction::Left) => Some(Command::BackwardChar),
+            Action::MoveCursor(Direction::Right) => Some(Command::ForwardChar),
+            Action::InsertChar(ch) => Some(Command::InsertChar(*ch)),
+            Action::DeleteChar(DeleteDirection::Backward) => Some(Command::DeleteBackwardChar),
+            Action::DeleteChar(DeleteDirection::Forward) => Some(Command::DeleteChar),
+            Action::InsertNewline => Some(Command::InsertNewline),
+            Action::FileOpen => Some(Command::FindFile),
+            Action::FileSave => Some(Command::SaveBuffer),
+            Action::Quit => Some(Command::SaveBuffersKillTerminal),
+            Action::ExecuteCommand => Some(Command::ExecuteCommand),
+        }
+    }
 }
 
 /// 移動方向
@@ -365,6 +392,7 @@ impl ModernKeyMap {
         // 編集系
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Backspace }, Action::DeleteChar(DeleteDirection::Backward));
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Delete }, Action::DeleteChar(DeleteDirection::Forward));
+        single.insert(Key::ctrl_d(), Action::DeleteChar(DeleteDirection::Forward));
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
 
         // ファイル操作（C-xプレフィックス）
@@ -378,6 +406,10 @@ impl ModernKeyMap {
 
     /// キー入力を処理してアクションを返す
     pub fn process_key(&mut self, key: Key) -> KeyProcessResult {
+        if matches!(key.code, KeyCode::Unknown) {
+            return KeyProcessResult::NoMatch;
+        }
+
         // システムキーの処理
         match self.handle_system_key(&key) {
             SystemKeyResult::Cancel => return KeyProcessResult::NoMatch,
@@ -406,6 +438,11 @@ impl ModernKeyMap {
         // 通常文字の場合は挿入
         if key.is_insertable_char() {
             return KeyProcessResult::Action(Action::InsertChar(key.to_char()));
+        }
+
+        // Tabは文字挿入として扱う
+        if matches!(key.code, KeyCode::Tab) && !key.modifiers.ctrl && !key.modifiers.alt {
+            return KeyProcessResult::Action(Action::InsertChar('\t'));
         }
 
         // マッチしない場合はサイレント無視
@@ -460,6 +497,20 @@ impl ModernKeyMap {
     /// 現在の部分マッチ状態を取得
     pub fn is_partial_match(&self) -> bool {
         !matches!(self.partial_match_state, PartialMatchState::None)
+    }
+
+    /// crosstermのイベントを処理
+    pub fn process_key_event(&mut self, event: KeyEvent) -> KeyProcessResult {
+        let key: Key = event.into();
+        self.process_key(key)
+    }
+
+    /// 現在のプレフィックス表示
+    pub fn current_prefix_label(&self) -> Option<&'static str> {
+        match self.partial_match_state {
+            PartialMatchState::CxPrefix => Some("C-x"),
+            PartialMatchState::None => None,
+        }
     }
 }
 
@@ -787,6 +838,17 @@ mod tests {
     }
 
     #[test]
+    fn test_modern_keymap_tab_insert() {
+        let mut keymap = ModernKeyMap::new();
+        let key = Key {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Tab,
+        };
+        let result = keymap.process_key(key);
+        assert_eq!(result, KeyProcessResult::Action(Action::InsertChar('\t')));
+    }
+
+    #[test]
     fn test_crossterm_integration() {
         let crossterm_event = KeyEvent::new(
             CrosstermKeyCode::Char('x'),
@@ -803,5 +865,21 @@ mod tests {
         assert_eq!(sequence.keys.len(), 2);
         assert_eq!(sequence.keys[0], Key::ctrl_x());
         assert_eq!(sequence.keys[1], Key::ctrl_f());
+    }
+
+    #[test]
+    fn test_action_to_command_mapping() {
+        assert_eq!(Action::MoveCursor(Direction::Up).to_command(), Some(Command::PreviousLine));
+        assert_eq!(Action::MoveCursor(Direction::Down).to_command(), Some(Command::NextLine));
+        assert_eq!(Action::MoveCursor(Direction::Left).to_command(), Some(Command::BackwardChar));
+        assert_eq!(Action::MoveCursor(Direction::Right).to_command(), Some(Command::ForwardChar));
+        assert_eq!(Action::InsertChar('x').to_command(), Some(Command::InsertChar('x')));
+        assert_eq!(Action::DeleteChar(DeleteDirection::Backward).to_command(), Some(Command::DeleteBackwardChar));
+        assert_eq!(Action::DeleteChar(DeleteDirection::Forward).to_command(), Some(Command::DeleteChar));
+        assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::FileOpen.to_command(), Some(Command::FindFile));
+        assert_eq!(Action::FileSave.to_command(), Some(Command::SaveBuffer));
+        assert_eq!(Action::Quit.to_command(), Some(Command::SaveBuffersKillTerminal));
+        assert_eq!(Action::ExecuteCommand.to_command(), Some(Command::ExecuteCommand));
     }
 }

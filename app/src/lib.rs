@@ -4,6 +4,7 @@
 
 // コアモジュール
 pub mod error;
+pub mod logging;
 pub mod app;
 
 // データ層

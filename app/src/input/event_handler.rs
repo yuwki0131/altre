@@ -3,15 +3,15 @@
 //! キーボード入力やターミナルイベントの処理
 
 use crate::error::Result;
-use super::{KeyMap, Command, CommandProcessor, CommandResult};
-use super::keybinding::KeyLookupResult;
+use super::{CommandProcessor, CommandResult};
+use super::keybinding::{KeyProcessResult, ModernKeyMap};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 
 /// 入力ハンドラー
 pub struct InputHandler {
     /// キーマップ
-    keymap: KeyMap,
+    keymap: ModernKeyMap,
     /// コマンド処理器
     command_processor: CommandProcessor,
     /// 入力タイムアウト（ミリ秒）
@@ -22,7 +22,7 @@ impl InputHandler {
     /// 新しい入力ハンドラーを作成
     pub fn new() -> Self {
         Self {
-            keymap: KeyMap::new(),
+            keymap: ModernKeyMap::new(),
             command_processor: CommandProcessor::new(),
             timeout: Duration::from_millis(100),
         }
@@ -31,7 +31,7 @@ impl InputHandler {
     /// タイムアウト付きで入力ハンドラーを作成
     pub fn with_timeout(timeout: Duration) -> Self {
         Self {
-            keymap: KeyMap::new(),
+            keymap: ModernKeyMap::new(),
             command_processor: CommandProcessor::new(),
             timeout,
         }
@@ -62,33 +62,20 @@ impl InputHandler {
             return Ok(InputResult::Handled);
         }
 
-        // 通常の文字入力かチェック
-        if self.is_character_input(&key_event) {
-            let ch = match key_event.code {
-                KeyCode::Char(c) => c,
-                _ => return Ok(InputResult::Ignored),
-            };
-
-            let command = Command::InsertChar(ch);
-            let result = self.command_processor.execute(command);
-            return Ok(InputResult::Command { result });
-        }
-
-        // キーマップでコマンド検索
-        match self.keymap.process_key(key_event) {
-            KeyLookupResult::Command(cmd_name) => {
-                let command = Command::from_string(&cmd_name);
-                let result = self.command_processor.execute(command);
-                Ok(InputResult::Command { result })
+        match self.keymap.process_key_event(key_event) {
+            KeyProcessResult::Action(action) => {
+                if let Some(command) = action.to_command() {
+                    let result = self.command_processor.execute(command);
+                    Ok(InputResult::Command { result })
+                } else {
+                    Ok(InputResult::Ignored)
+                }
             }
-            KeyLookupResult::Prefix => {
-                Ok(InputResult::Prefix)
-            }
-            KeyLookupResult::Unbound => {
-                // 未バインドキーの処理
-                self.keymap.reset_sequence();
+            KeyProcessResult::PartialMatch => Ok(InputResult::Prefix),
+            KeyProcessResult::NoMatch => {
+                self.keymap.reset_partial_match();
                 Ok(InputResult::Unbound {
-                    key: format!("{:?}", key_event)
+                    key: format!("{:?}", key_event),
                 })
             }
         }
@@ -99,40 +86,30 @@ impl InputHandler {
         match (key_event.code, key_event.modifiers) {
             // C-g: キーシーケンスのキャンセル
             (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
-                self.keymap.reset_sequence();
+                self.keymap.reset_partial_match();
                 true
             }
             // ESC: キーシーケンスのキャンセル
             (KeyCode::Esc, _) => {
-                self.keymap.reset_sequence();
+                self.keymap.reset_partial_match();
                 true
             }
-            _ => false,
-        }
-    }
-
-    /// 文字入力かどうかを判定
-    fn is_character_input(&self, key_event: &KeyEvent) -> bool {
-        match key_event.code {
-            KeyCode::Char(_) => {
-                // 修飾キーなし、またはShiftのみ
-                key_event.modifiers == KeyModifiers::NONE ||
-                key_event.modifiers == KeyModifiers::SHIFT
-            }
-            KeyCode::Enter => true,
-            KeyCode::Tab => true,
             _ => false,
         }
     }
 
     /// 現在のキーシーケンス状態を取得
     pub fn current_key_sequence(&self) -> String {
-        format!("{:?}", self.keymap.current_sequence())
+        self
+            .keymap
+            .current_prefix_label()
+            .unwrap_or("")
+            .to_string()
     }
 
     /// キーマップをリセット
     pub fn reset_keymap(&mut self) {
-        self.keymap.reset_sequence();
+        self.keymap.reset_partial_match();
     }
 }
 

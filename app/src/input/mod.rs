@@ -7,6 +7,6 @@ pub mod commands;
 pub mod event_handler;
 
 // 公開API
-pub use keybinding::{KeyMap, KeyBinding, KeySequence};
+pub use keybinding::{Action, DeleteDirection, Direction, Key, KeyCode, KeyModifiers, KeyProcessResult, ModernKeyMap};
 pub use commands::{Command, CommandProcessor, CommandResult};
 pub use event_handler::{InputHandler, EventProcessor};

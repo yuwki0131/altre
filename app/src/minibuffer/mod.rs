@@ -7,10 +7,21 @@ use std::time::{Duration, Instant};
 pub mod completion;
 pub mod history;
 pub mod prompt;
+pub mod system;
+pub mod commands;
+pub mod ui;
 
 // 公開API（既存）
-pub use completion::{CompletionEngine, PathCompletion};
+pub use completion::{CompletionEngine, PathCompletion, CommandCompletion};
 pub use prompt::{PromptManager, PromptResult};
+
+// 新しい公開API
+pub use system::{MinibufferSystem, MinibufferConfig, SystemState, SystemEvent, SystemResponse, FileOperation};
+pub use commands::{
+    CommandProcessor, CommandResult, CommandDefinition, CommandContext,
+    FileOperationType, BufferOperationType, SystemOperationType,
+};
+pub use ui::{MinibufferRenderer, MinibufferUIConfig, MinibufferLayout, MinibufferStyles};
 
 // 新しい公開API
 use crate::input::keybinding::{Key, KeyCode};

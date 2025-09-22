@@ -111,6 +111,17 @@ impl InputHandler {
     pub fn reset_keymap(&mut self) {
         self.keymap.reset_partial_match();
     }
+
+    /// 文字入力かどうかを判定
+    pub fn is_character_input(&self, key_event: &KeyEvent) -> bool {
+        match (key_event.code, key_event.modifiers) {
+            (KeyCode::Char(_), KeyModifiers::NONE) => true,
+            (KeyCode::Char(_), KeyModifiers::SHIFT) => true,
+            (KeyCode::Enter, _) => true,
+            (KeyCode::Tab, _) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Default for InputHandler {

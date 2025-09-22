@@ -2,7 +2,8 @@
 //!
 //! エディタコマンドの定義と実行
 
-
+use crate::buffer::{EditOperations, NavigationAction, TextEditor};
+use crate::file::{FileOperationManager, FileBuffer, expand_path};
 /// コマンド実行の結果
 #[derive(Debug, Clone)]
 pub struct CommandResult {
@@ -69,7 +70,7 @@ impl CommandResult {
 }
 
 /// コマンドの種類
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     // カーソル移動
     ForwardChar,
@@ -91,6 +92,10 @@ pub enum Command {
     SaveBuffersKillTerminal,
     Quit,
     ExecuteCommand,
+    MoveLineStart,
+    MoveLineEnd,
+    MoveBufferStart,
+    MoveBufferEnd,
 
     // 未知のコマンド
     Unknown(String),
@@ -112,6 +117,10 @@ impl Command {
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
             "quit" => Command::Quit,
             "execute-command" => Command::ExecuteCommand,
+            "move-beginning-of-line" => Command::MoveLineStart,
+            "move-end-of-line" => Command::MoveLineEnd,
+            "beginning-of-buffer" => Command::MoveBufferStart,
+            "end-of-buffer" => Command::MoveBufferEnd,
             _ => Command::Unknown(cmd.to_string()),
         }
     }
@@ -132,6 +141,10 @@ impl Command {
             Command::SaveBuffersKillTerminal => "保存して終了",
             Command::Quit => "終了",
             Command::ExecuteCommand => "コマンドを実行",
+            Command::MoveLineStart => "行頭に移動",
+            Command::MoveLineEnd => "行末に移動",
+            Command::MoveBufferStart => "バッファ先頭に移動",
+            Command::MoveBufferEnd => "バッファ末尾に移動",
             Command::Unknown(_) => "不明なコマンド",
         }
     }
@@ -139,86 +152,162 @@ impl Command {
 
 /// コマンド処理器
 pub struct CommandProcessor {
-    // 将来的にアプリケーション状態への参照を追加
+    editor: TextEditor,
+    file_manager: FileOperationManager,
+    current_buffer: Option<FileBuffer>,
 }
 
 impl CommandProcessor {
     /// 新しいコマンド処理器を作成
     pub fn new() -> Self {
-        Self {}
+        Self {
+            editor: TextEditor::new(),
+            file_manager: FileOperationManager::new(),
+            current_buffer: None,
+        }
+    }
+
+    /// エディタへの参照（テスト用途）
+    pub fn editor(&self) -> &TextEditor {
+        &self.editor
+    }
+
+    /// 現在のバッファへの参照
+    pub fn current_buffer(&self) -> Option<&FileBuffer> {
+        self.current_buffer.as_ref()
+    }
+
+    /// パスでファイルを開く（公開API）
+    pub fn open_file(&mut self, path: String) -> CommandResult {
+        self.execute_find_file_with_path(path)
     }
 
     /// コマンドを実行
     pub fn execute(&mut self, command: Command) -> CommandResult {
         match command {
-            Command::ForwardChar => self.execute_forward_char(),
-            Command::BackwardChar => self.execute_backward_char(),
-            Command::NextLine => self.execute_next_line(),
-            Command::PreviousLine => self.execute_previous_line(),
-            Command::InsertChar(ch) => self.execute_insert_char(ch),
-            Command::DeleteBackwardChar => self.execute_delete_backward_char(),
-            Command::DeleteChar => self.execute_delete_char(),
-            Command::InsertNewline => self.execute_insert_newline(),
+            Command::ForwardChar => self.navigate(NavigationAction::MoveCharForward),
+            Command::BackwardChar => self.navigate(NavigationAction::MoveCharBackward),
+            Command::NextLine => self.navigate(NavigationAction::MoveLineDown),
+            Command::PreviousLine => self.navigate(NavigationAction::MoveLineUp),
+            Command::InsertChar(ch) => {
+                let res = self.editor.insert_char(ch);
+                self.handle_edit(res)
+            }
+            Command::DeleteBackwardChar => {
+                let res = self.editor.delete_backward();
+                self.handle_delete(res)
+            }
+            Command::DeleteChar => {
+                let res = self.editor.delete_forward();
+                self.handle_delete(res)
+            }
+            Command::InsertNewline => {
+                let res = self.editor.insert_newline();
+                self.handle_edit(res)
+            }
             Command::FindFile => self.execute_find_file(),
             Command::SaveBuffer => self.execute_save_buffer(),
             Command::SaveBuffersKillTerminal => self.execute_quit(),
             Command::Quit => self.execute_quit(),
             Command::ExecuteCommand => self.execute_execute_command(),
-            Command::Unknown(cmd) => CommandResult::error(
-                format!("不明なコマンド: {}", cmd)
-            ),
+            Command::MoveLineStart => self.navigate(NavigationAction::MoveLineStart),
+            Command::MoveLineEnd => self.navigate(NavigationAction::MoveLineEnd),
+            Command::MoveBufferStart => self.navigate(NavigationAction::MoveBufferStart),
+            Command::MoveBufferEnd => self.navigate(NavigationAction::MoveBufferEnd),
+            Command::Unknown(cmd) => CommandResult::error(format!("不明なコマンド: {}", cmd)),
         }
     }
 
-    // 個別コマンドの実装（プレースホルダー）
-    fn execute_forward_char(&mut self) -> CommandResult {
-        // TODO: 実際のカーソル移動処理
-        CommandResult::success()
+    fn navigate(&mut self, action: NavigationAction) -> CommandResult {
+        match self.editor.navigate(action) {
+            Ok(_) => CommandResult::success(),
+            Err(err) => CommandResult::error(err.to_string()),
+        }
     }
 
-    fn execute_backward_char(&mut self) -> CommandResult {
-        // TODO: 実際のカーソル移動処理
-        CommandResult::success()
+    fn handle_edit<T>(&mut self, result: crate::error::Result<T>) -> CommandResult {
+        match result {
+            Ok(_) => CommandResult::success(),
+            Err(err) => CommandResult::error(err.to_string()),
+        }
     }
 
-    fn execute_next_line(&mut self) -> CommandResult {
-        // TODO: 実際のカーソル移動処理
-        CommandResult::success()
-    }
-
-    fn execute_previous_line(&mut self) -> CommandResult {
-        // TODO: 実際のカーソル移動処理
-        CommandResult::success()
-    }
-
-    fn execute_insert_char(&mut self, _ch: char) -> CommandResult {
-        // TODO: 実際の文字挿入処理
-        CommandResult::success()
-    }
-
-    fn execute_delete_backward_char(&mut self) -> CommandResult {
-        // TODO: 実際の文字削除処理
-        CommandResult::success()
-    }
-
-    fn execute_delete_char(&mut self) -> CommandResult {
-        // TODO: 実際の文字削除処理
-        CommandResult::success()
-    }
-
-    fn execute_insert_newline(&mut self) -> CommandResult {
-        // TODO: 実際の改行挿入処理
-        CommandResult::success()
+    fn handle_delete(&mut self, result: crate::error::Result<char>) -> CommandResult {
+        match result {
+            Ok(_) => CommandResult::success(),
+            Err(err) => CommandResult::error(err.to_string()),
+        }
     }
 
     fn execute_find_file(&mut self) -> CommandResult {
-        // TODO: ファイルオープンダイアログの表示
-        CommandResult::success_with_message("ファイルを開く".to_string())
+        // TODO: ミニバッファでファイルパス入力を受け付ける実装が必要
+        // 現在は簡易実装として仮のパスを使用
+        self.execute_find_file_with_path("README.md".to_string())
+    }
+
+    fn execute_find_file_with_path(&mut self, path_input: String) -> CommandResult {
+        // パス展開
+        let expanded_path = match expand_path(&path_input) {
+            Ok(path) => path,
+            Err(err) => return CommandResult::error(format!("パス展開エラー: {}", err)),
+        };
+
+        // ファイルを開く
+        match self.file_manager.open_file(expanded_path.clone()) {
+            Ok(buffer) => {
+                // エディタにファイル内容を設定
+                self.editor = TextEditor::from_str(&buffer.content);
+
+                // バッファを保存
+                self.current_buffer = Some(buffer);
+
+                CommandResult::success_with_message(
+                    format!("ファイルを開きました: {}", expanded_path.display())
+                )
+            },
+            Err(_err) => {
+                // 新規ファイルの場合
+                match self.file_manager.create_new_file_buffer(expanded_path.clone()) {
+                    Ok(buffer) => {
+                        self.editor = TextEditor::from_str(&buffer.content);
+                        self.current_buffer = Some(buffer);
+
+                        CommandResult::success_with_message(
+                            format!("新規ファイルを作成しました: {}", expanded_path.display())
+                        )
+                    },
+                    Err(create_err) => CommandResult::error(
+                        format!("ファイル操作エラー: {}", create_err)
+                    ),
+                }
+            }
+        }
     }
 
     fn execute_save_buffer(&mut self) -> CommandResult {
-        // TODO: 実際のファイル保存処理
-        CommandResult::success_with_message("バッファを保存しました".to_string())
+        if let Some(ref mut buffer) = self.current_buffer {
+            // エディタの内容をバッファに同期
+            buffer.content = self.editor.to_string();
+
+            // 変更がない場合はスキップ
+            if !buffer.is_modified() {
+                return CommandResult::success_with_message("変更なし".to_string());
+            }
+
+            // 保存実行
+            match self.file_manager.save_buffer(buffer) {
+                Ok(_) => CommandResult::success_with_message(
+                    format!("バッファを保存しました: {}",
+                        buffer.path.as_ref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|| "未名".to_string())
+                    )
+                ),
+                Err(err) => CommandResult::error(format!("保存エラー: {}", err)),
+            }
+        } else {
+            CommandResult::error("保存するバッファがありません".to_string())
+        }
     }
 
     fn execute_quit(&mut self) -> CommandResult {
@@ -309,6 +398,14 @@ mod tests {
         let mut processor = CommandProcessor::new();
 
         let result = processor.execute(Command::ForwardChar);
+        assert!(result.success);
+
+        let result = processor.execute(Command::InsertChar('a'));
+        assert!(result.success);
+        assert_eq!(processor.editor().to_string(), "a");
+        assert_eq!(processor.editor().to_string(), "a");
+
+        let result = processor.execute(Command::MoveLineStart);
         assert!(result.success);
 
         let result = processor.execute(Command::Quit);

@@ -254,7 +254,6 @@ pub fn relative_path<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
 
     #[test]
     fn test_normalize_path() {

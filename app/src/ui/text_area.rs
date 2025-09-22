@@ -9,6 +9,16 @@ use ratatui::{
     style::{Color, Style},
     Frame,
 };
+use crate::buffer::TextEditor;
+use crate::ui::theme::{Theme, ComponentType};
+
+/// ビューポート情報
+#[derive(Debug, Clone)]
+pub struct Viewport {
+    pub start_line: usize,
+    pub end_line: usize,
+    pub scroll_x: usize,
+}
 
 /// テキストエリア描画器
 #[derive(Debug)]
@@ -144,6 +154,49 @@ impl TextArea {
 
         let end_line = std::cmp::min(start_line + visible_lines, total_lines);
         (start_line, end_line)
+    }
+}
+
+/// 高性能テキストエリアレンダラー
+#[derive(Debug)]
+pub struct TextAreaRenderer {
+    /// 行番号表示
+    #[allow(dead_code)]
+    show_line_numbers: bool,
+}
+
+impl TextAreaRenderer {
+    /// 新しいレンダラーを作成
+    pub fn new() -> Self {
+        Self {
+            show_line_numbers: true,
+        }
+    }
+
+    /// テキストエリアを描画
+    pub fn render(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        editor: &TextEditor,
+        theme: &Theme,
+    ) {
+        // 簡単な実装：テキストエリア全体に文字列を表示
+        let content = editor.to_string();
+        let lines: Vec<Line> = content.lines()
+            .map(|line| Line::from(line))
+            .collect();
+
+        let paragraph = Paragraph::new(lines)
+            .style(theme.style(&ComponentType::TextArea));
+
+        frame.render_widget(paragraph, area);
+    }
+}
+
+impl Default for TextAreaRenderer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

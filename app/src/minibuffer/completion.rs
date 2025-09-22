@@ -295,11 +295,11 @@ mod tests {
     fn test_split_path() {
         let completion = PathCompletion::new();
 
-        let (dir, file) = completion.split_path("test/file").unwrap();
+        let (_dir, file) = completion.split_path("test/file").unwrap();
         assert_eq!(file, "file");
         // dirはtest/fileのparent()結果なので"test"になる
 
-        let (dir, file) = completion.split_path("test/").unwrap();
+        let (_dir, file) = completion.split_path("test/").unwrap();
         assert_eq!(file, "");
         // ディレクトリ終端の場合は空のファイル名
     }

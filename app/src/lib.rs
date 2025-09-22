@@ -11,6 +11,9 @@ pub mod app;
 pub mod buffer;
 pub mod file;
 
+// 編集層
+pub mod editor;
+
 // ロジック層
 pub mod input;
 pub mod minibuffer;

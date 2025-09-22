@@ -3,6 +3,7 @@
 //! Emacs風キーバインドの処理とアクション実行を管理
 
 use super::commands::Command;
+use crate::buffer::navigation::NavigationAction;
 use crossterm::event::{KeyCode as CrosstermKeyCode, KeyEvent, KeyModifiers as CrosstermModifiers};
 use std::collections::HashMap;
 
@@ -98,6 +99,62 @@ impl Key {
         }
     }
 
+    pub fn ctrl_a() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('a'),
+        }
+    }
+
+    pub fn ctrl_e() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('e'),
+        }
+    }
+
+    pub fn alt_less() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('<'),
+        }
+    }
+
+    pub fn alt_greater() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('>'),
+        }
+    }
+
+    pub fn arrow_up() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Up,
+        }
+    }
+
+    pub fn arrow_down() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Down,
+        }
+    }
+
+    pub fn arrow_left() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Left,
+        }
+    }
+
+    pub fn arrow_right() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Right,
+        }
+    }
+
     pub fn ctrl_d() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -159,8 +216,8 @@ impl KeyCombination {
 /// アクション定義
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    /// カーソル移動
-    MoveCursor(Direction),
+    /// ナビゲーション操作
+    Navigate(NavigationAction),
     /// 文字挿入
     InsertChar(char),
     /// 文字削除
@@ -179,10 +236,16 @@ pub enum Action {
 impl Action {
     pub fn to_command(&self) -> Option<Command> {
         match self {
-            Action::MoveCursor(Direction::Up) => Some(Command::PreviousLine),
-            Action::MoveCursor(Direction::Down) => Some(Command::NextLine),
-            Action::MoveCursor(Direction::Left) => Some(Command::BackwardChar),
-            Action::MoveCursor(Direction::Right) => Some(Command::ForwardChar),
+            Action::Navigate(nav) => match nav {
+                NavigationAction::MoveCharForward => Some(Command::ForwardChar),
+                NavigationAction::MoveCharBackward => Some(Command::BackwardChar),
+                NavigationAction::MoveLineUp => Some(Command::PreviousLine),
+                NavigationAction::MoveLineDown => Some(Command::NextLine),
+                NavigationAction::MoveLineStart => Some(Command::MoveLineStart),
+                NavigationAction::MoveLineEnd => Some(Command::MoveLineEnd),
+                NavigationAction::MoveBufferStart => Some(Command::MoveBufferStart),
+                NavigationAction::MoveBufferEnd => Some(Command::MoveBufferEnd),
+            },
             Action::InsertChar(ch) => Some(Command::InsertChar(*ch)),
             Action::DeleteChar(DeleteDirection::Backward) => Some(Command::DeleteBackwardChar),
             Action::DeleteChar(DeleteDirection::Forward) => Some(Command::DeleteChar),
@@ -193,15 +256,6 @@ impl Action {
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
         }
     }
-}
-
-/// 移動方向
-#[derive(Debug, Clone, PartialEq)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
 }
 
 /// 削除方向
@@ -378,16 +432,22 @@ impl ModernKeyMap {
         cx_prefix: &mut HashMap<Key, Action>,
     ) {
         // 移動系
-        single.insert(Key::ctrl_n(), Action::MoveCursor(Direction::Down));
-        single.insert(Key::ctrl_p(), Action::MoveCursor(Direction::Up));
-        single.insert(Key::ctrl_f(), Action::MoveCursor(Direction::Right));
-        single.insert(Key::ctrl_b(), Action::MoveCursor(Direction::Left));
+        single.insert(Key::ctrl_n(), Action::Navigate(NavigationAction::MoveLineDown));
+        single.insert(Key::ctrl_p(), Action::Navigate(NavigationAction::MoveLineUp));
+        single.insert(Key::ctrl_f(), Action::Navigate(NavigationAction::MoveCharForward));
+        single.insert(Key::ctrl_b(), Action::Navigate(NavigationAction::MoveCharBackward));
+        single.insert(Key::ctrl_a(), Action::Navigate(NavigationAction::MoveLineStart));
+        single.insert(Key::ctrl_e(), Action::Navigate(NavigationAction::MoveLineEnd));
 
         // 矢印キー
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Up }, Action::MoveCursor(Direction::Up));
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Down }, Action::MoveCursor(Direction::Down));
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Left }, Action::MoveCursor(Direction::Left));
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Right }, Action::MoveCursor(Direction::Right));
+        single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
+        single.insert(Key::arrow_down(), Action::Navigate(NavigationAction::MoveLineDown));
+        single.insert(Key::arrow_left(), Action::Navigate(NavigationAction::MoveCharBackward));
+        single.insert(Key::arrow_right(), Action::Navigate(NavigationAction::MoveCharForward));
+
+        // バッファ全体移動（M-<, M->）
+        single.insert(Key::alt_less(), Action::Navigate(NavigationAction::MoveBufferStart));
+        single.insert(Key::alt_greater(), Action::Navigate(NavigationAction::MoveBufferEnd));
 
         // 編集系
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Backspace }, Action::DeleteChar(DeleteDirection::Backward));
@@ -637,6 +697,14 @@ impl KeyMap {
             LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('p'))),
             KeyBinding::Command("previous-line".to_string()),
         );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('a'))),
+            KeyBinding::Command("move-beginning-of-line".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('e'))),
+            KeyBinding::Command("move-end-of-line".to_string()),
+        );
 
         // 削除
         self.bind_global(
@@ -679,6 +747,16 @@ impl KeyMap {
                 KeyCombination::ctrl(CrosstermKeyCode::Char('c')),
             ]),
             KeyBinding::Command("save-buffers-kill-terminal".to_string()),
+        );
+
+        // M-< / M-> (バッファ先頭・末尾)
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::alt(CrosstermKeyCode::Char('<'))),
+            KeyBinding::Command("beginning-of-buffer".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::alt(CrosstermKeyCode::Char('>'))),
+            KeyBinding::Command("end-of-buffer".to_string()),
         );
     }
 
@@ -810,7 +888,7 @@ mod tests {
     fn test_modern_keymap_single_key() {
         let mut keymap = ModernKeyMap::new();
         let result = keymap.process_key(Key::ctrl_n());
-        assert_eq!(result, KeyProcessResult::Action(Action::MoveCursor(Direction::Down)));
+        assert_eq!(result, KeyProcessResult::Action(Action::Navigate(NavigationAction::MoveLineDown)));
     }
 
     #[test]
@@ -869,10 +947,14 @@ mod tests {
 
     #[test]
     fn test_action_to_command_mapping() {
-        assert_eq!(Action::MoveCursor(Direction::Up).to_command(), Some(Command::PreviousLine));
-        assert_eq!(Action::MoveCursor(Direction::Down).to_command(), Some(Command::NextLine));
-        assert_eq!(Action::MoveCursor(Direction::Left).to_command(), Some(Command::BackwardChar));
-        assert_eq!(Action::MoveCursor(Direction::Right).to_command(), Some(Command::ForwardChar));
+        assert_eq!(Action::Navigate(NavigationAction::MoveLineUp).to_command(), Some(Command::PreviousLine));
+        assert_eq!(Action::Navigate(NavigationAction::MoveLineDown).to_command(), Some(Command::NextLine));
+        assert_eq!(Action::Navigate(NavigationAction::MoveCharBackward).to_command(), Some(Command::BackwardChar));
+        assert_eq!(Action::Navigate(NavigationAction::MoveCharForward).to_command(), Some(Command::ForwardChar));
+        assert_eq!(Action::Navigate(NavigationAction::MoveLineStart).to_command(), Some(Command::MoveLineStart));
+        assert_eq!(Action::Navigate(NavigationAction::MoveLineEnd).to_command(), Some(Command::MoveLineEnd));
+        assert_eq!(Action::Navigate(NavigationAction::MoveBufferStart).to_command(), Some(Command::MoveBufferStart));
+        assert_eq!(Action::Navigate(NavigationAction::MoveBufferEnd).to_command(), Some(Command::MoveBufferEnd));
         assert_eq!(Action::InsertChar('x').to_command(), Some(Command::InsertChar('x')));
         assert_eq!(Action::DeleteChar(DeleteDirection::Backward).to_command(), Some(Command::DeleteBackwardChar));
         assert_eq!(Action::DeleteChar(DeleteDirection::Forward).to_command(), Some(Command::DeleteChar));

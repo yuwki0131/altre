@@ -4,14 +4,16 @@
 
 pub mod gap_buffer;
 pub mod cursor;
+pub mod navigation;
 pub mod operations;
 pub mod editor;
 
 // 公開API
 pub use gap_buffer::GapBuffer;
 pub use cursor::CursorPosition;
+pub use navigation::{NavigationSystem, NavigationAction, NavigationError, Position as NavigationPosition};
 pub use operations::EditOperation;
-pub use editor::{TextEditor, EditOperations, ChangeEvent};
+pub use editor::{TextEditor, EditOperations, ChangeEvent, ChangeListener};
 pub use crate::error::EditError;
 
 use crate::error::Result;

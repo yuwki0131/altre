@@ -6,7 +6,21 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Color;
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 use crate::error::{AltreError, UiError};
+
+/// 画面領域の種類
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AreaType {
+    /// テキストエリア
+    TextArea,
+    /// ステータスライン
+    StatusLine,
+    /// ミニバッファ
+    Minibuffer,
+    /// 行番号
+    LineNumbers,
+}
 
 /// アプリケーション全体のレイアウト（QA回答反映）
 #[derive(Debug, Clone)]
@@ -121,6 +135,56 @@ impl LayoutManager {
             modeline: chunks[2],
             total: area,
         })
+    }
+
+    /// 高性能レンダラー用のレイアウト計算
+    pub fn calculate_areas(
+        &self,
+        area: Rect,
+        minibuffer_active: bool,
+        show_status_line: bool,
+    ) -> HashMap<AreaType, Rect> {
+        let mut areas = HashMap::new();
+
+        if area.width < self.min_width || area.height < self.min_height {
+            // 最小サイズを満たさない場合はデフォルト値を返す
+            areas.insert(AreaType::TextArea, area);
+            return areas;
+        }
+
+        let mut constraints = Vec::new();
+        let mut area_order = Vec::new();
+
+        // ミニバッファ（アクティブな場合のみ）
+        if minibuffer_active {
+            let minibuffer_height = if area.height >= 20 { 3 } else { 2 };
+            constraints.push(Constraint::Length(minibuffer_height));
+            area_order.push(AreaType::Minibuffer);
+        }
+
+        // メインのテキストエリア
+        constraints.push(Constraint::Min(1));
+        area_order.push(AreaType::TextArea);
+
+        // ステータスライン（表示する場合）
+        if show_status_line {
+            constraints.push(Constraint::Length(1));
+            area_order.push(AreaType::StatusLine);
+        }
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(area);
+
+        // 計算された領域をHashMapに格納
+        for (i, area_type) in area_order.iter().enumerate() {
+            if i < chunks.len() {
+                areas.insert(area_type.clone(), chunks[i]);
+            }
+        }
+
+        areas
     }
 
     /// 最小サイズをチェック

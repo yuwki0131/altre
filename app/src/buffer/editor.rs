@@ -2,7 +2,7 @@
 //!
 //! 基本編集操作のメインインターフェース
 
-use crate::buffer::{gap_buffer::GapBuffer, cursor::CursorPosition};
+use crate::buffer::{gap_buffer::GapBuffer, cursor::CursorPosition, navigation::{NavigationAction, NavigationError, NavigationSystem}};
 use crate::error::{EditError, Result};
 use std::time::Instant;
 
@@ -83,6 +83,8 @@ pub struct TextEditor {
     buffer: GapBuffer,
     /// カーソル位置
     cursor: CursorPosition,
+    /// ナビゲーションシステム
+    navigation: NavigationSystem,
     /// 変更通知システム
     change_notifier: ChangeNotifier,
     /// 最後の操作時刻（パフォーマンス監視用）
@@ -95,6 +97,7 @@ impl TextEditor {
         Self {
             buffer: GapBuffer::new(),
             cursor: CursorPosition::new(),
+            navigation: NavigationSystem::new(),
             change_notifier: ChangeNotifier::new(),
             last_operation_time: Instant::now(),
         }
@@ -105,6 +108,7 @@ impl TextEditor {
         Self {
             buffer: GapBuffer::from_str(s),
             cursor: CursorPosition::new(),
+            navigation: NavigationSystem::new(),
             change_notifier: ChangeNotifier::new(),
             last_operation_time: Instant::now(),
         }
@@ -120,11 +124,17 @@ impl TextEditor {
         &self.cursor
     }
 
+    /// ナビゲーションシステムへの参照
+    pub fn navigation(&self) -> &NavigationSystem {
+        &self.navigation
+    }
+
     /// カーソル位置を設定
     pub fn set_cursor(&mut self, position: CursorPosition) {
         let old_position = self.cursor;
         self.cursor = position;
         self.clamp_cursor_position();
+        let _ = self.sync_navigation_cursor();
 
         // カーソル移動を通知
         self.change_notifier.notify(ChangeEvent::CursorMove {
@@ -160,6 +170,7 @@ impl TextEditor {
 
         // 行・列情報を再計算
         self.recalculate_cursor_line_column(&text);
+        let _ = self.sync_navigation_cursor();
     }
 
     /// カーソルの行・列位置を再計算
@@ -269,6 +280,33 @@ impl TextEditor {
             .replace("\r", "\n")    // Mac CR → LF
     }
 
+    /// ナビゲーション状態をカーソル位置と同期
+    fn sync_navigation_cursor(&mut self) -> Result<()> {
+        let text = self.buffer.to_string();
+        self.navigation.set_cursor(self.cursor);
+        self.navigation
+            .recover_from_invalid_position(&text)
+            .map_err(|e| EditError::BufferError(format!("ナビゲーション更新に失敗しました: {}", e)).into())
+    }
+
+    /// ナビゲーション操作の実行
+    pub fn navigate(&mut self, action: NavigationAction) -> std::result::Result<bool, NavigationError> {
+        let text = self.buffer.to_string();
+        self.navigation.set_cursor(self.cursor);
+        let moved = self.navigation.navigate(&text, action)?;
+        if moved {
+            let new_cursor = *self.navigation.cursor();
+            let old_position = self.cursor;
+            self.cursor = new_cursor;
+            let _ = self.sync_navigation_cursor();
+            self.change_notifier.notify(ChangeEvent::CursorMove {
+                old_position,
+                new_position: self.cursor,
+            });
+        }
+        Ok(moved)
+    }
+
     /// 挿入後のカーソル位置更新
     fn update_cursor_after_insert(&mut self, inserted: &str) {
         for ch in inserted.chars() {
@@ -328,6 +366,8 @@ impl EditOperations for TextEditor {
                 content: ch.to_string(),
             });
 
+            editor.sync_navigation_cursor()?;
+
             Ok(())
         });
 
@@ -363,6 +403,8 @@ impl EditOperations for TextEditor {
                 position: cursor_pos,
                 content: normalized,
             });
+
+            editor.sync_navigation_cursor()?;
 
             Ok(())
         });
@@ -409,6 +451,8 @@ impl EditOperations for TextEditor {
                 content: deleted_char.to_string(),
             });
 
+            editor.sync_navigation_cursor()?;
+
             Ok(deleted_char)
         });
 
@@ -436,6 +480,8 @@ impl EditOperations for TextEditor {
                 position: pos,
                 content: deleted_char.to_string(),
             });
+
+            editor.sync_navigation_cursor()?;
 
             Ok(deleted_char)
         });
@@ -465,6 +511,8 @@ impl EditOperations for TextEditor {
                 position: cursor_pos,
                 content: "\n".to_string(),
             });
+
+            editor.sync_navigation_cursor()?;
 
             Ok(())
         });
@@ -502,6 +550,8 @@ impl EditOperations for TextEditor {
                 position: start,
                 content: deleted_text.clone(),
             });
+
+            editor.sync_navigation_cursor()?;
 
             Ok(deleted_text)
         });

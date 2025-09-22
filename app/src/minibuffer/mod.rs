@@ -156,7 +156,7 @@ pub enum MinibufferResult {
 }
 
 /// ミニバッファ関連のエラー
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum MinibufferError {
     #[error("File not found: {0}")]
     FileNotFound(String),
@@ -168,13 +168,19 @@ pub enum MinibufferError {
     InvalidPath(String),
 
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(String),
 
     #[error("Command not found: {0}")]
     CommandNotFound(String),
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+}
+
+impl From<std::io::Error> for MinibufferError {
+    fn from(error: std::io::Error) -> Self {
+        MinibufferError::IoError(error.to_string())
+    }
 }
 
 impl MinibufferError {

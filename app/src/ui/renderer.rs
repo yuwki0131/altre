@@ -220,7 +220,7 @@ impl AdvancedRenderer {
     /// フレーム描画
     fn render_frame(
         &mut self,
-        frame: &mut Frame,
+        frame: &mut Frame<'_>,
         editor: &TextEditor,
         minibuffer: &MinibufferSystem,
         areas: &HashMap<AreaType, Rect>,
@@ -254,7 +254,7 @@ impl AdvancedRenderer {
     /// ステータスライン描画
     fn render_status_line(
         &self,
-        frame: &mut Frame,
+        frame: &mut Frame<'_>,
         area: Rect,
         editor: &TextEditor,
         theme: &crate::ui::theme::Theme,
@@ -282,7 +282,7 @@ impl AdvancedRenderer {
 
     /// デバッグ情報描画
     #[allow(dead_code)]
-    fn render_debug_info(&self, frame: &mut Frame, areas: &HashMap<AreaType, Rect>) {
+    fn render_debug_info(&self, frame: &mut Frame<'_>, areas: &HashMap<AreaType, Rect>) {
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
             let debug_area = Rect {
                 x: text_area.x + text_area.width.saturating_sub(30),
@@ -315,7 +315,7 @@ impl AdvancedRenderer {
     #[allow(dead_code)]
     fn set_cursor_position(
         &self,
-        frame: &mut Frame,
+        frame: &mut Frame<'_>,
         editor: &TextEditor,
         minibuffer: &MinibufferSystem,
         areas: &HashMap<AreaType, Rect>,

@@ -3,10 +3,11 @@
 //! ギャップバッファ上のカーソル移動を司る軽量ユーティリティ。
 
 use crate::buffer::cursor::CursorPosition;
+use crate::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig, LongLineStrategy};
 use std::cmp::min;
 
 /// ナビゲーション時のエラー。
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum NavigationError {
     #[error("cursor is already at the beginning of the buffer")]
     StartOfBuffer,
@@ -52,6 +53,20 @@ struct TextSnapshot {
     line_lengths: Vec<usize>,
     #[allow(dead_code)]
     tab_width: usize,
+    /// 長い行の最適化情報
+    #[allow(dead_code)]
+    long_line_cache: std::collections::HashMap<usize, LongLineInfo>,
+}
+
+/// 長い行の最適化情報
+#[derive(Debug, Clone)]
+struct LongLineInfo {
+    #[allow(dead_code)]
+    strategy: LongLineStrategy,
+    #[allow(dead_code)]
+    chunks: Option<Vec<usize>>, // チャンクの境界位置
+    #[allow(dead_code)]
+    display_limit: Option<usize>,
 }
 
 impl TextSnapshot {
@@ -79,7 +94,13 @@ impl TextSnapshot {
         // `line_starts` の最後は文字数と一致していない場合があるため調整する
         // ただし、ファイル末尾の追加の line_start は line_of_char の計算に影響するため追加しない
 
-        Self { chars, line_starts, line_lengths, tab_width }
+        Self {
+            chars,
+            line_starts,
+            line_lengths,
+            tab_width,
+            long_line_cache: std::collections::HashMap::new(),
+        }
     }
 
     fn char_count(&self) -> usize {
@@ -169,6 +190,96 @@ impl TextSnapshot {
 
         Some(start + len)
     }
+
+    /// 長い行の最適化情報を取得または作成
+    #[allow(dead_code)]
+    fn get_or_create_long_line_info(&mut self, line: usize, optimizer: &mut PerformanceOptimizer) -> &LongLineInfo {
+        if !self.long_line_cache.contains_key(&line) {
+            if let Some(line_length) = self.line_length(line) {
+                let strategy = optimizer.determine_long_line_strategy(line_length, line);
+                let info = match strategy {
+                    LongLineStrategy::Normal => LongLineInfo {
+                        strategy,
+                        chunks: None,
+                        display_limit: None,
+                    },
+                    LongLineStrategy::Chunked => {
+                        let chunks = self.calculate_chunks(line, 1000); // 1000文字チャンク
+                        LongLineInfo {
+                            strategy,
+                            chunks: Some(chunks),
+                            display_limit: None,
+                        }
+                    }
+                    LongLineStrategy::GradualLimitation => LongLineInfo {
+                        strategy,
+                        chunks: None,
+                        display_limit: Some(5000), // 5000文字まで表示
+                    },
+                    LongLineStrategy::DisplayLimited => LongLineInfo {
+                        strategy,
+                        chunks: None,
+                        display_limit: Some(2000), // 2000文字まで表示
+                    },
+                };
+                self.long_line_cache.insert(line, info);
+            } else {
+                // 行が存在しない場合は通常戦略
+                self.long_line_cache.insert(line, LongLineInfo {
+                    strategy: LongLineStrategy::Normal,
+                    chunks: None,
+                    display_limit: None,
+                });
+            }
+        }
+
+        self.long_line_cache.get(&line).unwrap()
+    }
+
+    /// 行をチャンクに分割する境界を計算
+    #[allow(dead_code)]
+    fn calculate_chunks(&self, line: usize, chunk_size: usize) -> Vec<usize> {
+        let start = self.line_start(line).unwrap_or(0);
+        let length = self.line_length(line).unwrap_or(0);
+        let mut chunks = Vec::new();
+
+        let mut pos = 0;
+        while pos < length {
+            chunks.push(start + pos);
+            pos += chunk_size;
+        }
+
+        chunks
+    }
+
+    /// 長い行での安全なナビゲーション
+    #[allow(dead_code)]
+    fn safe_navigate_long_line(&self, _line: usize, target_column: usize, info: &LongLineInfo) -> usize {
+        match info.strategy {
+            LongLineStrategy::Normal => target_column,
+            LongLineStrategy::Chunked => {
+                // チャンク境界で制限
+                if let Some(ref chunks) = info.chunks {
+                    let chunk_index = target_column / 1000;
+                    if chunk_index < chunks.len() {
+                        target_column.min(1000 * (chunk_index + 1))
+                    } else {
+                        target_column
+                    }
+                } else {
+                    target_column
+                }
+            }
+            LongLineStrategy::GradualLimitation | LongLineStrategy::DisplayLimited => {
+                // 表示制限を適用
+                if let Some(limit) = info.display_limit {
+                    target_column.min(limit)
+                } else {
+                    target_column
+                }
+            }
+        }
+    }
 }
 
 /// カーソル移動に関する状態。
@@ -197,10 +308,13 @@ impl ExtendedCursor {
 }
 
 /// ナビゲーションシステム本体。
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct NavigationSystem {
     cursor: CursorPosition,
     extended: ExtendedCursor,
+    performance_monitor: Option<PerformanceMonitor>,
+    #[allow(dead_code)]
+    optimizer: Option<PerformanceOptimizer>,
 }
 
 impl NavigationSystem {
@@ -208,7 +322,46 @@ impl NavigationSystem {
         Self {
             cursor: CursorPosition::new(),
             extended: ExtendedCursor::new(),
+            performance_monitor: None,
+            optimizer: None,
         }
+    }
+
+    /// パフォーマンス監視付きで作成
+    pub fn with_performance_monitoring() -> Self {
+        Self {
+            cursor: CursorPosition::new(),
+            extended: ExtendedCursor::new(),
+            performance_monitor: Some(PerformanceMonitor::new()),
+            optimizer: Some(PerformanceOptimizer::new(OptimizationConfig::new())),
+        }
+    }
+
+    /// 高性能設定で作成
+    pub fn with_high_performance() -> Self {
+        Self {
+            cursor: CursorPosition::new(),
+            extended: ExtendedCursor::new(),
+            performance_monitor: Some(PerformanceMonitor::new()),
+            optimizer: Some(PerformanceOptimizer::new(OptimizationConfig::high_performance())),
+        }
+    }
+
+    /// パフォーマンス監視を有効化
+    pub fn enable_performance_monitoring(&mut self) {
+        if self.performance_monitor.is_none() {
+            self.performance_monitor = Some(PerformanceMonitor::new());
+        }
+    }
+
+    /// パフォーマンス監視を無効化
+    pub fn disable_performance_monitoring(&mut self) {
+        self.performance_monitor = None;
+    }
+
+    /// パフォーマンスメトリクスを取得
+    pub fn performance_metrics(&self) -> Option<&crate::performance::PerformanceMetrics> {
+        self.performance_monitor.as_ref().map(|m| m.metrics())
     }
 
     /// カーソルを取得
@@ -229,8 +382,16 @@ impl NavigationSystem {
 
     /// Tab幅を指定してカーソルを移動する。
     pub fn navigate_with_tab_width(&mut self, text: &str, action: NavigationAction, tab_width: usize) -> Result<bool, NavigationError> {
+        // パフォーマンス監視を開始
+        let timer = self.performance_monitor.as_ref()
+            .map(|m| m.start_operation(Operation::Navigation));
+
         let snapshot = TextSnapshot::with_tab_width(text, tab_width);
         if snapshot.line_count() == 0 {
+            // タイマーを終了
+            if let (Some(timer), Some(ref mut monitor)) = (timer, &mut self.performance_monitor) {
+                timer.finish(monitor);
+            }
             return Ok(false);
         }
 
@@ -247,6 +408,11 @@ impl NavigationSystem {
 
         if moved {
             self.extended.position = self.cursor;
+        }
+
+        // パフォーマンス監視を終了
+        if let (Some(timer), Some(ref mut monitor)) = (timer, &mut self.performance_monitor) {
+            timer.finish(monitor);
         }
 
         Ok(moved)
@@ -267,7 +433,7 @@ impl NavigationSystem {
 
     fn move_char_forward(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
         if self.cursor.char_pos >= snapshot.char_count() {
-            return Err(NavigationError::EndOfBuffer);
+            return Ok(false); // Silent failure for boundary case
         }
         let ch = snapshot.char_at(self.cursor.char_pos).ok_or_else(|| NavigationError::Internal("cursor out of bounds".into()))?;
         self.cursor.char_pos += 1;
@@ -284,7 +450,7 @@ impl NavigationSystem {
 
     fn move_char_backward(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
         if self.cursor.char_pos == 0 {
-            return Err(NavigationError::StartOfBuffer);
+            return Ok(false); // Silent failure for boundary case
         }
         let prev_char = snapshot
             .char_at(self.cursor.char_pos - 1)
@@ -305,7 +471,7 @@ impl NavigationSystem {
 
     fn move_line_up(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
         if self.cursor.line == 0 {
-            return Err(NavigationError::StartOfBuffer);
+            return Ok(false); // Silent failure for boundary case
         }
         let preferred = self.extended.preferred_column.unwrap_or(self.cursor.column);
         let target_line = self.cursor.line - 1;
@@ -324,7 +490,7 @@ impl NavigationSystem {
     fn move_line_down(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
         let last_line = snapshot.line_count().saturating_sub(1);
         if self.cursor.line >= last_line {
-            return Err(NavigationError::EndOfBuffer);
+            return Ok(false); // Silent failure for boundary case
         }
         let preferred = self.extended.preferred_column.unwrap_or(self.cursor.column);
         let target_line = min(self.cursor.line + 1, last_line);
@@ -418,9 +584,10 @@ mod tests {
     fn buffer_bounds() {
         let mut nav = NavigationSystem::new();
         let text = "Only one line";
-        assert!(matches!(nav.navigate(text, NavigationAction::MoveCharBackward), Err(NavigationError::StartOfBuffer)));
+        // Boundary navigation should return Ok(false) (silent failure, no movement)
+        assert!(!nav.navigate(text, NavigationAction::MoveCharBackward).unwrap());
         assert!(nav.navigate(text, NavigationAction::MoveBufferEnd).unwrap());
-        assert!(matches!(nav.navigate(text, NavigationAction::MoveLineDown), Err(NavigationError::EndOfBuffer)));
+        assert!(!nav.navigate(text, NavigationAction::MoveLineDown).unwrap());
     }
 
     #[test]

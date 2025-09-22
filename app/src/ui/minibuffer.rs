@@ -78,7 +78,7 @@ impl MinibufferRenderer {
     }
 
     /// ミニバッファを描画
-    pub fn render(&self, frame: &mut Frame, area: Rect) {
+    pub fn render(&self, frame: &mut Frame<'_>, area: Rect) {
         let content = self.create_content();
         let style = self.get_style();
 
@@ -92,7 +92,7 @@ impl MinibufferRenderer {
     }
 
     /// 表示内容を作成
-    fn create_content(&self) -> Line {
+    fn create_content(&self) -> Line<'_> {
         match &self.state {
             MinibufferState::Normal => Line::from(""),
             MinibufferState::Prompt { message, input } => {

@@ -77,7 +77,7 @@ impl MinibufferRenderer {
     }
 
     /// ミニバッファを描画
-    pub fn render(&self, frame: &mut Frame, area: Rect, state: &MinibufferState) {
+    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
         match &state.mode {
             MinibufferMode::Inactive => {
                 // 非アクティブ時は何も描画しない
@@ -95,7 +95,7 @@ impl MinibufferRenderer {
     }
 
     /// メッセージを描画
-    fn render_message(&self, frame: &mut Frame, area: Rect, message: &str, style: Style) {
+    fn render_message(&self, frame: &mut Frame<'_>, area: Rect, message: &str, style: Style) {
         let paragraph = Paragraph::new(message)
             .style(style)
             .wrap(Wrap { trim: true });
@@ -111,7 +111,7 @@ impl MinibufferRenderer {
     }
 
     /// 入力モードを描画
-    fn render_input_mode(&self, frame: &mut Frame, area: Rect, state: &MinibufferState) {
+    fn render_input_mode(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
         // ミニバッファ用の領域を計算
         let minibuffer_height = 1 + if self.config.show_border { 2 } else { 0 };
         let completion_height = self.calculate_completion_height(state);
@@ -143,7 +143,7 @@ impl MinibufferRenderer {
     }
 
     /// ミニバッファの入力部分を描画
-    fn render_minibuffer_input(&self, frame: &mut Frame, area: Rect, state: &MinibufferState) {
+    fn render_minibuffer_input(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
         // プロンプトと入力を結合
         let prompt_text = format!("{}{}", state.prompt, state.input);
         let cursor_offset = state.prompt.chars().count() + state.cursor_pos;
@@ -170,12 +170,12 @@ impl MinibufferRenderer {
     }
 
     /// 補完候補リストを描画
-    fn render_completions(&self, frame: &mut Frame, area: Rect, state: &MinibufferState) {
+    fn render_completions(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
         if state.completions.is_empty() {
             return;
         }
 
-        let items: Vec<ListItem> = state.completions
+        let items: Vec<ListItem<'_>> = state.completions
             .iter()
             .take(self.config.completion_limit)
             .enumerate()

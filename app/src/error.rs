@@ -47,6 +47,26 @@ pub enum AltreError {
     /// 編集操作エラー
     #[error("Edit error: {0}")]
     Edit(String),
+
+    /// ナビゲーションエラー
+    #[error("Navigation error")]
+    Navigation(#[from] crate::buffer::NavigationError),
+
+    /// キー解析エラー
+    #[error("Key parsing error")]
+    KeyParsing(#[from] crate::input::keybinding::KeyParseError),
+
+    /// キーマップエラー
+    #[error("Keymap error")]
+    KeyMap(#[from] crate::input::keybinding::KeyMapError),
+
+    /// 入力バッファエラー
+    #[error("Input buffer error")]
+    InputBuffer(#[from] crate::editor::input_buffer::InputBufferError),
+
+    /// ミニバッファエラー
+    #[error("Minibuffer error")]
+    Minibuffer(#[from] crate::minibuffer::MinibufferError),
 }
 
 /// ファイル操作固有のエラー
@@ -335,6 +355,41 @@ impl ErrorMessageCatalog {
             },
         );
         entries.insert(
+            "navigation_error",
+            MessageEntry {
+                text: "ナビゲーションエラーが発生しました",
+                level: Warning,
+            },
+        );
+        entries.insert(
+            "key_parsing_error",
+            MessageEntry {
+                text: "キー解析でエラーが発生しました",
+                level: Error,
+            },
+        );
+        entries.insert(
+            "keymap_error",
+            MessageEntry {
+                text: "キーマップでエラーが発生しました",
+                level: Error,
+            },
+        );
+        entries.insert(
+            "input_buffer_error",
+            MessageEntry {
+                text: "入力バッファでエラーが発生しました",
+                level: Error,
+            },
+        );
+        entries.insert(
+            "minibuffer_error",
+            MessageEntry {
+                text: "ミニバッファでエラーが発生しました",
+                level: Error,
+            },
+        );
+        entries.insert(
             "generic_error",
             MessageEntry {
                 text: "エラーが発生しました",
@@ -469,6 +524,21 @@ impl ErrorDisplay {
             }
             AltreError::Edit(message) => {
                 Some(catalog.compose("edit", Some(message.clone())))
+            }
+            AltreError::Navigation(error) => {
+                Some(catalog.compose("navigation_error", Some(error.to_string())))
+            }
+            AltreError::KeyParsing(error) => {
+                Some(catalog.compose("key_parsing_error", Some(error.to_string())))
+            }
+            AltreError::KeyMap(error) => {
+                Some(catalog.compose("keymap_error", Some(error.to_string())))
+            }
+            AltreError::InputBuffer(error) => {
+                Some(catalog.compose("input_buffer_error", Some(error.to_string())))
+            }
+            AltreError::Minibuffer(error) => {
+                Some(catalog.compose("minibuffer_error", Some(error.to_string())))
             }
         };
 

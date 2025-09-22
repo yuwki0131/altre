@@ -42,5 +42,9 @@ alisp = []  # Future Lisp integration
 gui = []    # Future GUI support
 
 [[bench]]
+name = "navigation_bench"
+harness = false
+
+[[bench]]
 name = "performance"
 harness = false

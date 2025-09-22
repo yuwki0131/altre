@@ -53,7 +53,7 @@ impl TextArea {
     }
 
     /// テキストを描画
-    pub fn render(&self, frame: &mut Frame, area: Rect, content: &str) {
+    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, content: &str) {
         let lines = self.prepare_lines(content);
 
         let mut paragraph = Paragraph::new(lines);
@@ -176,14 +176,14 @@ impl TextAreaRenderer {
     /// テキストエリアを描画
     pub fn render(
         &self,
-        frame: &mut Frame,
+        frame: &mut Frame<'_>,
         area: Rect,
         editor: &TextEditor,
         theme: &Theme,
     ) {
         // 簡単な実装：テキストエリア全体に文字列を表示
         let content = editor.to_string();
-        let lines: Vec<Line> = content.lines()
+        let lines: Vec<Line<'_>> = content.lines()
             .map(|line| Line::from(line))
             .collect();
 

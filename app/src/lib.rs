@@ -21,6 +21,9 @@ pub mod minibuffer;
 // 表示層
 pub mod ui;
 
+// パフォーマンス
+pub mod performance;
+
 // 公開API
 pub use app::App;
 pub use error::{AltreError, Result};

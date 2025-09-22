@@ -1,6 +1,5 @@
 use altre::{App, Result};
 use tempfile::TempDir;
-use std::path::Path;
 
 #[test]
 fn test_app_initialization() -> Result<()> {

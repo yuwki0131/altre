@@ -199,7 +199,7 @@ pub mod utils {
 
     /// 単語境界を判定
     pub fn is_word_boundary(ch: char) -> bool {
-        ch.is_whitespace() || ch.is_ascii_punctuation()
+        ch.is_whitespace() || (ch.is_ascii_punctuation() && ch != '_')
     }
 
     /// 行の開始位置を見つける

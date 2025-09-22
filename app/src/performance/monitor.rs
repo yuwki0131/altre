@@ -140,6 +140,7 @@ impl Default for PerformanceMetrics {
 pub struct PerformanceMonitor {
     metrics: PerformanceMetrics,
     enabled: bool,
+    #[allow(dead_code)]
     max_samples: usize,
 }
 

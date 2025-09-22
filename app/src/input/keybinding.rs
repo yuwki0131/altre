@@ -581,7 +581,7 @@ impl Default for ModernKeyMap {
 }
 
 /// キーパースエラー
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum KeyParseError {
     #[error("Invalid key sequence format: {0}")]
     InvalidFormat(String),
@@ -597,7 +597,7 @@ pub enum KeyParseError {
 }
 
 /// キーマップエラー
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum KeyMapError {
     #[error("Key binding conflict: {0:?}")]
     Conflict(KeySequence),

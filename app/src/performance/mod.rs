@@ -8,5 +8,5 @@ pub mod profiling;
 
 // 公開API
 pub use monitor::{PerformanceMonitor, PerformanceMetrics, Operation};
-pub use optimization::{OptimizationConfig, PerformanceOptimizer};
+pub use optimization::{OptimizationConfig, PerformanceOptimizer, LongLineStrategy};
 pub use profiling::{ProfilerManager, ProfileResult};

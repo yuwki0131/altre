@@ -125,7 +125,7 @@ impl Default for InputBuffer {
 }
 
 /// 入力バッファエラー
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum InputBufferError {
     #[error("Input buffer overflow (max size: {max_size})")]
     BufferOverflow { max_size: usize },

@@ -69,23 +69,36 @@
 ---
 
 ## 5. パッケージと初期化
-- **パッケージ管理**: `package.el`（ELPA/MELPA 互換）や `straight.el` による拡張配布
 - **初期化ファイル**: `init.el`, `early-init.el` で設定・読み込み
 
 ---
 
 ## 6. 典型コード例
+
+### interactiveな関数
+
 ```alisp
-(define my-insert-date
+(define my-insert-date 'interactive
   (lambda ()
     "カーソル位置に現在の日付を挿入する"
-    (interactive)
     (insert (format-time-string "%Y-%m-%d"))))
 ```
 
 * define で関数定義
-* interactive でキーバインド可能
+* defineスペシャルフォームに対してinteractiveシンボルでキーバインド可能
 * insert はCレイヤのプリミティブ関数
+
+### (interactiveでない)通常の関数
+
+
+```alisp
+(define my-insert-date
+  (lambda ()
+    "カーソル位置に現在の日付を挿入する"
+    (insert (format-time-string "%Y-%m-%d"))))
+```
+
+* defineスペシャルフォームに対してinteractiveシンボルなしで一般的な関数を定義
 
 ## まとめ
 

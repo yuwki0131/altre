@@ -317,6 +317,12 @@ impl App {
                 self.shutdown();
                 Ok(())
             }
+            Command::ExecuteCommand => {
+                self.start_execute_command_prompt()
+            }
+            Command::EvalExpression => {
+                self.start_eval_expression_prompt()
+            }
             Command::MoveLineStart => {
                 self.navigate(NavigationAction::MoveLineStart);
                 Ok(())
@@ -358,6 +364,30 @@ impl App {
             Ok(_) => {
                 Ok(())
             },
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
+    fn start_execute_command_prompt(&mut self) -> Result<()> {
+        match self.minibuffer.start_execute_command() {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
+    fn start_eval_expression_prompt(&mut self) -> Result<()> {
+        match self.minibuffer.start_eval_expression() {
+            Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
                     "ミニバッファの初期化に失敗しました: {}", err

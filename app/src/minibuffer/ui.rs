@@ -229,6 +229,7 @@ impl MinibufferRenderer {
         match mode {
             MinibufferMode::FindFile => "Find File",
             MinibufferMode::ExecuteCommand => "M-x",
+            MinibufferMode::EvalExpression => "Eval",
             MinibufferMode::SaveConfirmation => "Save",
             _ => "Minibuffer",
         }
@@ -262,7 +263,7 @@ impl MinibufferLayout {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Min(1),      // メイン領域
-                    Constraint::Length(3),   // ミニバッファ領域
+                    Constraint::Length(1),   // ミニバッファ領域
                 ])
                 .split(terminal_area);
 
@@ -508,6 +509,7 @@ mod tests {
 
         assert_eq!(renderer.get_mode_title(&MinibufferMode::FindFile), "Find File");
         assert_eq!(renderer.get_mode_title(&MinibufferMode::ExecuteCommand), "M-x");
+        assert_eq!(renderer.get_mode_title(&MinibufferMode::EvalExpression), "Eval");
         assert_eq!(renderer.get_mode_title(&MinibufferMode::SaveConfirmation), "Save");
     }
 }

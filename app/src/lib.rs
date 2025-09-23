@@ -2,6 +2,9 @@
 //!
 //! MVPモジュール構成とアーキテクチャの実装
 
+// 拡張言語
+pub mod alisp;
+
 // コアモジュール
 pub mod error;
 pub mod logging;

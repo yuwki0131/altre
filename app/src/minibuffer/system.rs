@@ -3,6 +3,8 @@
 //! Emacsスタイルのミニバッファ機能の統合システム
 
 use crate::error::Result;
+use crate::alisp::Interpreter;
+use crate::alisp::integration::eval_in_minibuffer;
 use crate::input::keybinding::Key;
 use super::{
     ModernMinibuffer, MinibufferResult, MinibufferAction,
@@ -22,6 +24,8 @@ pub struct MinibufferSystem {
     last_update: Instant,
     /// システム設定
     config: MinibufferConfig,
+    /// alispインタプリタ
+    alisp_interpreter: Interpreter,
 }
 
 /// ミニバッファシステムの設定
@@ -127,6 +131,7 @@ impl MinibufferSystem {
             command_completion: CommandCompletion::new(),
             last_update: Instant::now(),
             config,
+            alisp_interpreter: Interpreter::new(),
         }
     }
 
@@ -136,6 +141,7 @@ impl MinibufferSystem {
             super::MinibufferMode::Inactive => SystemState::Inactive,
             super::MinibufferMode::FindFile => SystemState::FindFile,
             super::MinibufferMode::ExecuteCommand => SystemState::ExecuteCommand,
+            super::MinibufferMode::EvalExpression => SystemState::ExecuteCommand,
             super::MinibufferMode::ErrorDisplay { .. } => SystemState::ErrorDisplay,
             super::MinibufferMode::InfoDisplay { .. } => SystemState::InfoDisplay,
             _ => SystemState::Inactive,
@@ -196,6 +202,7 @@ impl MinibufferSystem {
         match result {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
+            MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::Cancel => {
                 self.minibuffer.deactivate();
                 Ok(SystemResponse::Continue)
@@ -211,6 +218,7 @@ impl MinibufferSystem {
         match result {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
+            MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
             MinibufferResult::Invalid => Ok(SystemResponse::None),
         }
@@ -228,12 +236,43 @@ impl MinibufferSystem {
             }
         } else if command == "save-buffer" {
             Ok(SystemResponse::FileOperation(FileOperation::Save))
+        } else if let Some(expr) = command.strip_prefix("eval-expression ") {
+            self.handle_eval_expression(expr.to_string())
+        } else if command == "eval-expression" {
+            self.minibuffer.start_eval_expression();
+            Ok(SystemResponse::Continue)
         } else if command == "quit" || command == "save-buffers-kill-terminal" {
             Ok(SystemResponse::Quit)
         } else {
             // その他のコマンドは直接実行
             Ok(SystemResponse::ExecuteCommand(command))
         }
+    }
+
+    fn handle_eval_expression(&mut self, expr: String) -> Result<SystemResponse> {
+        let expression = expr.trim();
+
+        if expression.is_empty() {
+            self.minibuffer.show_error("式が入力されていません".to_string());
+            return Ok(SystemResponse::Continue);
+        }
+
+        let outcome = eval_in_minibuffer(&mut self.alisp_interpreter, expression);
+
+        if outcome.is_error {
+            self.minibuffer.show_error(outcome.output);
+        } else {
+            let mut message = outcome.output;
+            if !outcome.messages.is_empty() {
+                let extras = outcome.messages.join(" | ");
+                if !extras.is_empty() {
+                    message = format!("{} ({})", message, extras);
+                }
+            }
+            self.minibuffer.show_info(message);
+        }
+
+        Ok(SystemResponse::Continue)
     }
 
     /// 定期更新を処理
@@ -255,6 +294,12 @@ impl MinibufferSystem {
     /// コマンド実行を開始
     pub fn start_execute_command(&mut self) -> Result<SystemResponse> {
         self.minibuffer.start_execute_command();
+        Ok(SystemResponse::Continue)
+    }
+
+    /// 式評価を開始
+    pub fn start_eval_expression(&mut self) -> Result<SystemResponse> {
+        self.minibuffer.start_eval_expression();
         Ok(SystemResponse::Continue)
     }
 
@@ -434,6 +479,16 @@ mod tests {
     }
 
     #[test]
+    fn test_eval_expression_action() {
+        let mut system = MinibufferSystem::new();
+
+        let response = system.handle_action(MinibufferAction::EvalExpression).unwrap();
+        assert!(matches!(response, SystemResponse::Continue));
+        assert_eq!(system.state(), SystemState::ExecuteCommand);
+        assert!(system.is_active());
+    }
+
+    #[test]
     fn test_error_display() {
         let mut system = MinibufferSystem::new();
 
@@ -466,6 +521,11 @@ mod tests {
         // save-buffer コマンドのテスト
         let response = system.handle_execute_result("save-buffer".to_string()).unwrap();
         assert!(matches!(response, SystemResponse::FileOperation(FileOperation::Save)));
+
+        // eval-expression コマンドのテスト（直接評価）
+        let response = system.handle_execute_result("eval-expression (+ 1 2)".to_string()).unwrap();
+        assert!(matches!(response, SystemResponse::Continue));
+        assert_eq!(system.state(), SystemState::InfoDisplay);
     }
 
     #[test]

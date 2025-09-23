@@ -5,6 +5,8 @@
 use crate::buffer::cursor::CursorPosition;
 use crate::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig, LongLineStrategy};
 use std::cmp::min;
+#[cfg(test)]
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// ナビゲーション時のエラー。
 #[derive(Debug, Clone, thiserror::Error)]
@@ -47,6 +49,7 @@ impl Position {
 }
 
 /// テキストスナップショット。ナビゲーション演算に必要な行情報を保持する。
+#[derive(Debug)]
 struct TextSnapshot {
     chars: Vec<char>,
     line_starts: Vec<usize>,
@@ -56,6 +59,31 @@ struct TextSnapshot {
     /// 長い行の最適化情報
     #[allow(dead_code)]
     long_line_cache: std::collections::HashMap<usize, LongLineInfo>,
+}
+
+#[cfg(test)]
+static SNAPSHOT_CREATIONS: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug)]
+struct SnapshotCache {
+    ptr: *const u8,
+    len: usize,
+    tab_width: usize,
+    snapshot: TextSnapshot,
+}
+
+impl SnapshotCache {
+    fn new(ptr: *const u8, len: usize, tab_width: usize, snapshot: TextSnapshot) -> Self {
+        Self { ptr, len, tab_width, snapshot }
+    }
+
+    fn matches(&self, ptr: *const u8, len: usize, tab_width: usize) -> bool {
+        self.ptr == ptr && self.len == len && self.tab_width == tab_width
+    }
+
+    fn snapshot_ptr(&self) -> *const TextSnapshot {
+        &self.snapshot as *const TextSnapshot
+    }
 }
 
 /// 長い行の最適化情報
@@ -75,6 +103,9 @@ impl TextSnapshot {
     }
 
     fn with_tab_width(text: &str, tab_width: usize) -> Self {
+        #[cfg(test)]
+        SNAPSHOT_CREATIONS.fetch_add(1, Ordering::Relaxed);
+
         let chars: Vec<char> = text.chars().collect();
         let mut line_starts = vec![0];
         let mut line_lengths = Vec::new();
@@ -315,6 +346,7 @@ pub struct NavigationSystem {
     performance_monitor: Option<PerformanceMonitor>,
     #[allow(dead_code)]
     optimizer: Option<PerformanceOptimizer>,
+    snapshot_cache: Option<SnapshotCache>,
 }
 
 impl NavigationSystem {
@@ -324,6 +356,7 @@ impl NavigationSystem {
             extended: ExtendedCursor::new(),
             performance_monitor: None,
             optimizer: None,
+            snapshot_cache: None,
         }
     }
 
@@ -334,6 +367,7 @@ impl NavigationSystem {
             extended: ExtendedCursor::new(),
             performance_monitor: Some(PerformanceMonitor::new()),
             optimizer: Some(PerformanceOptimizer::new(OptimizationConfig::new())),
+            snapshot_cache: None,
         }
     }
 
@@ -344,6 +378,7 @@ impl NavigationSystem {
             extended: ExtendedCursor::new(),
             performance_monitor: Some(PerformanceMonitor::new()),
             optimizer: Some(PerformanceOptimizer::new(OptimizationConfig::high_performance())),
+            snapshot_cache: None,
         }
     }
 
@@ -357,6 +392,11 @@ impl NavigationSystem {
     /// パフォーマンス監視を無効化
     pub fn disable_performance_monitoring(&mut self) {
         self.performance_monitor = None;
+    }
+
+    #[allow(dead_code)]
+    pub fn clear_snapshot_cache(&mut self) {
+        self.snapshot_cache = None;
     }
 
     /// パフォーマンスメトリクスを取得
@@ -386,7 +426,37 @@ impl NavigationSystem {
         let timer = self.performance_monitor.as_ref()
             .map(|m| m.start_operation(Operation::Navigation));
 
-        let snapshot = TextSnapshot::with_tab_width(text, tab_width);
+        let ptr = text.as_ptr();
+        let len = text.len();
+
+        let needs_refresh = match self.snapshot_cache.as_ref() {
+            Some(cache) => !cache.matches(ptr, len, tab_width),
+            None => true,
+        };
+
+        if needs_refresh {
+            let snapshot = TextSnapshot::with_tab_width(text, tab_width);
+            self.snapshot_cache = Some(SnapshotCache::new(ptr, len, tab_width, snapshot));
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                debug_assert!(
+                    self.snapshot_cache
+                        .as_ref()
+                        .map(|cache| cache.matches(ptr, len, tab_width))
+                        .unwrap_or(false),
+                    "snapshot cache entry should match when reuse is expected"
+                );
+            }
+        }
+
+        let snapshot_ptr = self.snapshot_cache
+            .as_ref()
+            .expect("snapshot cache must be initialized")
+            .snapshot_ptr();
+
+        let snapshot = unsafe { &*snapshot_ptr };
+
         if snapshot.line_count() == 0 {
             // タイマーを終了
             if let (Some(timer), Some(ref mut monitor)) = (timer, &mut self.performance_monitor) {
@@ -396,14 +466,14 @@ impl NavigationSystem {
         }
 
         let moved = match action {
-            NavigationAction::MoveCharForward => self.move_char_forward(&snapshot),
-            NavigationAction::MoveCharBackward => self.move_char_backward(&snapshot),
-            NavigationAction::MoveLineUp => self.move_line_up(&snapshot),
-            NavigationAction::MoveLineDown => self.move_line_down(&snapshot),
-            NavigationAction::MoveLineStart => self.move_line_start(&snapshot),
-            NavigationAction::MoveLineEnd => self.move_line_end(&snapshot),
-            NavigationAction::MoveBufferStart => self.move_buffer_start(&snapshot),
-            NavigationAction::MoveBufferEnd => self.move_buffer_end(&snapshot),
+            NavigationAction::MoveCharForward => self.move_char_forward(snapshot),
+            NavigationAction::MoveCharBackward => self.move_char_backward(snapshot),
+            NavigationAction::MoveLineUp => self.move_line_up(snapshot),
+            NavigationAction::MoveLineDown => self.move_line_down(snapshot),
+            NavigationAction::MoveLineStart => self.move_line_start(snapshot),
+            NavigationAction::MoveLineEnd => self.move_line_end(snapshot),
+            NavigationAction::MoveBufferStart => self.move_buffer_start(snapshot),
+            NavigationAction::MoveBufferEnd => self.move_buffer_end(snapshot),
         }?;
 
         if moved {
@@ -620,5 +690,29 @@ mod tests {
         assert_eq!(nav.cursor().char_pos, 1); // at tab character
         assert!(nav.navigate_with_tab_width(text, NavigationAction::MoveCharForward, 8).unwrap());
         assert_eq!(nav.cursor().char_pos, 2); // at 'b'
+    }
+
+    #[test]
+    fn snapshot_cache_reuses_existing_snapshot() {
+        let mut nav = NavigationSystem::with_high_performance();
+        let text = "abc";
+
+        #[cfg(test)]
+        SNAPSHOT_CREATIONS.store(0, Ordering::SeqCst);
+
+        assert!(nav
+            .navigate_with_tab_width(text, NavigationAction::MoveCharForward, 4)
+            .unwrap());
+
+        #[cfg(test)]
+        assert_eq!(SNAPSHOT_CREATIONS.load(Ordering::SeqCst), 1);
+
+        nav.set_cursor(CursorPosition::new());
+        assert!(nav
+            .navigate_with_tab_width(text, NavigationAction::MoveCharForward, 4)
+            .unwrap());
+
+        #[cfg(test)]
+        assert_eq!(SNAPSHOT_CREATIONS.load(Ordering::SeqCst), 1);
     }
 }

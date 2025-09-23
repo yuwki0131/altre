@@ -35,6 +35,8 @@ pub enum MinibufferMode {
     FindFile,
     /// コマンド実行入力
     ExecuteCommand,
+    /// 評価入力
+    EvalExpression,
     /// 保存確認
     SaveConfirmation,
     /// エラーメッセージ表示
@@ -149,6 +151,8 @@ pub enum MinibufferResult {
     Continue,
     /// コマンド実行
     Execute(String),
+    /// 式評価
+    EvalExpression(String),
     /// キャンセル
     Cancel,
     /// 無効な操作
@@ -223,6 +227,7 @@ pub trait CommandExecutor {
 pub enum MinibufferAction {
     FindFile,
     ExecuteCommand,
+    EvalExpression,
     SaveFile,
 }
 
@@ -276,6 +281,15 @@ impl ModernMinibuffer {
     pub fn start_execute_command(&mut self) {
         self.state.mode = MinibufferMode::ExecuteCommand;
         self.state.prompt = "M-x ".to_string();
+        self.state.input.clear();
+        self.state.cursor_pos = 0;
+        self.update_completions();
+    }
+
+    /// 式評価を開始
+    pub fn start_eval_expression(&mut self) {
+        self.state.mode = MinibufferMode::EvalExpression;
+        self.state.prompt = "Eval: ".to_string();
         self.state.input.clear();
         self.state.cursor_pos = 0;
         self.update_completions();
@@ -343,6 +357,10 @@ impl ModernMinibuffer {
             }
             MinibufferAction::ExecuteCommand => {
                 self.start_execute_command();
+                MinibufferResult::Continue
+            }
+            MinibufferAction::EvalExpression => {
+                self.start_eval_expression();
                 MinibufferResult::Continue
             }
             MinibufferAction::SaveFile => {
@@ -651,6 +669,16 @@ impl ModernMinibuffer {
                     self.add_to_history(input.clone());
                     self.deactivate();
                     MinibufferResult::Execute(input)
+                }
+            }
+            MinibufferMode::EvalExpression => {
+                if input.is_empty() {
+                    self.show_error("式が入力されていません".to_string());
+                    MinibufferResult::Continue
+                } else {
+                    self.add_to_history(input.clone());
+                    self.deactivate();
+                    MinibufferResult::EvalExpression(input)
                 }
             }
             _ => MinibufferResult::Continue,

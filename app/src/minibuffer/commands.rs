@@ -201,6 +201,14 @@ impl CommandProcessor {
             args_description: None,
         });
 
+        self.register_command(CommandDefinition {
+            name: "eval-expression".to_string(),
+            description: "alisp式を評価".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("M-:".to_string()),
+            args_description: Some("expression".to_string()),
+        });
+
         // エディタコマンド
         self.register_command(CommandDefinition {
             name: "forward-char".to_string(),

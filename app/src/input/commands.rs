@@ -96,6 +96,7 @@ pub enum Command {
     MoveLineEnd,
     MoveBufferStart,
     MoveBufferEnd,
+    EvalExpression,
 
     // 未知のコマンド
     Unknown(String),
@@ -117,6 +118,7 @@ impl Command {
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
             "quit" => Command::Quit,
             "execute-command" => Command::ExecuteCommand,
+            "eval-expression" => Command::EvalExpression,
             "move-beginning-of-line" => Command::MoveLineStart,
             "move-end-of-line" => Command::MoveLineEnd,
             "beginning-of-buffer" => Command::MoveBufferStart,
@@ -141,6 +143,7 @@ impl Command {
             Command::SaveBuffersKillTerminal => "保存して終了",
             Command::Quit => "終了",
             Command::ExecuteCommand => "コマンドを実行",
+            Command::EvalExpression => "式を評価",
             Command::MoveLineStart => "行頭に移動",
             Command::MoveLineEnd => "行末に移動",
             Command::MoveBufferStart => "バッファ先頭に移動",
@@ -210,6 +213,7 @@ impl CommandProcessor {
             Command::SaveBuffersKillTerminal => self.execute_quit(),
             Command::Quit => self.execute_quit(),
             Command::ExecuteCommand => self.execute_execute_command(),
+            Command::EvalExpression => self.execute_eval_expression(),
             Command::MoveLineStart => self.navigate(NavigationAction::MoveLineStart),
             Command::MoveLineEnd => self.navigate(NavigationAction::MoveLineEnd),
             Command::MoveBufferStart => self.navigate(NavigationAction::MoveBufferStart),
@@ -316,6 +320,10 @@ impl CommandProcessor {
 
     fn execute_execute_command(&mut self) -> CommandResult {
         CommandResult::success_with_message("M-x は現在未実装です".to_string())
+    }
+
+    fn execute_eval_expression(&mut self) -> CommandResult {
+        CommandResult::success_with_message("eval-expression はミニバッファで処理されます".to_string())
     }
 }
 

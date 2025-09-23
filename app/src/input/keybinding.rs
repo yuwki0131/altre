@@ -231,6 +231,8 @@ pub enum Action {
     Quit,
     /// コマンド実行
     ExecuteCommand,
+    /// alisp評価
+    EvalExpression,
 }
 
 impl Action {
@@ -254,6 +256,7 @@ impl Action {
             Action::FileSave => Some(Command::SaveBuffer),
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
+            Action::EvalExpression => Some(Command::EvalExpression),
         }
     }
 }
@@ -462,6 +465,13 @@ impl ModernKeyMap {
 
         // コマンド実行
         single.insert(Key::alt_x(), Action::ExecuteCommand);
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+                code: KeyCode::Char(':'),
+            },
+            Action::EvalExpression,
+        );
     }
 
     /// キー入力を処理してアクションを返す
@@ -757,6 +767,11 @@ impl KeyMap {
         self.bind_global(
             LegacyKeySequence::single(KeyCombination::alt(CrosstermKeyCode::Char('>'))),
             KeyBinding::Command("end-of-buffer".to_string()),
+        );
+
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::alt(CrosstermKeyCode::Char(':'))),
+            KeyBinding::Command("eval-expression".to_string()),
         );
     }
 

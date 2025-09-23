@@ -255,18 +255,17 @@ impl AdvancedRenderer {
         minibuffer: &MinibufferSystem,
     ) {
         use ratatui::{
-            text::Line,
+            text::{Line, Span},
             style::Color,
         };
 
         let state = minibuffer.minibuffer_state();
 
         let content = match &state.mode {
-            crate::minibuffer::MinibufferMode::FindFile => {
-                Line::from(format!("{}{}", state.prompt, state.input))
-            }
-            crate::minibuffer::MinibufferMode::ExecuteCommand => {
-                Line::from(format!("{}{}", state.prompt, state.input))
+            crate::minibuffer::MinibufferMode::FindFile
+            | crate::minibuffer::MinibufferMode::ExecuteCommand
+            | crate::minibuffer::MinibufferMode::EvalExpression => {
+                line_with_cursor(&state.prompt, &state.input, state.cursor_pos)
             }
             crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
                 Line::from(message.clone()).style(Style::default().fg(Color::Red))
@@ -279,6 +278,32 @@ impl AdvancedRenderer {
 
         let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
         frame.render_widget(paragraph, area);
+
+        fn line_with_cursor(prompt: &str, input: &str, cursor_pos: usize) -> Line<'static> {
+            let mut spans: Vec<Span<'static>> = Vec::new();
+            spans.push(Span::styled(prompt.to_string(), Style::default().fg(Color::Cyan)));
+
+            // 分割
+            let mut prefix = String::new();
+            let mut suffix = String::new();
+            let mut chars = input.chars();
+
+            for _ in 0..cursor_pos {
+                if let Some(ch) = chars.next() {
+                    prefix.push(ch);
+                } else {
+                    break;
+                }
+            }
+
+            suffix.extend(chars);
+
+            spans.push(Span::raw(prefix));
+            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
+            spans.push(Span::raw(suffix));
+
+            Line::from(spans)
+        }
     }
 
     /// ステータスライン描画
@@ -304,8 +329,7 @@ impl AdvancedRenderer {
         );
 
         let paragraph = Paragraph::new(status_text)
-            .style(theme.style(&ComponentType::StatusLine))
-            .block(Block::default().borders(Borders::TOP));
+            .style(theme.style(&ComponentType::StatusLine));
 
         frame.render_widget(paragraph, area);
     }

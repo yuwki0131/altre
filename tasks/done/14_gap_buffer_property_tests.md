@@ -42,12 +42,12 @@
 - proptest クレートの利用準備
 
 ## 完了条件
-- [ ] ギャップ境界・UTF-8 整合性不変条件のテスト実装
-- [ ] 挿入/削除に関する操作プロパティの実装
-- [ ] エラーパス（境界外操作）のプロパティテスト実装
-- [ ] 生成データストラテジーの最適化（縮約が有効に働くこと）
-- [ ] `cargo test gap_buffer_prop -- --nocapture` 等で安定動作
-- [ ] 失敗時にデバッグ可能なログ/アサートを用意
+- [x] ギャップ境界・UTF-8 整合性不変条件のテスト実装
+- [x] 挿入/削除に関する操作プロパティの実装
+- [x] エラーパス（境界外操作）のプロパティテスト実装
+- [x] 生成データストラテジーの最適化（縮約が有効に働くこと）
+- [x] `cargo test gap_buffer --offline` で安定動作
+- [x] 失敗時にデバッグ可能なログ/アサートを用意
 
 ## 見積もり
 **期間**: 1.5日
@@ -63,3 +63,9 @@
 - 大入力ケースでのテスト時間と収束速度
 - proptest のケース最小化に時間がかかる場合のタイムアウト設定
 - 失敗時の再現のために `PROPTEST_CASE_SEED` をログ出力
+
+## 備考
+- `app/src/buffer/gap_buffer.rs` 内の `prop_random_operations_preserve_invariants` などで不変条件を網羅。
+- 生成戦略は `operation_strategy` / `small_unicode_string` に集約し、テスト数は `cases: 256` に固定。
+- 失敗時は `prop_assert!` の詳細メッセージと `PROPTEST_CASE_SEED` 環境変数で再現可能。
+- 公開APIベースの回帰テストは `app/tests/gap_buffer_prop.rs` に配置。

@@ -1,5 +1,5 @@
 use altre::alisp::Interpreter;
-use altre::ui::minibuffer::MinibufferSession;
+use altre::alisp::integration::eval_in_minibuffer;
 
 #[test]
 fn eval_arithmetic() {
@@ -54,9 +54,9 @@ fn error_for_unknown_symbol() {
 }
 
 #[test]
-fn minibuffer_session_formats_output() {
-    let mut session = MinibufferSession::new();
-    let outcome = session.evaluate("(+ 1 2)");
+fn minibuffer_eval_formats_output() {
+    let mut interpreter = Interpreter::new();
+    let outcome = eval_in_minibuffer(&mut interpreter, "(+ 1 2)");
     assert_eq!(outcome.output, "=> 3");
     assert!(!outcome.is_error);
 }

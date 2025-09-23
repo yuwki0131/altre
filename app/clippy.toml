@@ -1,0 +1,14 @@
+# Clippy configuration for altre
+
+# Avoid certain lints for development
+avoid-breaking-exported-api = false
+
+# Complexity limits
+cognitive-complexity-threshold = 30
+type-complexity-threshold = 500
+
+# Performance-related lints
+enum-variant-size-threshold = 200
+
+# Documentation
+missing-docs-in-private-items = false

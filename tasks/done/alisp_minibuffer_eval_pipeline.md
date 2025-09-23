@@ -10,10 +10,15 @@
 - 結合テスト／手動確認手順を整備。
 
 ## ToDo
-- [ ] ミニバッファコマンド（例: `alisp-eval-expression`）を追加。
-- [ ] 評価結果をミニバッファへフォーマットして表示。
-- [ ] エラー時の表示・ログ出力を既存エラー処理に統合。
-- [ ] 結合テストまたは E2E テストを追加し、回帰テスト手順を文書化。
+- [x] ミニバッファコマンド（例: `alisp-eval-expression`）を追加。
+- [x] 評価結果をミニバッファへフォーマットして表示。
+- [x] エラー時の表示・ログ出力を既存エラー処理に統合。
+- [x] 結合テストまたは E2E テストを追加し、回帰テスト手順を文書化。
+
+## 成果物
+- `app/src/alisp/integration/minibuffer.rs`
+- `app/src/alisp/integration/error.rs`
+- `app/tests/alisp_interpreter.rs`
 
 ## 参考
 - QA.md:Q1, Q6, Q7

@@ -10,10 +10,15 @@
 - 回帰テスト実行手順を README または専用ドキュメントに追記。
 
 ## ToDo
-- [ ] コンポーネント別テストケース一覧を作成。
-- [ ] Rust 単体テスト・統合テストを実装。
-- [ ] 必要に応じてプロパティテスト（例: 式の往復性）を検討。
-- [ ] テスト実行手順を docs/design/alisp_runtime_architecture.md などへ反映。
+- [x] コンポーネント別テストケース一覧を作成。
+- [x] Rust 単体テスト・統合テストを実装。
+- [x] 必要に応じてプロパティテスト（例: 式の往復性）を検討。
+- [x] テスト実行手順を docs/design/alisp_runtime_architecture.md などへ反映。
+
+## 成果物
+- `app/tests/alisp_interpreter.rs`
+- `docs/design/alisp_runtime_architecture.md`（テスト戦略セクション更新）
+- `cargo test` 実行ログ（作業記録）
 
 ## 参考
 - QA.md 全般

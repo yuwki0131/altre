@@ -263,7 +263,7 @@ impl MinibufferLayout {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Min(1),      // メイン領域
-                    Constraint::Length(3),   // ミニバッファ領域
+                    Constraint::Length(1),   // ミニバッファ領域
                 ])
                 .split(terminal_area);
 

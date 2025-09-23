@@ -118,7 +118,7 @@ impl LayoutManager {
         }
 
         // ミニバッファの高さを動的に決定
-        let minibuffer_height = if area.height >= 20 { 3 } else { 2 };
+        let minibuffer_height = 1;
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -157,8 +157,7 @@ impl LayoutManager {
 
         // ミニバッファ（アクティブな場合のみ）
         if minibuffer_active {
-            let minibuffer_height = if area.height >= 20 { 3 } else { 2 };
-            constraints.push(Constraint::Length(minibuffer_height));
+            constraints.push(Constraint::Length(1));
             area_order.push(AreaType::Minibuffer);
         }
 

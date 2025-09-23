@@ -43,6 +43,12 @@ Rustとratatuiで構築された現代的なEmacs風テキストエディタ
 └── temp/             # 一時的な設計作業・調査メモ
 ```
 
+## 実行方法
+- `cargo run --offline` でTUI版altreを起動（簡易的なMVP UI）
+- 文字キーとEnter/Tabでテキストを挿入、Backspace/Deleteで削除
+- 矢印キー・Home/End・PageUp/PageDownで移動、`Ctrl+Q`または`Ctrl+C`で終了
+- `Ctrl+S`など未実装のショートカットはミニバッファにメッセージを表示
+
 ## MVP仕様
 
 ### 対象環境
@@ -262,6 +268,30 @@ mv tasks/proceeding/02_gap_buffer_design.md tasks/done/
   - 統一エラー型とエラーメッセージ辞書の実装
   - ロギングモジュールとパニックハンドラの導入
   - エラーレポート生成と関連テストを整備
+- **03_gap_buffer_implementation.md** (2025-09-22 完了)
+  - ギャップバッファAPIとUTF-8安全な挿入・削除処理を実装
+  - 文字境界キャッシュと行開始位置計算を追加
+  - proptestベースの比較テストとベンチマークを整備
+- **04_keybinding_implementation.md** (2025-09-22 完了)
+  - ModernKeyMapとAction→Command変換を実装しイベント処理を刷新
+  - crossterm連携やC-xプレフィックス、システムキーキャンセルを統合
+  - Tabなどの入力やプロパティテストを拡充
+- **13_code_integration_and_cleanup.md** (2025-09-22 完了)
+  - `crate::error::Result`でエラー戻り値を統一し`EditError`→`AltreError`変換を整理
+  - 未使用importの削除と`Debug`実装の整備を実施
+  - `cargo build --offline`/`cargo test --offline`でクリーンな実行結果を確認
+- **14_gap_buffer_property_tests.md** (2025-09-22 完了)
+  - ギャップバッファの不変条件・操作・エラーパスをカバーするproptestを追加
+  - `operation_strategy`/`small_unicode_string`でUTF-8安全なデータ生成を共通化
+  - `cargo test gap_buffer --offline` と `PROPTEST_CASE_SEED` による再現手順を整備
+- **16_navigation_performance_tests.md** (2025-09-22 完了)
+  - `NavigationPerformanceTestHarness`で中央値/平均/最大を評価する性能テストを追加
+  - 短行・長行・巨大バッファ・タブ幅変換シナリオを `cargo test --offline` で検証
+  - `cargo bench navigation_bench --offline` によりベンチマーク経路も確認
+- **15_minibuffer_test_suite.md** (2025-09-22 完了)
+  - ミニバッファの単体・履歴・補完・統合・エラー検証テストを追加
+  - TempDirベースの補完用フィクスチャとキー入力ヘルパーを整備
+  - `cargo test minibuffer --offline` で安定成功することを確認
 
 ### 関連ドキュメント
 - **詳細仕様**: `QA.md` - プロジェクト仕様と開発決定事項

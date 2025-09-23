@@ -35,12 +35,19 @@ Rustとratatuiで構築された現代的なEmacs風テキストエディタ
 │   │   ├── mvp/      # MVP実装タスク
 │   │   ├── alisp/    # alisp実装タスク
 │   │   ├── design/   # 設計タスク
+│   │   ├── bugs/     # 不具合対応タスク
 │   │   └── future/   # 将来的な機能タスク
 │   ├── proceeding/   # 進行中タスク
 │   └── done/         # 完了済みタスク
 ├── manuals/          # ユーザー・開発者マニュアル
 └── temp/             # 一時的な設計作業・調査メモ
 ```
+
+## 実行方法
+- `cargo run --offline` でTUI版altreを起動（簡易的なMVP UI）
+- 文字キーとEnter/Tabでテキストを挿入、Backspace/Deleteで削除
+- 矢印キー・Home/End・PageUp/PageDownで移動、`Ctrl+Q`または`Ctrl+C`で終了
+- `Ctrl+S`など未実装のショートカットはミニバッファにメッセージを表示
 
 ## MVP仕様
 
@@ -225,9 +232,66 @@ Rustとratatuiで構築された現代的なEmacs風テキストエディタ
 - 色対応ターミナル
 
 ### プロジェクト状況
-- **現在のフェーズ**: 計画と初期セットアップ
-- **次のステップ**: MVP実装
+- **現在のフェーズ**: MVP実装開始
+- **完了済み**: アーキテクチャ設計、基本モジュール構造実装
+- **次のステップ**: ギャップバッファ設計とMVP機能実装
 - **ライセンス**: 未定
+
+### タスク管理フロー
+**altre**プロジェクトでは以下のタスク管理フローを採用しています：
+
+1. **作業開始時**: `tasks/todo/` → `tasks/proceeding/` に移動
+2. **作業完了時**: `tasks/proceeding/` → `tasks/done/` に移動
+3. **進捗記録**: README.mdの「最新の進捗状況」セクションに記録
+
+#### 現在の作業状況
+- **進行中タスク**: なし
+- **次回実施予定**: ギャップバッファ設計またはMVP実装タスクから選択
+
+#### タスク管理の例
+```bash
+# 作業開始時の例
+mv tasks/todo/design/02_gap_buffer_design.md tasks/proceeding/
+
+# 作業完了時の例
+mv tasks/proceeding/02_gap_buffer_design.md tasks/done/
+```
+
+#### 完了済みタスク
+- **01_architecture_design.md** (2025-01-28 完了)
+  - MVPアーキテクチャ設計書作成
+  - モジュール依存関係図の作成
+  - 基本モジュール構造のスケルトン実装
+  - 65個のテスト実装・実行成功
+  - 完全なコンパイル・動作確認完了
+- **02_error_handling_implementation.md** (2025-09-22 完了)
+  - 統一エラー型とエラーメッセージ辞書の実装
+  - ロギングモジュールとパニックハンドラの導入
+  - エラーレポート生成と関連テストを整備
+- **03_gap_buffer_implementation.md** (2025-09-22 完了)
+  - ギャップバッファAPIとUTF-8安全な挿入・削除処理を実装
+  - 文字境界キャッシュと行開始位置計算を追加
+  - proptestベースの比較テストとベンチマークを整備
+- **04_keybinding_implementation.md** (2025-09-22 完了)
+  - ModernKeyMapとAction→Command変換を実装しイベント処理を刷新
+  - crossterm連携やC-xプレフィックス、システムキーキャンセルを統合
+  - Tabなどの入力やプロパティテストを拡充
+- **13_code_integration_and_cleanup.md** (2025-09-22 完了)
+  - `crate::error::Result`でエラー戻り値を統一し`EditError`→`AltreError`変換を整理
+  - 未使用importの削除と`Debug`実装の整備を実施
+  - `cargo build --offline`/`cargo test --offline`でクリーンな実行結果を確認
+- **14_gap_buffer_property_tests.md** (2025-09-22 完了)
+  - ギャップバッファの不変条件・操作・エラーパスをカバーするproptestを追加
+  - `operation_strategy`/`small_unicode_string`でUTF-8安全なデータ生成を共通化
+  - `cargo test gap_buffer --offline` と `PROPTEST_CASE_SEED` による再現手順を整備
+- **16_navigation_performance_tests.md** (2025-09-22 完了)
+  - `NavigationPerformanceTestHarness`で中央値/平均/最大を評価する性能テストを追加
+  - 短行・長行・巨大バッファ・タブ幅変換シナリオを `cargo test --offline` で検証
+  - `cargo bench navigation_bench --offline` によりベンチマーク経路も確認
+- **15_minibuffer_test_suite.md** (2025-09-22 完了)
+  - ミニバッファの単体・履歴・補完・統合・エラー検証テストを追加
+  - TempDirベースの補完用フィクスチャとキー入力ヘルパーを整備
+  - `cargo test minibuffer --offline` で安定成功することを確認
 
 ### 関連ドキュメント
 - **詳細仕様**: `QA.md` - プロジェクト仕様と開発決定事項

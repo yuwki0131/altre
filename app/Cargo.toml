@@ -15,9 +15,36 @@ categories = ["command-line-utilities", "text-editors"]
 ratatui = "0.29"
 crossterm = "0.28"
 
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
 # File path handling and completion
 shellexpand = "3.1"
+dirs = "5.0"
+
+# Logging (for development)
+log = "0.4"
+
+# Unicode width calculation
+unicode-width = "0.1"
 
 # Testing framework
 [dev-dependencies]
 proptest = "1.4"
+tempfile = "3.8"
+criterion = { version = "0.4", features = ["html_reports"] }
+
+# Feature flags for future extensions
+[features]
+default = []
+alisp = []  # Future Lisp integration
+gui = []    # Future GUI support
+
+[[bench]]
+name = "navigation_bench"
+harness = false
+
+[[bench]]
+name = "performance"
+harness = false

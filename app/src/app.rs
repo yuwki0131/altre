@@ -8,6 +8,7 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::MinibufferSystem;
 use crate::ui::AdvancedRenderer;
+use crate::file::FileSaver;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
@@ -16,6 +17,15 @@ use std::env;
 use std::io::stdout;
 use std::path::Path;
 use std::time::Duration;
+
+/// デバッグ出力マクロ
+macro_rules! debug_log {
+    ($app:expr, $($arg:tt)*) => {
+        if $app.debug_mode {
+            eprintln!("DEBUG: {}", format!($($arg)*));
+        }
+    };
+}
 
 /// メインアプリケーション構造体
 ///
@@ -39,6 +49,8 @@ pub struct App {
     command_processor: CommandProcessor,
     /// 現在のプレフィックスキー状態
     current_prefix: Option<String>,
+    /// デバッグモード
+    debug_mode: bool,
 }
 
 impl App {
@@ -54,6 +66,7 @@ impl App {
             keymap: ModernKeyMap::new(),
             command_processor: CommandProcessor::new(),
             current_prefix: None,
+            debug_mode: std::env::var("ALTRE_DEBUG").is_ok(),
         })
     }
 
@@ -259,7 +272,45 @@ impl App {
                 Ok(())
             }
             Command::SaveBuffer => {
-                self.show_info_message("保存はまだ実装されていません");
+                // CommandProcessorのバッファ情報を確認
+                if let Some(buffer) = self.command_processor.current_buffer() {
+                    if let Some(path) = &buffer.path {
+                        // エディタの内容をCommandProcessorに同期
+                        let content = self.editor.to_string();
+                        debug_log!(self, "Saving to path: {}", path.display());
+                        debug_log!(self, "Content length: {} chars", content.len());
+                        debug_log!(self, "Content preview: {:?}", &content[..content.len().min(100)]);
+
+                        let saver = FileSaver::new();
+
+                        match saver.save_file(path, &content) {
+                            Ok(_) => {
+                                debug_log!(self, "FileSaver reported success");
+                                // ファイルが実際に存在するか確認
+                                if path.exists() {
+                                    debug_log!(self, "File exists after save");
+                                } else {
+                                    debug_log!(self, "WARNING! File does not exist after save");
+                                }
+                                self.show_info_message(format!("保存しました: {}", path.display()));
+                            }
+                            Err(err) => {
+                                debug_log!(self, "FileSaver reported error: {}", err);
+                                self.show_error_message(AltreError::Application(format!(
+                                    "保存に失敗しました: {}", err
+                                )));
+                            }
+                        }
+                    } else {
+                        self.show_error_message(AltreError::Application(
+                            "バッファにファイルパスが関連付けられていません".to_string()
+                        ));
+                    }
+                } else {
+                    self.show_error_message(AltreError::Application(
+                        "保存するファイルが開かれていません".to_string()
+                    ));
+                }
                 Ok(())
             }
             Command::SaveBuffersKillTerminal | Command::Quit => {
@@ -328,7 +379,8 @@ impl App {
                 match file_op {
                     FileOperation::Open(path) => {
                         // ファイルを開く
-                        let result = self.command_processor.open_file(path);
+                        debug_log!(self, "Opening file: {}", path);
+                        let result = self.command_processor.open_file(path.clone());
                         if result.success {
                             if let Some(msg) = result.message {
                                 self.show_info_message(msg);
@@ -336,6 +388,7 @@ impl App {
                             // エディタの内容を同期（TODO: より良い統合方法を検討）
                             let editor_content = self.command_processor.editor().to_string();
                             self.editor = crate::buffer::TextEditor::from_str(&editor_content);
+                            debug_log!(self, "File opened successfully, editor synchronized");
                         } else {
                             if let Some(msg) = result.message {
                                 self.show_error_message(AltreError::Application(msg));

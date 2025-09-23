@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BatchSize};
-use altre::buffer::{GapBuffer, TextEditor};
+use altre::buffer::{GapBuffer, TextEditor, EditOperations};
 use altre::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig};
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ fn bench_gap_buffer_operations(c: &mut Criterion) {
             || GapBuffer::new(),
             |mut buffer| {
                 for i in 0..1000 {
-                    buffer.insert(i, black_box('a'));
+                    let _ = buffer.insert(i, black_box('a'));
                 }
             },
             BatchSize::SmallInput,
@@ -27,13 +27,13 @@ fn bench_gap_buffer_operations(c: &mut Criterion) {
             || {
                 let mut buffer = GapBuffer::new();
                 for i in 0..1000 {
-                    buffer.insert(i, 'a');
+                    let _ = buffer.insert(i, 'a');
                 }
                 buffer
             },
             |mut buffer| {
                 for i in (0..1000).rev() {
-                    buffer.delete(i);
+                    let _ = buffer.delete(i);
                 }
             },
             BatchSize::SmallInput,
@@ -46,7 +46,7 @@ fn bench_gap_buffer_operations(c: &mut Criterion) {
         b.iter_batched(
             || GapBuffer::new(),
             |mut buffer| {
-                buffer.insert_str(0, black_box(&large_text));
+                let _ = buffer.insert_str(0, black_box(&large_text));
             },
             BatchSize::SmallInput,
         )

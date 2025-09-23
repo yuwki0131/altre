@@ -819,7 +819,8 @@ mod tests {
 
     #[test]
     fn test_utf8_error_conversion() {
-        let utf8_error = std::str::from_utf8(&[0xff, 0xfe]).unwrap_err();
+        let invalid_bytes = [0xffu8, 0xfeu8];
+        let utf8_error = std::str::from_utf8(std::hint::black_box(&invalid_bytes)).unwrap_err();
         let altre_error: AltreError = utf8_error.into();
 
         match altre_error {

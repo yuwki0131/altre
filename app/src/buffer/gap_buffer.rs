@@ -526,7 +526,8 @@ impl Default for GapBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
+    use proptest::{prelude::*, prop_oneof};
+    use proptest::test_runner::{Config as ProptestConfig, TestCaseError};
 
     fn char_to_byte_index(s: &str, char_pos: usize) -> usize {
         if char_pos >= s.chars().count() {
@@ -536,6 +537,63 @@ mod tests {
             .nth(char_pos)
             .map(|(idx, _)| idx)
             .unwrap_or(s.len())
+    }
+
+    fn small_unicode_string() -> impl Strategy<Value = String> {
+        proptest::collection::vec(any::<char>(), 0..64)
+            .prop_map(|chars| chars.into_iter().collect::<String>())
+    }
+
+    #[derive(Debug, Clone)]
+    enum Operation {
+        InsertChar { pos: usize, ch: char },
+        InsertStr { pos: usize, text: String },
+        Delete { pos: usize },
+    }
+
+    fn operation_strategy() -> impl Strategy<Value = Operation> {
+        let insert_char = (0u16..256u16, any::<char>())
+            .prop_map(|(pos, ch)| Operation::InsertChar { pos: pos as usize, ch });
+        let insert_str = (0u16..256u16, proptest::collection::vec(any::<char>(), 0..6))
+            .prop_map(|(pos, chars)| Operation::InsertStr {
+                pos: pos as usize,
+                text: chars.into_iter().collect(),
+            });
+        let delete = (0u16..256u16)
+            .prop_map(|pos| Operation::Delete { pos: pos as usize });
+
+        prop_oneof![insert_char, insert_str, delete]
+    }
+
+    fn prop_assert_gap_state(buffer: &GapBuffer, expected: &str) -> std::result::Result<(), TestCaseError> {
+        prop_assert!(
+            buffer.gap_start <= buffer.gap_end,
+            "gap start {} exceeds gap end {}",
+            buffer.gap_start,
+            buffer.gap_end
+        );
+        prop_assert!(
+            buffer.gap_end <= buffer.buffer.len(),
+            "gap end {} exceeds buffer length {}",
+            buffer.gap_end,
+            buffer.buffer.len()
+        );
+        prop_assert!(
+            std::str::from_utf8(&buffer.buffer[..buffer.gap_start]).is_ok(),
+            "prefix is not valid UTF-8"
+        );
+        prop_assert!(
+            std::str::from_utf8(&buffer.buffer[buffer.gap_end..]).is_ok(),
+            "suffix is not valid UTF-8"
+        );
+        prop_assert_eq!(
+            buffer.len_chars(),
+            expected.chars().count(),
+            "character length mismatch"
+        );
+        prop_assert_eq!(buffer.len_bytes(), expected.len(), "byte length mismatch");
+        prop_assert_eq!(buffer.get_text(), expected, "text diverged from model");
+        Ok(())
     }
 
     #[test]
@@ -612,59 +670,104 @@ mod tests {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig { cases: 256, .. ProptestConfig::default() })]
+
         #[test]
-        fn prop_matches_string_model(initial_text in "[ -~ぁ-んァ-ヶー一-龠０-９]*", ops in prop::collection::vec(any::<(u8, String)>(), 0..20)) {
-            let mut gap = GapBuffer::from_str(&initial_text);
-            let mut model = initial_text;
+        fn prop_random_operations_preserve_invariants(
+            initial in small_unicode_string(),
+            ops in proptest::collection::vec(operation_strategy(), 0..24)
+        ) {
+            let mut buffer = GapBuffer::from_str(&initial);
+            let mut model = initial.clone();
 
-            for (selector, payload) in ops {
-                let len = gap.len_chars();
-                if len == 0 {
-                    let insert_pos = 0usize;
-                    let chs: Vec<char> = payload.chars().collect();
-                    if chs.is_empty() {
-                        continue;
-                    }
-                    let insert_str: String = chs.into_iter().collect();
-                    gap.insert_str(insert_pos, &insert_str).unwrap();
-                    model.insert_str(insert_pos, &insert_str);
-                    continue;
-                }
+            prop_assert_gap_state(&buffer, &model)?;
 
-                match selector % 3 {
-                    0 => {
-                        // Insert a single character if payload not empty
-                        if let Some(ch) = payload.chars().next() {
-                            let pos = (selector as usize) % (len + 1);
-                            gap.insert(pos, ch).unwrap();
-                            let byte_idx = char_to_byte_index(&model, pos);
-                            model.insert(byte_idx, ch);
-                        }
+            for op in ops {
+                match op {
+                    Operation::InsertChar { pos, ch } => {
+                        let insert_pos = pos.min(buffer.len_chars());
+                        buffer.insert(insert_pos, ch).unwrap();
+                        let byte_idx = char_to_byte_index(&model, insert_pos);
+                        model.insert(byte_idx, ch);
                     }
-                    1 => {
-                        // Insert string (limited length)
-                        if !payload.is_empty() {
-                            let pos = (selector as usize) % (len + 1);
-                            let snippet: String = payload.chars().take(4).collect();
-                            gap.insert_str(pos, &snippet).unwrap();
-                            let byte_idx = char_to_byte_index(&model, pos);
-                            model.insert_str(byte_idx, &snippet);
-                        }
-                    }
-                    _ => {
-                        if len == 0 {
+                    Operation::InsertStr { pos, text } => {
+                        if text.is_empty() {
                             continue;
                         }
-                        let pos = (selector as usize) % len;
-                        gap.delete(pos).unwrap();
-                        let start = char_to_byte_index(&model, pos);
-                        let end = char_to_byte_index(&model, pos + 1);
+                        let insert_pos = pos.min(buffer.len_chars());
+                        buffer.insert_str(insert_pos, &text).unwrap();
+                        let byte_idx = char_to_byte_index(&model, insert_pos);
+                        model.insert_str(byte_idx, &text);
+                    }
+                    Operation::Delete { pos } => {
+                        if buffer.len_chars() == 0 {
+                            continue;
+                        }
+                        let delete_pos = pos % buffer.len_chars();
+                        let expected_char = model.chars().nth(delete_pos).unwrap();
+                        let deleted = buffer.delete(delete_pos).unwrap();
+                        prop_assert_eq!(deleted, expected_char, "deleted char mismatch");
+                        let start = char_to_byte_index(&model, delete_pos);
+                        let end = char_to_byte_index(&model, delete_pos + 1);
                         model.replace_range(start..end, "");
                     }
                 }
-            }
 
-            prop_assert_eq!(gap.get_text(), model);
+                prop_assert_gap_state(&buffer, &model)?;
+            }
+        }
+
+        #[test]
+        fn prop_multi_byte_insert_is_utf8_safe(
+            base in small_unicode_string(),
+            ch in any::<char>().prop_filter("multi-byte char", |c| c.len_utf8() > 1),
+            pos in 0usize..64
+        ) {
+            let mut buffer = GapBuffer::from_str(&base);
+            let char_len = buffer.len_chars();
+            let insert_pos = if char_len == 0 { 0 } else { pos % (char_len + 1) };
+
+            buffer.insert(insert_pos, ch).unwrap();
+
+            let result = buffer.get_text();
+            let chars: Vec<char> = result.chars().collect();
+            prop_assert_eq!(chars[insert_pos], ch);
+            prop_assert!(std::str::from_utf8(result.as_bytes()).is_ok(), "resulting text invalid UTF-8");
+        }
+
+        #[test]
+        fn prop_out_of_bounds_operations_are_rejected(
+            base in small_unicode_string(),
+            offset in 1usize..32
+        ) {
+            let mut buffer = GapBuffer::from_str(&base);
+            let invalid_pos = buffer.len_chars() + offset;
+            let snapshot = buffer.get_text();
+
+            prop_assert!(buffer.insert(invalid_pos, 'x').is_err());
+            prop_assert_eq!(buffer.get_text(), snapshot.as_str(), "buffer mutated after invalid insert");
+
+            if !snapshot.is_empty() {
+                prop_assert!(buffer.delete(invalid_pos).is_err());
+                prop_assert_eq!(buffer.get_text(), snapshot.as_str(), "buffer mutated after invalid delete");
+            }
+        }
+
+        #[test]
+        fn prop_insert_delete_inverse_round_trips(
+            base in small_unicode_string(),
+            ch in any::<char>(),
+            pos in 0usize..64
+        ) {
+            let mut buffer = GapBuffer::from_str(&base);
+            let char_len = buffer.len_chars();
+            let insert_pos = if char_len == 0 { 0 } else { pos % (char_len + 1) };
+
+            buffer.insert(insert_pos, ch).unwrap();
+            let deleted = buffer.delete(insert_pos).unwrap();
+
+            prop_assert_eq!(deleted, ch);
+            prop_assert_eq!(buffer.get_text(), base);
         }
     }
 }

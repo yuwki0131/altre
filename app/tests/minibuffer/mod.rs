@@ -1,13 +1,18 @@
-//! ミニバッファテストスイート
+//! ミニバッファ テストスイート
 //!
-//! ミニバッファのコア機能・補完・履歴・エラーメッセージをカバーする包括的なテストスイート
+//! - コア入力、履歴、補完、エラー表示、ファイル操作フローを網羅
+//! - 実行コマンド: `cargo test minibuffer --offline`
+//! - 既知の制約: メッセージ自動消去は実時間に依存するため、テストではキー入力での消去を検証
 
-use altre::minibuffer::{MinibufferSystem, MinibufferConfig, MinibufferState, MinibufferMode};
-use altre::input::keybinding::{Key, KeyCode};
-use std::time::{Duration, Instant};
-use tempfile::TempDir;
+use altre::input::keybinding::{Key, KeyCode, KeyModifiers};
+use altre::minibuffer::{
+    FileOperation, MinibufferConfig, MinibufferMode, MinibufferState, MinibufferSystem,
+    SystemEvent, SystemResponse,
+};
+pub use altre::minibuffer::{MinibufferMode, SystemResponse};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tempfile::TempDir;
 
 pub mod unit_tests;
 pub mod history_tests;
@@ -15,147 +20,145 @@ pub mod completion_tests;
 pub mod integration_tests;
 pub mod error_handling_tests;
 
-/// テスト用ヘルパー構造体
+/// ミニバッファテスト用ユーティリティ
 pub struct MinibufferTestHelper {
-    pub system: MinibufferSystem,
-    pub temp_dir: Option<TempDir>,
+    system: MinibufferSystem,
+    temp_dir: Option<TempDir>,
 }
 
 impl MinibufferTestHelper {
-    /// 新しいテストヘルパーを作成
+    /// 既定設定でヘルパーを作成
     pub fn new() -> Self {
-        let config = MinibufferConfig::default();
         Self {
-            system: MinibufferSystem::new(config),
+            system: MinibufferSystem::new(),
             temp_dir: None,
         }
     }
 
-    /// カスタム設定でテストヘルパーを作成
+    /// 設定を指定してヘルパーを作成
     pub fn with_config(config: MinibufferConfig) -> Self {
         Self {
-            system: MinibufferSystem::new(config),
+            system: MinibufferSystem::with_config(config),
             temp_dir: None,
         }
     }
 
-    /// 一時ディレクトリを作成し、テストファイルを準備
-    pub fn with_temp_files(&mut self, files: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-        let temp_dir = TempDir::new()?;
-
-        // テストファイルを作成
-        for file in files {
-            let file_path = temp_dir.path().join(file);
-            if let Some(parent) = file_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(&file_path, format!("Test content for {}", file))?;
-        }
-
-        self.temp_dir = Some(temp_dir);
-        Ok(())
-    }
-
-    /// 一時ディレクトリのパスを取得
-    pub fn temp_dir_path(&self) -> Option<PathBuf> {
-        self.temp_dir.as_ref().map(|d| d.path().to_path_buf())
-    }
-
-    /// キーシーケンスをシミュレート
-    pub fn simulate_keys(&mut self, keys: &[Key]) -> Vec<String> {
-        let mut results = Vec::new();
-
-        for key in keys {
-            if let Ok(response) = self.system.handle_key_input(*key) {
-                if let Some(message) = response.message {
-                    results.push(message);
-                }
-            }
-        }
-
-        results
-    }
-
-    /// 文字列入力をシミュレート
-    pub fn simulate_input(&mut self, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        for ch in text.chars() {
-            let key = Key::Char(ch);
-            self.system.handle_key_input(key)?;
-        }
-        Ok(())
-    }
-
-    /// 現在の状態を取得
+    /// 現在の低レベル状態を取得
     pub fn state(&self) -> &MinibufferState {
-        self.system.state()
+        self.system.minibuffer_state()
     }
 
-    /// キャンセルキー（C-g）をシミュレート
-    pub fn simulate_cancel(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let cancel_key = Key::Ctrl('g');
-        self.system.handle_key_input(cancel_key)?;
-        Ok(())
+    /// 現在のモードを取得
+    pub fn mode(&self) -> MinibufferMode {
+        self.state().mode.clone()
     }
 
-    /// タブ補完をシミュレート
-    pub fn simulate_tab_completion(&mut self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let tab_key = Key::Tab;
-        let response = self.system.handle_key_input(tab_key)?;
-        Ok(self.state().completions.clone())
+    /// 現在の入力文字列
+    pub fn input(&self) -> &str {
+        self.system.current_input()
     }
 
-    /// 履歴ナビゲーション（上）をシミュレート
-    pub fn simulate_history_previous(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let key = Key::Ctrl('p');
-        self.system.handle_key_input(key)?;
-        Ok(())
+    /// 現在の補完候補
+    pub fn completions(&self) -> &[String] {
+        self.system.completions()
     }
 
-    /// 履歴ナビゲーション（下）をシミュレート
-    pub fn simulate_history_next(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let key = Key::Ctrl('n');
-        self.system.handle_key_input(key)?;
-        Ok(())
+    /// 現在選択中の補完インデックス
+    pub fn selected_completion(&self) -> Option<usize> {
+        self.system.selected_completion()
     }
 
-    /// Enterキーをシミュレート（コマンド実行）
-    pub fn simulate_enter(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let key = Key::Return;
-        self.system.handle_key_input(key)?;
-        Ok(())
+    /// Find-file モードを開始
+    pub fn start_find_file(&mut self, initial: Option<&str>) {
+        self.system
+            .start_find_file(initial)
+            .expect("failed to start find-file mode");
     }
 
-    /// バックスペースをシミュレート
-    pub fn simulate_backspace(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let key = Key::Backspace;
-        self.system.handle_key_input(key)?;
-        Ok(())
+    /// Execute-command モードを開始
+    pub fn start_execute_command(&mut self) {
+        self.system
+            .start_execute_command()
+            .expect("failed to start execute-command mode");
     }
 
-    /// ファイル選択モードを開始
-    pub fn start_find_file(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.system.activate_find_file_mode()?;
-        Ok(())
+    /// 1キー入力を送出
+    pub fn send_key(&mut self, key: Key) -> SystemResponse {
+        self.system
+            .handle_event(SystemEvent::KeyInput(key))
+            .expect("key handling failed")
     }
 
-    /// コマンド実行モードを開始
-    pub fn start_execute_command(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.system.activate_execute_command_mode()?;
-        Ok(())
-    }
-
-    /// エラーメッセージ表示をシミュレート
-    pub fn simulate_error(&mut self, message: &str) {
-        let expires_at = Instant::now() + Duration::from_secs(5);
-        self.system.show_error_message(message.to_string(), expires_at);
-    }
-
-    /// メッセージ期限切れをシミュレート
-    pub fn simulate_message_timeout(&mut self) {
-        // 状態を強制的に非アクティブに変更
-        if let MinibufferMode::ErrorDisplay { .. } | MinibufferMode::InfoDisplay { .. } = self.state().mode {
-            self.system.deactivate();
+    /// 文字列を順に入力
+    pub fn type_text(&mut self, text: &str) {
+        for ch in text.chars() {
+            let response = self.send_key(key_char(ch));
+            assert!(matches!(response, SystemResponse::Continue | SystemResponse::None));
         }
+    }
+
+    /// Enter キー
+    pub fn press_enter(&mut self) -> SystemResponse {
+        self.send_key(key_plain(KeyCode::Enter))
+    }
+
+    /// Backspace キー
+    pub fn press_backspace(&mut self) -> SystemResponse {
+        self.send_key(key_plain(KeyCode::Backspace))
+    }
+
+    /// Delete キー
+    pub fn press_delete(&mut self) -> SystemResponse {
+        self.send_key(key_plain(KeyCode::Delete))
+    }
+
+    /// Tab キー
+    pub fn press_tab(&mut self) -> SystemResponse {
+        self.send_key(key_plain(KeyCode::Tab))
+    }
+
+    /// Ctrl+<char> を送出
+    pub fn press_ctrl(&mut self, ch: char) -> SystemResponse {
+        self.send_key(key_ctrl(ch))
+    }
+
+    /// 矢印キー送出
+    pub fn press_arrow(&mut self, code: KeyCode) -> SystemResponse {
+        self.send_key(key_plain(code))
+    }
+
+    /// 一時ディレクトリにテストファイルを作成
+    pub fn prepare_temp_dir<P: AsRef<Path>>(&mut self, files: &[P]) -> PathBuf {
+        let temp = TempDir::new().expect("tempdir");
+        for path in files {
+            let absolute = temp.path().join(path.as_ref());
+            if let Some(parent) = absolute.parent() {
+                fs::create_dir_all(parent).expect("create parent directories");
+            }
+            fs::write(&absolute, b"test").expect("write fixture");
+        }
+        let path = temp.path().to_path_buf();
+        self.temp_dir = Some(temp);
+        path
+    }
+
+    /// 内部システムへの直接アクセス（高度な検証用）
+    pub fn system(&mut self) -> &mut MinibufferSystem {
+        &mut self.system
+    }
+
+    /// 直近の tempdir をクローン（存在しない場合は panic）
+    pub fn temp_dir_path(&self) -> PathBuf {
+        self.temp_dir
+            .as_ref()
+            .expect("tempdir not initialised")
+            .path()
+            .to_path_buf()
+    }
+
+    /// 直近の tempdir を破棄（明示的クリーンアップ用）
+    pub fn clear_temp_dir(&mut self) {
+        self.temp_dir = None;
     }
 }
 
@@ -165,40 +168,73 @@ impl Default for MinibufferTestHelper {
     }
 }
 
-/// テスト用のキー作成ヘルパー
-pub fn char_key(c: char) -> Key {
-    Key::Char(c)
+/// 修飾なしキー生成
+pub fn key_plain(code: KeyCode) -> Key {
+    Key {
+        code,
+        modifiers: KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+        },
+    }
 }
 
-pub fn ctrl_key(c: char) -> Key {
-    Key::Ctrl(c)
+/// 文字キー生成
+pub fn key_char(c: char) -> Key {
+    key_plain(KeyCode::Char(c))
 }
 
-/// Unicode文字のテストヘルパー
-pub fn unicode_test_strings() -> Vec<&'static str> {
-    vec![
-        "こんにちは", // 日本語ひらがな
-        "你好",       // 中国語
-        "안녕하세요", // 韓国語
-        "🚀🌟💻",    // 絵文字
-        "café",       // アクセント付き文字
-        "naïve",      // ダイアクリティカルマーク
+/// Ctrl+文字キー生成
+pub fn key_ctrl(c: char) -> Key {
+    Key {
+        code: KeyCode::Char(c),
+        modifiers: KeyModifiers {
+            ctrl: true,
+            alt: false,
+            shift: false,
+        },
+    }
+}
+
+/// テスト用 Unicode 文字列セット
+pub fn unicode_samples() -> &'static [&'static str] {
+    &[
+        "こんにちは",
+        "你好",
+        "안녕하세요",
+        "🚀🌟💻",
+        "naïve",
+        "café",
     ]
 }
 
-/// パス長境界テストのヘルパー
-pub fn long_path_test() -> String {
-    let long_dir = "a".repeat(100);
-    let long_file = "b".repeat(100);
-    format!("{}/{}.txt", long_dir, long_file)
+/// 長いパス入力サンプル
+pub fn long_path_input() -> String {
+    let dir = "a".repeat(120);
+    let file = "b".repeat(80);
+    format!("{}/{}.txt", dir, file)
 }
 
-/// 無効なパスのテストケース
-pub fn invalid_paths() -> Vec<&'static str> {
-    vec![
-        "", // 空のパス
-        "/nonexistent/path/to/file.txt", // 存在しないパス
-        "/root/restricted_file.txt", // 権限不足（通常）
-        "file\0with\0null.txt", // null文字を含むパス
+/// 異常系パスサンプル
+pub fn invalid_path_samples() -> &'static [&'static str] {
+    &[
+        "",
+        "/definitely/not/exist",
+        "/root/permission_denied",
     ]
+}
+
+/// SystemResponse からファイル操作を抽出（ユーティリティ）
+pub fn as_file_operation(response: SystemResponse) -> Option<FileOperation> {
+    if let SystemResponse::FileOperation(op) = response {
+        Some(op)
+    } else {
+        None
+    }
+}
+
+/// SystemResponse が継続かどうか
+pub fn is_continue(response: &SystemResponse) -> bool {
+    matches!(response, SystemResponse::Continue | SystemResponse::None)
 }

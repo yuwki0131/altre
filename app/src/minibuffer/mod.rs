@@ -264,8 +264,11 @@ impl ModernMinibuffer {
     pub fn start_find_file(&mut self, initial_path: Option<&str>) {
         self.state.mode = MinibufferMode::FindFile;
         self.state.prompt = "Find file: ".to_string();
+
+        // カレントディレクトリパスを初期入力として設定
         self.state.input = initial_path.unwrap_or("").to_string();
         self.state.cursor_pos = self.state.input.chars().count();
+
         self.update_completions();
     }
 

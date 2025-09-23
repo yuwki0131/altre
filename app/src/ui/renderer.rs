@@ -6,7 +6,6 @@ use crate::ui::{
     layout::{LayoutManager, AreaType},
     theme::{ThemeManager, ComponentType},
     text_area::TextAreaRenderer,
-    minibuffer::MinibufferRenderer,
 };
 use crate::buffer::TextEditor;
 use crate::minibuffer::MinibufferSystem;
@@ -122,8 +121,6 @@ pub struct AdvancedRenderer {
     theme_manager: ThemeManager,
     /// テキストエリアレンダラー
     text_area_renderer: TextAreaRenderer,
-    /// ミニバッファレンダラー
-    minibuffer_renderer: MinibufferRenderer,
     /// 画面キャッシュ
     screen_cache: ScreenCache,
     /// フレームレート統計
@@ -151,7 +148,6 @@ impl AdvancedRenderer {
             layout_manager: LayoutManager::new(),
             theme_manager: ThemeManager::new(),
             text_area_renderer: TextAreaRenderer::new(),
-            minibuffer_renderer: MinibufferRenderer::new(),
             screen_cache: ScreenCache::new(),
             frame_stats: FrameRateStats {
                 current_fps: 0.0,
@@ -246,9 +242,43 @@ impl AdvancedRenderer {
         // ミニバッファ描画
         if let Some(&minibuffer_area) = areas.get(&AreaType::Minibuffer) {
             if minibuffer.is_active() {
-                self.minibuffer_renderer.render(frame, minibuffer_area);
+                self.render_minibuffer(frame, minibuffer_area, minibuffer);
             }
         }
+    }
+
+    /// ミニバッファ描画
+    fn render_minibuffer(
+        &self,
+        frame: &mut Frame<'_>,
+        area: Rect,
+        minibuffer: &MinibufferSystem,
+    ) {
+        use ratatui::{
+            text::Line,
+            style::Color,
+        };
+
+        let state = minibuffer.minibuffer_state();
+
+        let content = match &state.mode {
+            crate::minibuffer::MinibufferMode::FindFile => {
+                Line::from(format!("{}{}", state.prompt, state.input))
+            }
+            crate::minibuffer::MinibufferMode::ExecuteCommand => {
+                Line::from(format!("{}{}", state.prompt, state.input))
+            }
+            crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
+                Line::from(message.clone()).style(Style::default().fg(Color::Red))
+            }
+            crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
+                Line::from(message.clone()).style(Style::default().fg(Color::Green))
+            }
+            _ => Line::from(""),
+        };
+
+        let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
+        frame.render_widget(paragraph, area);
     }
 
     /// ステータスライン描画

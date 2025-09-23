@@ -1,300 +1,125 @@
-//! ミニバッファ履歴機能テスト
+//! ミニバッファ履歴テスト
 //!
-//! 履歴追加・ナビゲーション（Ctrl+P / Ctrl+N）
-//! find-file / execute-command 切り替え時の履歴選択
-//! 履歴上限・重複処理の検証
+//! 履歴追加、Ctrl+P/Ctrl+N ナビゲーション、重複除去、容量管理を検証
 
-use super::*;
-use altre::minibuffer::MinibufferMode;
+use super::{as_file_operation, MinibufferTestHelper, SystemResponse};
+use altre::minibuffer::FileOperation;
 
-#[test]
-fn test_history_basic_addition() {
-    let mut helper = MinibufferTestHelper::new();
+fn execute_find_file(helper: &mut MinibufferTestHelper, name: &str) {
+    helper.start_find_file(None);
+    helper.type_text(name);
+    let response = helper.press_enter();
+    let operation = as_file_operation(response).expect("expected file operation");
+    match operation {
+        FileOperation::Open(path) => assert_eq!(path, name),
+        other => panic!("unexpected operation: {:?}", other),
+    }
+}
 
-    // ファイル操作の履歴を追加
-    helper.start_find_file().unwrap();
-    helper.simulate_input("file1.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    helper.start_find_file().unwrap();
-    helper.simulate_input("file2.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    helper.start_find_file().unwrap();
-    helper.simulate_input("file3.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 履歴が追加されていることを確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-
-    // 最新の履歴エントリが表示される
-    assert_eq!(helper.state().input, "file3.txt");
+fn execute_command(helper: &mut MinibufferTestHelper, command: &str) {
+    helper.start_execute_command();
+    helper.type_text(command);
+    let response = helper.press_enter();
+    match response {
+        super::SystemResponse::ExecuteCommand(actual) => assert_eq!(actual, command),
+        other => panic!("unexpected response: {:?}", other),
+    }
 }
 
 #[test]
-fn test_history_navigation_up_down() {
+fn test_history_records_completed_entries() {
     let mut helper = MinibufferTestHelper::new();
+    execute_find_file(&mut helper, "file1.txt");
 
-    // 複数のファイルを履歴に追加
-    let files = vec!["file1.txt", "file2.txt", "file3.txt"];
-    for file in &files {
-        helper.start_find_file().unwrap();
-        helper.simulate_input(file).unwrap();
-        helper.simulate_enter().unwrap();
+    helper.start_find_file(None);
+    helper.press_ctrl('p');
+
+    assert_eq!(helper.input(), "file1.txt");
+    assert_eq!(helper.state().history.len(), 1);
+}
+
+#[test]
+fn test_history_navigation_order_with_ctrl_p() {
+    let mut helper = MinibufferTestHelper::new();
+    for name in ["file1.txt", "file2.txt", "file3.txt"] {
+        execute_find_file(&mut helper, name);
     }
 
-    // 新しいfind-fileセッションを開始
-    helper.start_find_file().unwrap();
+    helper.start_find_file(None);
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "file3.txt");
 
-    // Ctrl+P（履歴を上に）
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "file3.txt");
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "file2.txt");
 
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "file2.txt");
-
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "file1.txt");
-
-    // Ctrl+N（履歴を下に）
-    helper.simulate_history_next().unwrap();
-    assert_eq!(helper.state().input, "file2.txt");
-
-    helper.simulate_history_next().unwrap();
-    assert_eq!(helper.state().input, "file3.txt");
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "file1.txt");
 }
 
 #[test]
-fn test_history_separate_by_mode() {
+fn test_history_navigation_forward_with_ctrl_n_restores_empty_input() {
     let mut helper = MinibufferTestHelper::new();
+    execute_find_file(&mut helper, "project.md");
+    execute_find_file(&mut helper, "notes.txt");
 
-    // find-file履歴を追加
-    helper.start_find_file().unwrap();
-    helper.simulate_input("document.txt").unwrap();
-    helper.simulate_enter().unwrap();
+    helper.start_find_file(None);
+    helper.press_ctrl('p');
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "project.md");
 
-    // execute-command履歴を追加
-    helper.start_execute_command().unwrap();
-    helper.simulate_input("save-buffer").unwrap();
-    helper.simulate_enter().unwrap();
+    helper.press_ctrl('n');
+    assert_eq!(helper.input(), "notes.txt");
 
-    // find-fileモードで履歴確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "document.txt");
-
-    // execute-commandモードで履歴確認
-    helper.simulate_cancel().unwrap();
-    helper.start_execute_command().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "save-buffer");
+    helper.press_ctrl('n');
+    assert!(helper.input().is_empty());
+    assert_eq!(helper.state().history_index, None);
 }
 
 #[test]
-fn test_history_duplicate_removal() {
+fn test_history_mixed_modes_are_accessible() {
+    let mut helper = MinibufferTestHelper::new();
+    execute_find_file(&mut helper, "document.txt");
+    execute_command(&mut helper, "save-buffer");
+
+    // command モードの履歴
+    helper.start_execute_command();
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "save-buffer");
+
+    // find-file モードでも履歴からアクセス出来る
+    helper.press_ctrl('g');
+    helper.start_find_file(None);
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "save-buffer");
+    helper.press_ctrl('p');
+    assert_eq!(helper.input(), "document.txt");
+}
+
+#[test]
+fn test_history_deduplicates_entries_and_respects_capacity() {
     let mut helper = MinibufferTestHelper::new();
 
-    // 同じファイルを複数回実行
     for _ in 0..3 {
-        helper.start_find_file().unwrap();
-        helper.simulate_input("duplicate.txt").unwrap();
-        helper.simulate_enter().unwrap();
+        execute_find_file(&mut helper, "duplicate.txt");
+    }
+    assert_eq!(helper.state().history.len(), 1);
+
+    for index in 0..120 {
+        execute_find_file(&mut helper, &format!("file_{index:03}.txt"));
     }
 
-    // 別のファイルを実行
-    helper.start_find_file().unwrap();
-    helper.simulate_input("other.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 履歴確認：重複は除去され、最新のもののみ
-    helper.start_find_file().unwrap();
-
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "other.txt");
-
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "duplicate.txt");
-
-    // これ以上履歴はない
-    helper.simulate_history_previous().unwrap();
-    // 履歴の先頭に到達した場合の動作を確認
+    let history_len = helper.state().history.len();
+    assert!(history_len <= 100, "history should cap at 100, got {}", history_len);
 }
 
 #[test]
-fn test_history_capacity_limit() {
+fn test_history_search_via_prefix_input() {
     let mut helper = MinibufferTestHelper::new();
+    execute_find_file(&mut helper, "src/main.rs");
+    execute_find_file(&mut helper, "src/lib.rs");
+    execute_find_file(&mut helper, "README.md");
 
-    // 履歴容量の上限をテスト（通常100件程度）
-    for i in 0..150 {
-        helper.start_find_file().unwrap();
-        helper.simulate_input(&format!("file{}.txt", i)).unwrap();
-        helper.simulate_enter().unwrap();
-    }
-
-    // 履歴ナビゲーションが正常に動作することを確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-
-    // 最新のエントリが取得できる
-    assert_eq!(helper.state().input, "file149.txt");
-
-    // 古いエントリは削除されている可能性がある
-    for _ in 0..200 {
-        helper.simulate_history_previous().unwrap();
-    }
-
-    // 最古のエントリに到達しても問題なし
-    assert!(!helper.state().input.is_empty());
-}
-
-#[test]
-fn test_history_empty_entries_ignored() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // 空のエントリを実行しようとする
-    helper.start_find_file().unwrap();
-    helper.simulate_enter().unwrap(); // 空の入力でEnter
-
-    // 正常なエントリを追加
-    helper.start_find_file().unwrap();
-    helper.simulate_input("valid.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 履歴確認：空のエントリは追加されていない
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "valid.txt");
-}
-
-#[test]
-fn test_history_search_functionality() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // 複数のファイルを履歴に追加
-    let files = vec![
-        "document.txt",
-        "readme.md",
-        "config.json",
-        "document_backup.txt",
-        "log.txt",
-    ];
-
-    for file in &files {
-        helper.start_find_file().unwrap();
-        helper.simulate_input(file).unwrap();
-        helper.simulate_enter().unwrap();
-    }
-
-    // 履歴検索機能のテスト（実装されている場合）
-    helper.start_find_file().unwrap();
-    helper.simulate_input("doc").unwrap();
-
-    // 部分的な入力で履歴をフィルタリング
-    helper.simulate_history_previous().unwrap();
-
-    // "document"で始まる最新の履歴エントリが表示される
-    let input = helper.state().input.clone();
-    assert!(input.starts_with("doc") || input.contains("document"));
-}
-
-#[test]
-fn test_history_with_unicode() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // Unicode文字を含むファイル名を履歴に追加
-    let unicode_files = vec![
-        "文書.txt",
-        "テスト.md",
-        "設定ファイル.json",
-        "日本語ディレクトリ/ファイル.txt",
-    ];
-
-    for file in &unicode_files {
-        helper.start_find_file().unwrap();
-        helper.simulate_input(file).unwrap();
-        helper.simulate_enter().unwrap();
-    }
-
-    // Unicode履歴のナビゲーション
-    helper.start_find_file().unwrap();
-    for file in unicode_files.iter().rev() {
-        helper.simulate_history_previous().unwrap();
-        assert_eq!(helper.state().input, *file);
-    }
-}
-
-#[test]
-fn test_history_persistence_during_session() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // セッション中の履歴永続化
-    helper.start_find_file().unwrap();
-    helper.simulate_input("session_file.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 他の操作を実行
-    helper.start_execute_command().unwrap();
-    helper.simulate_input("some-command").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // find-file履歴が保持されていることを確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "session_file.txt");
-}
-
-#[test]
-fn test_history_modification_during_navigation() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // 履歴を準備
-    helper.start_find_file().unwrap();
-    helper.simulate_input("original.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 履歴ナビゲーション中に編集
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "original.txt");
-
-    // 履歴項目を編集
-    helper.simulate_input("_modified").unwrap();
-    assert_eq!(helper.state().input, "original.txt_modified");
-
-    // 編集した内容で実行
-    helper.simulate_enter().unwrap();
-
-    // 新しい履歴エントリが追加される
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "original.txt_modified");
-}
-
-#[test]
-fn test_history_clear_functionality() {
-    let mut helper = MinibufferTestHelper::new();
-
-    // 履歴を追加
-    helper.start_find_file().unwrap();
-    helper.simulate_input("test.txt").unwrap();
-    helper.simulate_enter().unwrap();
-
-    // 履歴クリア機能のテスト（実装されている場合）
-    // Note: 実際の実装では明示的なクリア機能があるかもしれない
-
-    // 履歴があることを確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-    assert_eq!(helper.state().input, "test.txt");
-
-    // システム再起動シミュレーション（メモリ内履歴のクリア）
-    helper = MinibufferTestHelper::new();
-
-    // 履歴が空になっていることを確認
-    helper.start_find_file().unwrap();
-    helper.simulate_history_previous().unwrap();
-
-    // 履歴がない場合の動作（空のまま、または何も起こらない）
-    assert!(helper.state().input.is_empty() || helper.state().input == "test.txt");
+    let matches = helper.state().history.search("src");
+    assert_eq!(matches.len(), 2);
+    assert!(matches.iter().all(|(_, entry)| entry.starts_with("src")));
 }

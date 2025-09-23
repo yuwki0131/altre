@@ -73,7 +73,7 @@ impl TextArea {
     }
 
     /// テキストコンテンツを行に分割し、カーソル位置を強調
-    fn prepare_lines<'a>(&self, content: &'a str) -> Vec<Line<'a>> {
+    pub fn prepare_lines<'a>(&self, content: &'a str) -> Vec<Line<'a>> {
         let text_lines: Vec<&str> = content.lines().collect();
         let mut lines = Vec::new();
 
@@ -95,30 +95,26 @@ impl TextArea {
         lines
     }
 
-    /// カーソル位置を含む行を作成
+    /// カーソル位置を含む行を作成（バー形式）
     fn create_cursor_line<'a>(&self, line_text: &'a str) -> Line<'a> {
         let chars: Vec<char> = line_text.chars().collect();
         let mut spans = Vec::new();
 
         if self.cursor_column == 0 {
-            // 行の先頭にカーソル
-            spans.push(Span::styled(" ", Style::default().bg(Color::White).fg(Color::Black)));
+            // 行の先頭にカーソル - バー（|）を表示
+            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
             spans.push(Span::raw(line_text));
         } else if self.cursor_column >= chars.len() {
-            // 行の末尾またはそれを超えた位置にカーソル
+            // 行の末尾またはそれを超えた位置にカーソル - バー（|）を表示
             spans.push(Span::raw(line_text));
-            spans.push(Span::styled(" ", Style::default().bg(Color::White).fg(Color::Black)));
+            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
         } else {
-            // 行の中央にカーソル
+            // 行の中央にカーソル - バー（|）を挿入
             let before: String = chars[..self.cursor_column].iter().collect();
-            let cursor_char = chars[self.cursor_column];
-            let after: String = chars[self.cursor_column + 1..].iter().collect();
+            let after: String = chars[self.cursor_column..].iter().collect();
 
             spans.push(Span::raw(before));
-            spans.push(Span::styled(
-                cursor_char.to_string(),
-                Style::default().bg(Color::White).fg(Color::Black)
-            ));
+            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
             spans.push(Span::raw(after));
         }
 
@@ -181,11 +177,14 @@ impl TextAreaRenderer {
         editor: &TextEditor,
         theme: &Theme,
     ) {
-        // 簡単な実装：テキストエリア全体に文字列を表示
         let content = editor.to_string();
-        let lines: Vec<Line<'_>> = content.lines()
-            .map(|line| Line::from(line))
-            .collect();
+        let cursor_pos = editor.cursor();
+
+        // TextAreaを使ってカーソル付きの描画を行う
+        let mut text_area = TextArea::new();
+        text_area.set_cursor(cursor_pos.line, cursor_pos.column);
+
+        let lines = text_area.prepare_lines(&content);
 
         let paragraph = Paragraph::new(lines)
             .style(theme.style(&ComponentType::TextArea));

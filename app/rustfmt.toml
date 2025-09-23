@@ -1,0 +1,33 @@
+# rustfmt configuration for altre
+edition = "2021"
+
+# Code style
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Function formatting
+fn_args_layout = "Tall"
+brace_style = "SameLineWhere"
+
+# Import formatting
+imports_layout = "Vertical"
+group_imports = "StdExternalCrate"
+
+# Comment formatting
+normalize_comments = true
+wrap_comments = true
+comment_width = 80
+
+# String formatting
+format_strings = true
+
+# Trait formatting
+where_single_line = true
+
+# Control flow formatting
+control_brace_style = "AlwaysSameLine"
+
+# Error handling
+error_on_line_overflow = false
+error_on_unformatted = false

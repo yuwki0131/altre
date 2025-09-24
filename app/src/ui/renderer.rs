@@ -264,7 +264,8 @@ impl AdvancedRenderer {
         let content = match &state.mode {
             crate::minibuffer::MinibufferMode::FindFile
             | crate::minibuffer::MinibufferMode::ExecuteCommand
-            | crate::minibuffer::MinibufferMode::EvalExpression => {
+            | crate::minibuffer::MinibufferMode::EvalExpression
+            | crate::minibuffer::MinibufferMode::WriteFile => {
                 line_with_cursor(&state.prompt, &state.input, state.cursor_pos)
             }
             crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {

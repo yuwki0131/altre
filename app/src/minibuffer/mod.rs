@@ -37,6 +37,8 @@ pub enum MinibufferMode {
     ExecuteCommand,
     /// 評価入力
     EvalExpression,
+    /// ファイル保存入力
+    WriteFile,
     /// 保存確認
     SaveConfirmation,
     /// エラーメッセージ表示
@@ -153,6 +155,8 @@ pub enum MinibufferResult {
     Execute(String),
     /// 式評価
     EvalExpression(String),
+    /// 保存用ファイルパス
+    SaveFileAs(String),
     /// キャンセル
     Cancel,
     /// 無効な操作
@@ -286,6 +290,15 @@ impl ModernMinibuffer {
         self.update_completions();
     }
 
+    /// ファイル保存を開始
+    pub fn start_write_file(&mut self, initial_path: Option<&str>) {
+        self.state.mode = MinibufferMode::WriteFile;
+        self.state.prompt = "Save file: ".to_string();
+        self.state.input = initial_path.unwrap_or("").to_string();
+        self.state.cursor_pos = self.state.input.chars().count();
+        self.update_completions();
+    }
+
     /// 式評価を開始
     pub fn start_eval_expression(&mut self) {
         self.state.mode = MinibufferMode::EvalExpression;
@@ -364,8 +377,7 @@ impl ModernMinibuffer {
                 MinibufferResult::Continue
             }
             MinibufferAction::SaveFile => {
-                // 保存処理（実装は file operations で）
-                self.show_info("File saved".to_string());
+                self.start_write_file(None);
                 MinibufferResult::Continue
             }
         }
@@ -528,7 +540,7 @@ impl ModernMinibuffer {
         }
 
         match self.state.mode {
-            MinibufferMode::FindFile => {
+            MinibufferMode::FindFile | MinibufferMode::WriteFile => {
                 let completions = self.completion_engine.complete(&self.state.input);
                 let mut limited_completions = completions.unwrap_or_default();
                 limited_completions.truncate(50); // QA.mdの回答
@@ -679,6 +691,16 @@ impl ModernMinibuffer {
                     self.add_to_history(input.clone());
                     self.deactivate();
                     MinibufferResult::EvalExpression(input)
+                }
+            }
+            MinibufferMode::WriteFile => {
+                if input.is_empty() {
+                    self.show_error("ファイル名を入力してください".to_string());
+                    MinibufferResult::Continue
+                } else {
+                    self.add_to_history(input.clone());
+                    self.deactivate();
+                    MinibufferResult::SaveFileAs(input)
                 }
             }
             _ => MinibufferResult::Continue,

@@ -8,7 +8,6 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::MinibufferSystem;
 use crate::ui::AdvancedRenderer;
-use crate::file::FileSaver;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
@@ -272,44 +271,31 @@ impl App {
                 Ok(())
             }
             Command::SaveBuffer => {
-                // CommandProcessorのバッファ情報を確認
-                if let Some(buffer) = self.command_processor.current_buffer() {
-                    if let Some(path) = &buffer.path {
-                        // エディタの内容をCommandProcessorに同期
-                        let content = self.editor.to_string();
-                        debug_log!(self, "Saving to path: {}", path.display());
-                        debug_log!(self, "Content length: {} chars", content.len());
-                        debug_log!(self, "Content preview: {:?}", &content[..content.len().min(100)]);
-
-                        let saver = FileSaver::new();
-
-                        match saver.save_file(path, &content) {
-                            Ok(_) => {
-                                debug_log!(self, "FileSaver reported success");
-                                // ファイルが実際に存在するか確認
-                                if path.exists() {
-                                    debug_log!(self, "File exists after save");
-                                } else {
-                                    debug_log!(self, "WARNING! File does not exist after save");
+                match self.command_processor.current_buffer() {
+                    Some(buffer) => {
+                        if buffer.path.is_none() {
+                            let suggested = if buffer.name.trim().is_empty() {
+                                "untitled".to_string()
+                            } else {
+                                buffer.name.clone()
+                            };
+                            self.start_save_as_prompt(&suggested)?;
+                        } else {
+                            let result = self.command_processor.execute(Command::SaveBuffer);
+                            if result.success {
+                                if let Some(msg) = result.message {
+                                    self.show_info_message(msg);
                                 }
-                                self.show_info_message(format!("保存しました: {}", path.display()));
-                            }
-                            Err(err) => {
-                                debug_log!(self, "FileSaver reported error: {}", err);
-                                self.show_error_message(AltreError::Application(format!(
-                                    "保存に失敗しました: {}", err
-                                )));
+                            } else if let Some(msg) = result.message {
+                                self.show_error_message(AltreError::Application(msg));
                             }
                         }
-                    } else {
+                    }
+                    None => {
                         self.show_error_message(AltreError::Application(
-                            "バッファにファイルパスが関連付けられていません".to_string()
+                            "保存するファイルが開かれていません".to_string()
                         ));
                     }
-                } else {
-                    self.show_error_message(AltreError::Application(
-                        "保存するファイルが開かれていません".to_string()
-                    ));
                 }
                 Ok(())
             }
@@ -397,6 +383,27 @@ impl App {
         }
     }
 
+    fn start_save_as_prompt(&mut self, suggested_name: &str) -> Result<()> {
+        let initial_path = env::current_dir()
+            .map(|dir| dir.join(suggested_name))
+            .unwrap_or_else(|_| std::path::PathBuf::from(suggested_name.to_string()));
+
+        let initial_string = initial_path.display().to_string();
+
+        match self
+            .minibuffer
+            .start_write_file(Some(initial_string.as_str()))
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
     fn handle_minibuffer_key(&mut self, key_event: KeyEvent) -> Result<()> {
         use crate::input::keybinding::Key;
         use crate::minibuffer::{SystemEvent, SystemResponse};
@@ -423,6 +430,16 @@ impl App {
                             if let Some(msg) = result.message {
                                 self.show_error_message(AltreError::Application(msg));
                             }
+                        }
+                    }
+                    FileOperation::SaveAs(path) => {
+                        let result = self.command_processor.save_buffer_as(path.clone());
+                        if result.success {
+                            if let Some(msg) = result.message {
+                                self.show_info_message(msg);
+                            }
+                        } else if let Some(msg) = result.message {
+                            self.show_error_message(AltreError::Application(msg));
                         }
                     }
                     _ => {

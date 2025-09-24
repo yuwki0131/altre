@@ -267,6 +267,16 @@ impl FileBuffer {
         Ok(())
     }
 
+    /// 別名で保存
+    pub fn save_as(&mut self, path: PathBuf) -> Result<()> {
+        NewFileHandler::handle_new_file(&path)?;
+        self.set_path(path.clone());
+        FileSaver::new().save_file(&path, &self.content)?;
+        self.change_tracker.mark_saved(&self.content);
+        self.refresh_file_info()?;
+        Ok(())
+    }
+
     /// ファイル情報更新
     pub fn refresh_file_info(&mut self) -> Result<()> {
         if let Some(path) = &self.path {
@@ -329,6 +339,11 @@ impl FileOperationManager {
         }
 
         buffer.save()
+    }
+
+    /// バッファを別名で保存
+    pub fn save_buffer_as(&mut self, buffer: &mut FileBuffer, path: PathBuf) -> Result<()> {
+        buffer.save_as(path)
     }
 
     /// ファイル存在チェック

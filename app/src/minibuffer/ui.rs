@@ -230,6 +230,7 @@ impl MinibufferRenderer {
             MinibufferMode::FindFile => "Find File",
             MinibufferMode::ExecuteCommand => "M-x",
             MinibufferMode::EvalExpression => "Eval",
+            MinibufferMode::WriteFile => "Write File",
             MinibufferMode::SaveConfirmation => "Save",
             _ => "Minibuffer",
         }

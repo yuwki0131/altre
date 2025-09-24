@@ -180,6 +180,11 @@ impl CommandProcessor {
         self.current_buffer.as_ref()
     }
 
+    /// 現在のバッファへの可変参照
+    pub fn current_buffer_mut(&mut self) -> Option<&mut FileBuffer> {
+        self.current_buffer.as_mut()
+    }
+
     /// パスでファイルを開く（公開API）
     pub fn open_file(&mut self, path: String) -> CommandResult {
         self.execute_find_file_with_path(path)
@@ -306,6 +311,26 @@ impl CommandProcessor {
                             .map(|p| p.display().to_string())
                             .unwrap_or_else(|| "未名".to_string())
                     )
+                ),
+                Err(err) => CommandResult::error(format!("保存エラー: {}", err)),
+            }
+        } else {
+            CommandResult::error("保存するバッファがありません".to_string())
+        }
+    }
+
+    pub fn save_buffer_as(&mut self, path_input: String) -> CommandResult {
+        let expanded_path = match expand_path(&path_input) {
+            Ok(path) => path,
+            Err(err) => return CommandResult::error(format!("パス展開エラー: {}", err)),
+        };
+
+        if let Some(ref mut buffer) = self.current_buffer {
+            buffer.content = self.editor.to_string();
+
+            match self.file_manager.save_buffer_as(buffer, expanded_path.clone()) {
+                Ok(_) => CommandResult::success_with_message(
+                    format!("保存しました: {}", expanded_path.display())
                 ),
                 Err(err) => CommandResult::error(format!("保存エラー: {}", err)),
             }

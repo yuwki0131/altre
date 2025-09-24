@@ -203,6 +203,7 @@ impl MinibufferSystem {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
+            MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
             MinibufferResult::Cancel => {
                 self.minibuffer.deactivate();
                 Ok(SystemResponse::Continue)
@@ -219,6 +220,7 @@ impl MinibufferSystem {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
+            MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
             MinibufferResult::Invalid => Ok(SystemResponse::None),
         }
@@ -236,11 +238,22 @@ impl MinibufferSystem {
             }
         } else if command == "save-buffer" {
             Ok(SystemResponse::FileOperation(FileOperation::Save))
+        } else if command == "write-file" || command == "save-buffer-as" {
+            self.minibuffer.start_write_file(None);
+            Ok(SystemResponse::Continue)
         } else if let Some(expr) = command.strip_prefix("eval-expression ") {
             self.handle_eval_expression(expr.to_string())
         } else if command == "eval-expression" {
             self.minibuffer.start_eval_expression();
             Ok(SystemResponse::Continue)
+        } else if let Some(path) = command.strip_prefix("write-file ") {
+            let trimmed = path.trim();
+            if trimmed.is_empty() {
+                self.minibuffer.show_error("ファイル名を入力してください".to_string());
+                Ok(SystemResponse::Continue)
+            } else {
+                Ok(SystemResponse::FileOperation(FileOperation::SaveAs(trimmed.to_string())))
+            }
         } else if command == "quit" || command == "save-buffers-kill-terminal" {
             Ok(SystemResponse::Quit)
         } else {
@@ -294,6 +307,12 @@ impl MinibufferSystem {
     /// コマンド実行を開始
     pub fn start_execute_command(&mut self) -> Result<SystemResponse> {
         self.minibuffer.start_execute_command();
+        Ok(SystemResponse::Continue)
+    }
+
+    /// ファイル保存を開始
+    pub fn start_write_file(&mut self, initial_path: Option<&str>) -> Result<SystemResponse> {
+        self.minibuffer.start_write_file(initial_path);
         Ok(SystemResponse::Continue)
     }
 

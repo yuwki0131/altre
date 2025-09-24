@@ -5,8 +5,7 @@
 use ratatui::{
     widgets::{Block, Borders, Paragraph},
     layout::Rect,
-    text::{Line, Span},
-    style::{Color, Style},
+    text::Line,
     Frame,
 };
 use crate::buffer::TextEditor;
@@ -72,53 +71,52 @@ impl TextArea {
         // self.render_cursor(frame, area);
     }
 
-    /// テキストコンテンツを行に分割し、カーソル位置を強調
+    /// テキストコンテンツを行に分割（カーソルは別途描画）
     pub fn prepare_lines<'a>(&self, content: &'a str) -> Vec<Line<'a>> {
         let text_lines: Vec<&str> = content.lines().collect();
         let mut lines = Vec::new();
 
-        for (line_idx, &line_text) in text_lines.iter().enumerate() {
-            if line_idx == self.cursor_line {
-                // カーソルがある行は特別処理
-                lines.push(self.create_cursor_line(line_text));
-            } else {
-                // 通常の行
-                lines.push(Line::from(line_text));
-            }
+        for &line_text in text_lines.iter() {
+            // 全て通常の行として処理（カーソルは別途描画）
+            lines.push(Line::from(line_text));
         }
 
-        // 空のファイルやカーソルが最終行を超えている場合の処理
-        if text_lines.is_empty() || self.cursor_line >= text_lines.len() {
-            lines.push(self.create_cursor_line(""));
+        // 空のファイルの場合は空行を追加
+        if text_lines.is_empty() {
+            lines.push(Line::from(""));
         }
 
         lines
     }
 
-    /// カーソル位置を含む行を作成（バー形式）
-    fn create_cursor_line<'a>(&self, line_text: &'a str) -> Line<'a> {
-        let chars: Vec<char> = line_text.chars().collect();
-        let mut spans = Vec::new();
-
-        if self.cursor_column == 0 {
-            // 行の先頭にカーソル - バー（|）を表示
-            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
-            spans.push(Span::raw(line_text));
-        } else if self.cursor_column >= chars.len() {
-            // 行の末尾またはそれを超えた位置にカーソル - バー（|）を表示
-            spans.push(Span::raw(line_text));
-            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
-        } else {
-            // 行の中央にカーソル - バー（|）を挿入
-            let before: String = chars[..self.cursor_column].iter().collect();
-            let after: String = chars[self.cursor_column..].iter().collect();
-
-            spans.push(Span::raw(before));
-            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
-            spans.push(Span::raw(after));
+    /// 画面上のカーソル位置を計算
+    pub fn calculate_cursor_screen_position(&self, area: Rect, viewport_start_line: usize) -> Option<(u16, u16)> {
+        // カーソル行が表示領域内にあるかチェック
+        if self.cursor_line < viewport_start_line {
+            return None;
         }
 
-        Line::from(spans)
+        let screen_line = self.cursor_line - viewport_start_line;
+        if screen_line >= area.height as usize {
+            return None;
+        }
+
+        // 境界線がある場合は内側に調整
+        let content_x = if self.show_border { area.x + 1 } else { area.x };
+        let content_y = if self.show_border { area.y + 1 } else { area.y };
+
+        let cursor_x = content_x + self.cursor_column as u16;
+        let cursor_y = content_y + screen_line as u16;
+
+        // 表示領域内かチェック
+        let max_x = if self.show_border { area.x + area.width - 1 } else { area.x + area.width };
+        let max_y = if self.show_border { area.y + area.height - 1 } else { area.y + area.height };
+
+        if cursor_x < max_x && cursor_y < max_y {
+            Some((cursor_x, cursor_y))
+        } else {
+            None
+        }
     }
 
     /// 行数を取得
@@ -176,11 +174,11 @@ impl TextAreaRenderer {
         area: Rect,
         editor: &TextEditor,
         theme: &Theme,
-    ) {
+    ) -> Option<(u16, u16)> {
         let content = editor.to_string();
         let cursor_pos = editor.cursor();
 
-        // TextAreaを使ってカーソル付きの描画を行う
+        // TextAreaを使ってテキスト描画
         let mut text_area = TextArea::new();
         text_area.set_cursor(cursor_pos.line, cursor_pos.column);
 
@@ -190,6 +188,9 @@ impl TextAreaRenderer {
             .style(theme.style(&ComponentType::TextArea));
 
         frame.render_widget(paragraph, area);
+
+        // カーソル位置を計算して返す（ビューポートオフセットは0とする）
+        text_area.calculate_cursor_screen_position(area, 0)
     }
 }
 

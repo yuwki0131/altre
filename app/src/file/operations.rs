@@ -297,16 +297,19 @@ pub struct NewFileHandler;
 
 impl NewFileHandler {
     pub fn handle_new_file(path: &Path) -> Result<String> {
-        // 親ディレクトリの存在確認
+        // 親ディレクトリの存在確認（より柔軟に）
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                return Err(AltreError::File(FileError::InvalidPath {
-                    path: format!("Directory does not exist: {}", parent.display())
-                }));
+                // 親ディレクトリが存在しない場合は作成を試みる
+                if let Err(_) = std::fs::create_dir_all(parent) {
+                    return Err(AltreError::File(FileError::InvalidPath {
+                        path: format!("Cannot create directory: {}", parent.display())
+                    }));
+                }
             }
 
-            // 書き込み権限確認
-            if !FileInfo::test_writable(parent) {
+            // 簡略化した書き込み権限確認
+            if !parent.exists() || !parent.is_dir() {
                 return Err(AltreError::File(FileError::PermissionDenied {
                     path: parent.display().to_string()
                 }));

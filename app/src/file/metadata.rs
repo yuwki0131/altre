@@ -76,16 +76,29 @@ impl FileInfo {
 
     /// 書き込み権限テスト
     pub fn test_writable(path: &Path) -> bool {
-        if path.exists() {
+        if path.is_file() {
+            // ファイルが存在する場合は書き込み権限をテスト
             std::fs::OpenOptions::new()
                 .write(true)
                 .append(true)
                 .open(path)
                 .is_ok()
+        } else if path.is_dir() {
+            // ディレクトリの場合は一時ファイル作成でテスト
+            let temp_file = path.join(".tmp_write_test");
+            let result = std::fs::write(&temp_file, "").is_ok();
+            if result {
+                let _ = std::fs::remove_file(&temp_file);
+            }
+            result
         } else {
-            // ファイルが存在しない場合は親ディレクトリの書き込み権限をチェック
+            // ファイルもディレクトリも存在しない場合は親ディレクトリをチェック
             if let Some(parent) = path.parent() {
-                parent.exists() && Self::test_writable(parent)
+                if parent.exists() && parent.is_dir() {
+                    Self::test_writable(parent)
+                } else {
+                    false
+                }
             } else {
                 false
             }

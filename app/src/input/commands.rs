@@ -185,6 +185,33 @@ impl CommandProcessor {
         self.current_buffer.as_mut()
     }
 
+    /// エディタ内容を同期
+    pub fn sync_editor_content(&mut self, content: &str) {
+        // 内部エディタを現在の内容で更新
+        self.editor = TextEditor::from_str(content);
+
+        // バッファがない場合は新規作成
+        if self.current_buffer.is_none() {
+            use crate::file::FileChangeTracker;
+
+            // 新規バッファの場合、空の内容から開始してから現在の内容に更新
+            let change_tracker = FileChangeTracker::new("");
+
+            self.current_buffer = Some(FileBuffer {
+                name: "untitled".to_string(),
+                path: None,
+                content: content.to_string(),
+                change_tracker,
+                file_info: None,
+                read_only: false,
+            });
+        } else if let Some(ref mut buffer) = self.current_buffer {
+            // バッファの内容を更新
+            buffer.content = content.to_string();
+            // 変更追跡は is_modified で確認できるので、特別な操作は不要
+        }
+    }
+
     /// パスでファイルを開く（公開API）
     pub fn open_file(&mut self, path: String) -> CommandResult {
         self.execute_find_file_with_path(path)
@@ -332,7 +359,12 @@ impl CommandProcessor {
                 Ok(_) => CommandResult::success_with_message(
                     format!("保存しました: {}", expanded_path.display())
                 ),
-                Err(err) => CommandResult::error(format!("保存エラー: {}", err)),
+                Err(err) => {
+                    // より詳細なエラー情報を提供
+                    eprintln!("保存エラーの詳細: {:?}", err);
+                    eprintln!("保存先パス: {}", expanded_path.display());
+                    CommandResult::error(format!("保存エラー: {} (パス: {})", err, expanded_path.display()))
+                },
             }
         } else {
             CommandResult::error("保存するバッファがありません".to_string())

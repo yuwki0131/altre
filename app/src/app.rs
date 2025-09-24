@@ -316,9 +316,18 @@ impl App {
                         }
                     }
                     None => {
-                        self.show_error_message(AltreError::Application(
-                            "保存するファイルが開かれていません".to_string()
-                        ));
+                        // ファイルが開かれていない場合、新規ファイル名を入力するためのミニバッファを起動
+                        let current_dir = std::env::current_dir()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|_| "~/".to_string());
+
+                        let initial_path = if current_dir.ends_with('/') {
+                            format!("{}untitled", current_dir)
+                        } else {
+                            format!("{}/untitled", current_dir)
+                        };
+
+                        self.start_save_as_prompt(&initial_path)?;
                     }
                 }
                 Ok(())
@@ -457,6 +466,10 @@ impl App {
                         }
                     }
                     FileOperation::SaveAs(path) => {
+                        // 現在のエディタ内容を同期
+                        let editor_content = self.editor.to_string();
+                        self.command_processor.sync_editor_content(&editor_content);
+
                         let result = self.command_processor.save_buffer_as(path.clone());
                         if result.success {
                             if let Some(msg) = result.message {

@@ -183,6 +183,11 @@ impl App {
             return self.handle_minibuffer_key(key_event);
         }
 
+        // 特殊キー処理（C-g, ESCなど）
+        if self.handle_special_keys(&key_event) {
+            return Ok(());
+        }
+
         // 新しいキーマップシステムを使用してキーを処理
         let result = self.keymap.process_key_event(key_event);
 
@@ -211,6 +216,25 @@ impl App {
         }
 
         Ok(())
+    }
+
+    /// 特殊キーの処理（キーマップを迂回）
+    fn handle_special_keys(&mut self, key_event: &KeyEvent) -> bool {
+        match (key_event.code, key_event.modifiers) {
+            // C-g: キーシーケンスのキャンセル（無反応）
+            (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
+                self.keymap.reset_partial_match();
+                self.current_prefix = None;
+                true
+            }
+            // ESC: キーシーケンスのキャンセル（無反応）
+            (KeyCode::Esc, _) => {
+                self.keymap.reset_partial_match();
+                self.current_prefix = None;
+                true
+            }
+            _ => false,
+        }
     }
 
     fn handle_action(&mut self, action: Action) -> Result<()> {

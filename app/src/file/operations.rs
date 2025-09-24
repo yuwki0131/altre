@@ -347,6 +347,19 @@ impl FileOperationManager {
     }
 
     /// ファイル存在チェック
+    ///
+    /// # Examples
+    /// ```
+    /// use altre::file::operations::FileOperationManager;
+    ///
+    /// let mut manager = FileOperationManager::new();
+    /// let dir = tempfile::tempdir().unwrap();
+    /// let path = dir.path().join("sample.txt");
+    /// std::fs::write(&path, "hello").unwrap();
+    /// assert!(manager.file_exists(&path));
+    /// std::fs::remove_file(&path).unwrap();
+    /// assert!(!manager.file_exists(&path));
+    /// ```
     pub fn file_exists(&self, path: &Path) -> bool {
         path.exists() && path.is_file()
     }

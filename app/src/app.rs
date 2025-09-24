@@ -210,7 +210,7 @@ impl App {
                 if key_event.modifiers.contains(KeyModifiers::CONTROL) && key_event.code == KeyCode::Char('c') {
                     self.shutdown();
                 } else {
-                    self.show_info_message(format!("未対応のキー: {:?}", key_event.code));
+                    self.show_info_message(format!("未対応のキー: {}", Self::format_key_event(&key_event)));
                 }
             }
         }
@@ -546,6 +546,65 @@ impl App {
         AltreError::Ui(UiError::RenderingFailed {
             component: format!("{}: {}", context, err),
         })
+    }
+
+    /// キーイベントを人間が読みやすい形式に変換
+    fn format_key_event(key_event: &KeyEvent) -> String {
+        let mut parts = Vec::new();
+
+        // 修飾キーを追加（Shiftは特殊文字以外では通常表示しない）
+        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+            parts.push("C");
+        }
+        if key_event.modifiers.contains(KeyModifiers::ALT) {
+            parts.push("M");
+        }
+
+        // 基本キーを追加
+        let key_name = match key_event.code {
+            KeyCode::Char(c) => {
+                if c.is_ascii_control() {
+                    // 制御文字の場合
+                    format!("C-{}", (c as u8 + b'A' - 1) as char)
+                } else if c.is_uppercase() && key_event.modifiers.contains(KeyModifiers::SHIFT) {
+                    // 大文字のShift表示
+                    format!("S-{}", c.to_lowercase())
+                } else {
+                    // 通常の文字
+                    c.to_string()
+                }
+            }
+            KeyCode::F(n) => format!("F{}", n),
+            KeyCode::Enter => "RET".to_string(),
+            KeyCode::Left => "左".to_string(),
+            KeyCode::Right => "右".to_string(),
+            KeyCode::Up => "上".to_string(),
+            KeyCode::Down => "下".to_string(),
+            KeyCode::Home => "Home".to_string(),
+            KeyCode::End => "End".to_string(),
+            KeyCode::PageUp => "PageUp".to_string(),
+            KeyCode::PageDown => "PageDown".to_string(),
+            KeyCode::Tab => "TAB".to_string(),
+            KeyCode::BackTab => "S-TAB".to_string(),
+            KeyCode::Delete => "DEL".to_string(),
+            KeyCode::Insert => "INS".to_string(),
+            KeyCode::Esc => "ESC".to_string(),
+            KeyCode::Backspace => "BS".to_string(),
+            KeyCode::CapsLock => "CapsLock".to_string(),
+            KeyCode::ScrollLock => "ScrollLock".to_string(),
+            KeyCode::NumLock => "NumLock".to_string(),
+            KeyCode::PrintScreen => "PrintScreen".to_string(),
+            KeyCode::Pause => "Pause".to_string(),
+            KeyCode::Menu => "Menu".to_string(),
+            KeyCode::KeypadBegin => "Keypad-Begin".to_string(),
+            _ => format!("未知のキー"),
+        };
+
+        if parts.is_empty() {
+            key_name
+        } else {
+            format!("{}-{}", parts.join("-"), key_name)
+        }
     }
 }
 

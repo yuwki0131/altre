@@ -155,17 +155,19 @@ impl LayoutManager {
         let mut constraints = Vec::new();
         let mut area_order = Vec::new();
 
-        // ミニバッファ（アクティブな場合のみ）
+        // レイアウト順序：ミニバッファ（上部）→テキストエリア→ステータスライン
+
+        // ミニバッファ（上部、アクティブな場合のみ）
         if minibuffer_active {
             constraints.push(Constraint::Length(1));
             area_order.push(AreaType::Minibuffer);
         }
 
-        // メインのテキストエリア
+        // メインのテキストエリア（中央）
         constraints.push(Constraint::Min(1));
         area_order.push(AreaType::TextArea);
 
-        // ステータスライン（表示する場合）
+        // ステータスライン（下部、表示する場合）
         if show_status_line {
             constraints.push(Constraint::Length(1));
             area_order.push(AreaType::StatusLine);
@@ -432,9 +434,14 @@ mod tests {
         let layout = manager.calculate_layout(area).unwrap();
 
         assert_eq!(layout.total, area);
-        assert_eq!(layout.minibuffer.height, 3); // 高さ25なので3行
-        assert_eq!(layout.modeline.height, 1);
-        assert_eq!(layout.editor.height, 21); // 25 - 3 - 1
+        assert_eq!(layout.minibuffer.height, 1); // ミニバッファは固定1行（上部）
+        assert_eq!(layout.modeline.height, 1);   // モードライン（下部）
+        assert_eq!(layout.editor.height, 23);    // エディタ（中央）: 25 - 1 - 1
+
+        // ミニバッファが上部に配置されることを確認
+        assert_eq!(layout.minibuffer.y, 0);
+        assert_eq!(layout.editor.y, 1);
+        assert_eq!(layout.modeline.y, 24);
     }
 
     #[test]
@@ -444,9 +451,14 @@ mod tests {
         let layout = manager.calculate_layout(area).unwrap();
 
         assert_eq!(layout.total, area);
-        assert_eq!(layout.minibuffer.height, 2); // 高さ15なので2行
-        assert_eq!(layout.modeline.height, 1);
-        assert_eq!(layout.editor.height, 12); // 15 - 2 - 1
+        assert_eq!(layout.minibuffer.height, 1); // ミニバッファは固定1行（上部）
+        assert_eq!(layout.modeline.height, 1);   // モードライン（下部）
+        assert_eq!(layout.editor.height, 13);    // エディタ（中央）: 15 - 1 - 1
+
+        // ミニバッファが上部に配置されることを確認
+        assert_eq!(layout.minibuffer.y, 0);
+        assert_eq!(layout.editor.y, 1);
+        assert_eq!(layout.modeline.y, 14);
     }
 
     #[test]

@@ -15,6 +15,7 @@ use ratatui::{
     Frame, Terminal,
     widgets::{Block, Borders, Paragraph, Clear},
     style::Style,
+    text::Line,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -223,15 +224,20 @@ impl AdvancedRenderer {
         _diffs: &[AreaDiff],
     ) {
         let theme = self.theme_manager.current_theme();
+        let mut cursor_position: Option<(u16, u16)> = None;
 
         // テキストエリア描画
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
-            self.text_area_renderer.render(
+            let text_cursor_pos = self.text_area_renderer.render(
                 frame,
                 text_area,
                 editor,
                 theme,
+                minibuffer.is_active(),
             );
+            if !minibuffer.is_active() {
+                cursor_position = text_cursor_pos;
+            }
         }
 
         // ステータスライン描画
@@ -242,8 +248,14 @@ impl AdvancedRenderer {
         // ミニバッファ描画
         if let Some(&minibuffer_area) = areas.get(&AreaType::Minibuffer) {
             if minibuffer.is_active() {
-                self.render_minibuffer(frame, minibuffer_area, minibuffer);
+                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer);
+                cursor_position = minibuffer_cursor_pos;
             }
+        }
+
+        // カーソル位置設定
+        if let Some((x, y)) = cursor_position {
+            frame.set_cursor_position(ratatui::layout::Position::new(x, y));
         }
     }
 
@@ -253,57 +265,43 @@ impl AdvancedRenderer {
         frame: &mut Frame<'_>,
         area: Rect,
         minibuffer: &MinibufferSystem,
-    ) {
-        use ratatui::{
-            text::{Line, Span},
-            style::Color,
-        };
+    ) -> Option<(u16, u16)> {
+        use ratatui::style::Color;
 
         let state = minibuffer.minibuffer_state();
 
-        let content = match &state.mode {
+        let (content, cursor_pos) = match &state.mode {
             crate::minibuffer::MinibufferMode::FindFile
             | crate::minibuffer::MinibufferMode::ExecuteCommand
-            | crate::minibuffer::MinibufferMode::EvalExpression => {
-                line_with_cursor(&state.prompt, &state.input, state.cursor_pos)
+            | crate::minibuffer::MinibufferMode::EvalExpression
+            | crate::minibuffer::MinibufferMode::WriteFile => {
+                let line = Self::line_without_cursor(&state.prompt, &state.input);
+                let cursor_x = area.x + state.prompt.chars().count() as u16 + state.cursor_pos as u16;
+                (line, Some((cursor_x, area.y)))
             }
             crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
-                Line::from(message.clone()).style(Style::default().fg(Color::Red))
+                (Line::from(message.clone()).style(Style::default().fg(Color::Red)), None)
             }
             crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
-                Line::from(message.clone()).style(Style::default().fg(Color::Green))
+                (Line::from(message.clone()).style(Style::default().fg(Color::Green)), None)
             }
-            _ => Line::from(""),
+            _ => (Line::from(""), None),
         };
 
         let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
         frame.render_widget(paragraph, area);
 
-        fn line_with_cursor(prompt: &str, input: &str, cursor_pos: usize) -> Line<'static> {
-            let mut spans: Vec<Span<'static>> = Vec::new();
-            spans.push(Span::styled(prompt.to_string(), Style::default().fg(Color::Cyan)));
+        cursor_pos
+    }
 
-            // 分割
-            let mut prefix = String::new();
-            let mut suffix = String::new();
-            let mut chars = input.chars();
+    /// ミニバッファ用のカーソルなし行作成
+    fn line_without_cursor(prompt: &str, input: &str) -> Line<'static> {
+        use ratatui::{text::Span, style::Color};
 
-            for _ in 0..cursor_pos {
-                if let Some(ch) = chars.next() {
-                    prefix.push(ch);
-                } else {
-                    break;
-                }
-            }
-
-            suffix.extend(chars);
-
-            spans.push(Span::raw(prefix));
-            spans.push(Span::styled("|", Style::default().fg(Color::Yellow)));
-            spans.push(Span::raw(suffix));
-
-            Line::from(spans)
-        }
+        let mut spans: Vec<Span<'static>> = Vec::new();
+        spans.push(Span::styled(prompt.to_string(), Style::default().fg(Color::Cyan)));
+        spans.push(Span::raw(input.to_string()));
+        Line::from(spans)
     }
 
     /// ステータスライン描画
@@ -365,29 +363,6 @@ impl AdvancedRenderer {
         }
     }
 
-    /// カーソル位置設定
-    #[allow(dead_code)]
-    fn set_cursor_position(
-        &self,
-        frame: &mut Frame<'_>,
-        editor: &TextEditor,
-        minibuffer: &MinibufferSystem,
-        areas: &HashMap<AreaType, Rect>,
-    ) {
-        if !minibuffer.is_active() {
-            // テキストエリアのカーソル
-            if let Some(&text_area) = areas.get(&AreaType::TextArea) {
-                let cursor = editor.cursor();
-                let cursor_x = text_area.x + cursor.column as u16;
-                let cursor_y = text_area.y + cursor.line as u16;
-
-                // 表示領域内かチェック
-                if cursor_x < text_area.x + text_area.width && cursor_y < text_area.y + text_area.height {
-                    frame.set_cursor_position(ratatui::layout::Position::new(cursor_x, cursor_y));
-                }
-            }
-        }
-    }
 
     /// 差分計算
     fn calculate_diffs(

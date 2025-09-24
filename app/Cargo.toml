@@ -6,7 +6,7 @@ description = "Modern Emacs-inspired text editor built with Rust"
 authors = ["altre development team"]
 repository = "https://github.com/yuwki0131/altre"
 readme = "../README.md"
-license = "TBD"
+license = ""
 keywords = ["text-editor", "emacs", "tui", "terminal"]
 categories = ["command-line-utilities", "text-editors"]
 

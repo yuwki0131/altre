@@ -8,7 +8,6 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::MinibufferSystem;
 use crate::ui::AdvancedRenderer;
-use crate::file::FileSaver;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
@@ -184,6 +183,11 @@ impl App {
             return self.handle_minibuffer_key(key_event);
         }
 
+        // 特殊キー処理（C-g, ESCなど）
+        if self.handle_special_keys(&key_event) {
+            return Ok(());
+        }
+
         // 新しいキーマップシステムを使用してキーを処理
         let result = self.keymap.process_key_event(key_event);
 
@@ -206,12 +210,31 @@ impl App {
                 if key_event.modifiers.contains(KeyModifiers::CONTROL) && key_event.code == KeyCode::Char('c') {
                     self.shutdown();
                 } else {
-                    self.show_info_message(format!("未対応のキー: {:?}", key_event.code));
+                    self.show_info_message(format!("未対応のキー: {}", Self::format_key_event(&key_event)));
                 }
             }
         }
 
         Ok(())
+    }
+
+    /// 特殊キーの処理（キーマップを迂回）
+    fn handle_special_keys(&mut self, key_event: &KeyEvent) -> bool {
+        match (key_event.code, key_event.modifiers) {
+            // C-g: キーシーケンスのキャンセル（無反応）
+            (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
+                self.keymap.reset_partial_match();
+                self.current_prefix = None;
+                true
+            }
+            // ESC: キーシーケンスのキャンセル（無反応）
+            (KeyCode::Esc, _) => {
+                self.keymap.reset_partial_match();
+                self.current_prefix = None;
+                true
+            }
+            _ => false,
+        }
     }
 
     fn handle_action(&mut self, action: Action) -> Result<()> {
@@ -272,44 +295,40 @@ impl App {
                 Ok(())
             }
             Command::SaveBuffer => {
-                // CommandProcessorのバッファ情報を確認
-                if let Some(buffer) = self.command_processor.current_buffer() {
-                    if let Some(path) = &buffer.path {
-                        // エディタの内容をCommandProcessorに同期
-                        let content = self.editor.to_string();
-                        debug_log!(self, "Saving to path: {}", path.display());
-                        debug_log!(self, "Content length: {} chars", content.len());
-                        debug_log!(self, "Content preview: {:?}", &content[..content.len().min(100)]);
-
-                        let saver = FileSaver::new();
-
-                        match saver.save_file(path, &content) {
-                            Ok(_) => {
-                                debug_log!(self, "FileSaver reported success");
-                                // ファイルが実際に存在するか確認
-                                if path.exists() {
-                                    debug_log!(self, "File exists after save");
-                                } else {
-                                    debug_log!(self, "WARNING! File does not exist after save");
+                match self.command_processor.current_buffer() {
+                    Some(buffer) => {
+                        if buffer.path.is_none() {
+                            let suggested = if buffer.name.trim().is_empty() {
+                                "untitled".to_string()
+                            } else {
+                                buffer.name.clone()
+                            };
+                            self.start_save_as_prompt(&suggested)?;
+                        } else {
+                            let result = self.command_processor.execute(Command::SaveBuffer);
+                            if result.success {
+                                if let Some(msg) = result.message {
+                                    self.show_info_message(msg);
                                 }
-                                self.show_info_message(format!("保存しました: {}", path.display()));
-                            }
-                            Err(err) => {
-                                debug_log!(self, "FileSaver reported error: {}", err);
-                                self.show_error_message(AltreError::Application(format!(
-                                    "保存に失敗しました: {}", err
-                                )));
+                            } else if let Some(msg) = result.message {
+                                self.show_error_message(AltreError::Application(msg));
                             }
                         }
-                    } else {
-                        self.show_error_message(AltreError::Application(
-                            "バッファにファイルパスが関連付けられていません".to_string()
-                        ));
                     }
-                } else {
-                    self.show_error_message(AltreError::Application(
-                        "保存するファイルが開かれていません".to_string()
-                    ));
+                    None => {
+                        // ファイルが開かれていない場合、新規ファイル名を入力するためのミニバッファを起動
+                        let current_dir = std::env::current_dir()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|_| "~/".to_string());
+
+                        let initial_path = if current_dir.ends_with('/') {
+                            format!("{}untitled", current_dir)
+                        } else {
+                            format!("{}/untitled", current_dir)
+                        };
+
+                        self.start_save_as_prompt(&initial_path)?;
+                    }
                 }
                 Ok(())
             }
@@ -397,6 +416,27 @@ impl App {
         }
     }
 
+    fn start_save_as_prompt(&mut self, suggested_name: &str) -> Result<()> {
+        let initial_path = env::current_dir()
+            .map(|dir| dir.join(suggested_name))
+            .unwrap_or_else(|_| std::path::PathBuf::from(suggested_name.to_string()));
+
+        let initial_string = initial_path.display().to_string();
+
+        match self
+            .minibuffer
+            .start_write_file(Some(initial_string.as_str()))
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
     fn handle_minibuffer_key(&mut self, key_event: KeyEvent) -> Result<()> {
         use crate::input::keybinding::Key;
         use crate::minibuffer::{SystemEvent, SystemResponse};
@@ -423,6 +463,20 @@ impl App {
                             if let Some(msg) = result.message {
                                 self.show_error_message(AltreError::Application(msg));
                             }
+                        }
+                    }
+                    FileOperation::SaveAs(path) => {
+                        // 現在のエディタ内容を同期
+                        let editor_content = self.editor.to_string();
+                        self.command_processor.sync_editor_content(&editor_content);
+
+                        let result = self.command_processor.save_buffer_as(path.clone());
+                        if result.success {
+                            if let Some(msg) = result.message {
+                                self.show_info_message(msg);
+                            }
+                        } else if let Some(msg) = result.message {
+                            self.show_error_message(AltreError::Application(msg));
                         }
                     }
                     _ => {
@@ -505,6 +559,65 @@ impl App {
         AltreError::Ui(UiError::RenderingFailed {
             component: format!("{}: {}", context, err),
         })
+    }
+
+    /// キーイベントを人間が読みやすい形式に変換
+    fn format_key_event(key_event: &KeyEvent) -> String {
+        let mut parts = Vec::new();
+
+        // 修飾キーを追加（Shiftは特殊文字以外では通常表示しない）
+        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+            parts.push("C");
+        }
+        if key_event.modifiers.contains(KeyModifiers::ALT) {
+            parts.push("M");
+        }
+
+        // 基本キーを追加
+        let key_name = match key_event.code {
+            KeyCode::Char(c) => {
+                if c.is_ascii_control() {
+                    // 制御文字の場合
+                    format!("C-{}", (c as u8 + b'A' - 1) as char)
+                } else if c.is_uppercase() && key_event.modifiers.contains(KeyModifiers::SHIFT) {
+                    // 大文字のShift表示
+                    format!("S-{}", c.to_lowercase())
+                } else {
+                    // 通常の文字
+                    c.to_string()
+                }
+            }
+            KeyCode::F(n) => format!("F{}", n),
+            KeyCode::Enter => "RET".to_string(),
+            KeyCode::Left => "左".to_string(),
+            KeyCode::Right => "右".to_string(),
+            KeyCode::Up => "上".to_string(),
+            KeyCode::Down => "下".to_string(),
+            KeyCode::Home => "Home".to_string(),
+            KeyCode::End => "End".to_string(),
+            KeyCode::PageUp => "PageUp".to_string(),
+            KeyCode::PageDown => "PageDown".to_string(),
+            KeyCode::Tab => "TAB".to_string(),
+            KeyCode::BackTab => "S-TAB".to_string(),
+            KeyCode::Delete => "DEL".to_string(),
+            KeyCode::Insert => "INS".to_string(),
+            KeyCode::Esc => "ESC".to_string(),
+            KeyCode::Backspace => "BS".to_string(),
+            KeyCode::CapsLock => "CapsLock".to_string(),
+            KeyCode::ScrollLock => "ScrollLock".to_string(),
+            KeyCode::NumLock => "NumLock".to_string(),
+            KeyCode::PrintScreen => "PrintScreen".to_string(),
+            KeyCode::Pause => "Pause".to_string(),
+            KeyCode::Menu => "Menu".to_string(),
+            KeyCode::KeypadBegin => "Keypad-Begin".to_string(),
+            _ => format!("未知のキー"),
+        };
+
+        if parts.is_empty() {
+            key_name
+        } else {
+            format!("{}-{}", parts.join("-"), key_name)
+        }
     }
 }
 

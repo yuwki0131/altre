@@ -230,6 +230,7 @@ impl MinibufferRenderer {
             MinibufferMode::FindFile => "Find File",
             MinibufferMode::ExecuteCommand => "M-x",
             MinibufferMode::EvalExpression => "Eval",
+            MinibufferMode::WriteFile => "Write File",
             MinibufferMode::SaveConfirmation => "Save",
             _ => "Minibuffer",
         }
@@ -262,12 +263,12 @@ impl MinibufferLayout {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(1),      // メイン領域
-                    Constraint::Length(1),   // ミニバッファ領域
+                    Constraint::Length(1),   // ミニバッファ領域（上部）
+                    Constraint::Min(1),      // メイン領域（下部）
                 ])
                 .split(terminal_area);
 
-            (chunks[0], chunks[1])
+            (chunks[1], chunks[0])  // (メイン領域, ミニバッファ領域)の順序で返す
         } else {
             // ミニバッファが非アクティブの場合は全領域をメインに
             (terminal_area, Rect::default())
@@ -454,7 +455,7 @@ mod tests {
         // アクティブな場合
         let (main_area, minibuffer_area) = MinibufferLayout::calculate_main_layout(terminal_area, true);
         assert_eq!(main_area.height + minibuffer_area.height, terminal_area.height);
-        assert_eq!(minibuffer_area.height, 3);
+        assert_eq!(minibuffer_area.height, 1); // 修正：ミニバッファは1行固定
 
         // 非アクティブな場合
         let (main_area, minibuffer_area) = MinibufferLayout::calculate_main_layout(terminal_area, false);

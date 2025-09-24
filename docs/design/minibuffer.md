@@ -84,6 +84,8 @@ pub enum MinibufferMode {
     FindFile,
     /// コマンド実行入力
     ExecuteCommand,
+    /// ファイル保存入力
+    WriteFile,
     /// 保存確認
     SaveConfirmation,
     /// エラーメッセージ表示
@@ -159,6 +161,10 @@ pub enum MinibufferResult {
     Continue,
     /// コマンド実行
     Execute(String),
+    /// 式評価
+    EvalExpression(String),
+    /// ファイル保存パス
+    SaveFileAs(String),
     /// キャンセル
     Cancel,
     /// 無効な操作

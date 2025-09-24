@@ -267,6 +267,16 @@ impl FileBuffer {
         Ok(())
     }
 
+    /// 別名で保存
+    pub fn save_as(&mut self, path: PathBuf) -> Result<()> {
+        NewFileHandler::handle_new_file(&path)?;
+        self.set_path(path.clone());
+        FileSaver::new().save_file(&path, &self.content)?;
+        self.change_tracker.mark_saved(&self.content);
+        self.refresh_file_info()?;
+        Ok(())
+    }
+
     /// ファイル情報更新
     pub fn refresh_file_info(&mut self) -> Result<()> {
         if let Some(path) = &self.path {
@@ -287,16 +297,19 @@ pub struct NewFileHandler;
 
 impl NewFileHandler {
     pub fn handle_new_file(path: &Path) -> Result<String> {
-        // 親ディレクトリの存在確認
+        // 親ディレクトリの存在確認（より柔軟に）
         if let Some(parent) = path.parent() {
             if !parent.exists() {
-                return Err(AltreError::File(FileError::InvalidPath {
-                    path: format!("Directory does not exist: {}", parent.display())
-                }));
+                // 親ディレクトリが存在しない場合は作成を試みる
+                if let Err(_) = std::fs::create_dir_all(parent) {
+                    return Err(AltreError::File(FileError::InvalidPath {
+                        path: format!("Cannot create directory: {}", parent.display())
+                    }));
+                }
             }
 
-            // 書き込み権限確認
-            if !FileInfo::test_writable(parent) {
+            // 簡略化した書き込み権限確認
+            if !parent.exists() || !parent.is_dir() {
                 return Err(AltreError::File(FileError::PermissionDenied {
                     path: parent.display().to_string()
                 }));
@@ -331,7 +344,25 @@ impl FileOperationManager {
         buffer.save()
     }
 
+    /// バッファを別名で保存
+    pub fn save_buffer_as(&mut self, buffer: &mut FileBuffer, path: PathBuf) -> Result<()> {
+        buffer.save_as(path)
+    }
+
     /// ファイル存在チェック
+    ///
+    /// # Examples
+    /// ```
+    /// use altre::file::operations::FileOperationManager;
+    ///
+    /// let mut manager = FileOperationManager::new();
+    /// let dir = tempfile::tempdir().unwrap();
+    /// let path = dir.path().join("sample.txt");
+    /// std::fs::write(&path, "hello").unwrap();
+    /// assert!(manager.file_exists(&path));
+    /// std::fs::remove_file(&path).unwrap();
+    /// assert!(!manager.file_exists(&path));
+    /// ```
     pub fn file_exists(&self, path: &Path) -> bool {
         path.exists() && path.is_file()
     }

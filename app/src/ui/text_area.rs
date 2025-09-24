@@ -174,6 +174,7 @@ impl TextAreaRenderer {
         area: Rect,
         editor: &TextEditor,
         theme: &Theme,
+        minibuffer_active: bool,
     ) -> Option<(u16, u16)> {
         let content = editor.to_string();
         let cursor_pos = editor.cursor();
@@ -182,15 +183,43 @@ impl TextAreaRenderer {
         let mut text_area = TextArea::new();
         text_area.set_cursor(cursor_pos.line, cursor_pos.column);
 
-        let lines = text_area.prepare_lines(&content);
+        // ビューポート管理：ミニバッファがアクティブな時のスクロール調整
+        let viewport_offset = if minibuffer_active {
+            self.calculate_viewport_offset(cursor_pos.line, area.height as usize)
+        } else {
+            0
+        };
 
-        let paragraph = Paragraph::new(lines)
+        let all_lines = text_area.prepare_lines(&content);
+
+        // 表示範囲を計算してスライス
+        let visible_lines: Vec<Line> = if viewport_offset < all_lines.len() {
+            all_lines[viewport_offset..].iter()
+                .take(area.height as usize)
+                .cloned()
+                .collect()
+        } else {
+            vec![Line::from("")] // 空行を表示
+        };
+
+        let paragraph = Paragraph::new(visible_lines)
             .style(theme.style(&ComponentType::TextArea));
 
         frame.render_widget(paragraph, area);
 
-        // カーソル位置を計算して返す（ビューポートオフセットは0とする）
-        text_area.calculate_cursor_screen_position(area, 0)
+        // カーソル位置を計算して返す
+        text_area.calculate_cursor_screen_position(area, viewport_offset)
+    }
+
+    /// ビューポートオフセットを計算
+    fn calculate_viewport_offset(&self, cursor_line: usize, area_height: usize) -> usize {
+        // ミニバッファがアクティブな時、カーソル行が見えるようにオフセット調整
+        if cursor_line < area_height {
+            0  // カーソルが表示領域内にある場合はオフセット不要
+        } else {
+            // カーソルを中央付近に表示するようオフセット
+            cursor_line.saturating_sub(area_height / 2)
+        }
     }
 }
 

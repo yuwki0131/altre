@@ -233,6 +233,7 @@ impl AdvancedRenderer {
                 text_area,
                 editor,
                 theme,
+                minibuffer.is_active(),
             );
             if !minibuffer.is_active() {
                 cursor_position = text_cursor_pos;

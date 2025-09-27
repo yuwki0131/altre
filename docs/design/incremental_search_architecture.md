@@ -1,7 +1,7 @@
 # インクリメンタル検索アーキテクチャ設計
 
 ## 概要
-本書は、altreにおけるインクリメンタル検索機能のアーキテクチャ設計を定義する。検索開始から終了までの状態遷移、テキストモデルとの連携、UI通知、性能最適化の観点を整理し、高拡張性なモジュール構成を提示する。
+本書は、altreにおけるインクリメンタル検索機能のアーキテクチャ設計を定義する。最新の実装では `app/src/search/` 以下に検索モジュールが配置され、`SearchController` がエディタとUI（ミニバッファ）を仲介する役割を担う。
 
 ## 設計目標
 1. **即応性**: 入力1文字あたり100ms以内に検索結果を反映
@@ -9,154 +9,79 @@
 3. **再利用性**: 置換機能やナビゲーションと共有可能な検索API
 4. **堅牢性**: 状態管理とエラーハンドリングの明確化による一貫した挙動
 
-## コンポーネント構成
+## モジュール構成（実装版）
 ```
 search/
-├── mod.rs
-├── incremental.rs      // 検索エンジン
-├── state.rs            // 状態管理
-├── matcher.rs          // マッチャー抽象
-├── controller.rs       // コマンド制御
-└── highlight.rs        // ハイライト管理
+├── matcher.rs          # リテラルマッチャー（ケースフォールディング対応）
+├── mod.rs              # SearchController と公開API
+├── state.rs            # 検索状態 (SearchState)
+└── types.rs            # SearchDirection / SearchMatch / SearchHighlight などの型定義
 ```
 
-### 主要構造体
+> 初期草案に記載された `incremental.rs` / `controller.rs` / `highlight.rs` は実装統合により `mod.rs` と `text_area.rs` 側に吸収された。
+
+## SearchController の責務
+- `TextEditor` から文字列とカーソル位置を取得し、`SearchState` に反映する。
+- `LiteralMatcher` を用いてマッチ集合を再計算し、`SearchHighlight` を生成。
+- `SearchUiState` を構築してミニバッファ表示や状態メッセージを制御。
+- `C-s` / `C-r` / `C-g` / `Enter` といった検索専用キーを処理する。
+
+## 主なデータ構造
 ```rust
-/// 検索方向
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SearchDirection {
-    Forward,
-    Backward,
-}
-
-/// マッチ結果
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SearchMatch {
-    pub range: std::ops::Range<usize>,
-    pub line: usize,
-    pub column: usize,
-}
-
-/// インクリメンタル検索状態
-#[derive(Debug, Clone)]
-pub struct IncrementalSearchState {
+pub struct SearchState {
     pub active: bool,
     pub pattern: String,
     pub direction: SearchDirection,
-    pub start_position: usize,
-    pub current_position: usize,
     pub matches: Vec<SearchMatch>,
     pub current_index: Option<usize>,
     pub wrapped: bool,
     pub failed: bool,
-}
-
-impl IncrementalSearchState {
-    pub fn new() -> Self { /* デフォルト初期化 */ }
-}
-
-/// 検索エンジン（MVP版）
-pub struct IncrementalSearchEngine<M: StringMatcher> {
-    state: IncrementalSearchState,
-    matcher: M,
-    options: SearchOptions,
+    pub start_cursor: Option<CursorPosition>,
+    pub start_char_index: usize,
 }
 ```
-
-### マッチャー抽象
-```rust
-pub trait StringMatcher {
-    fn find_first(
-        &self,
-        text: &str,
-        pattern: &str,
-        start: usize,
-        direction: SearchDirection,
-        options: &SearchOptions,
-    ) -> Option<SearchMatch>;
-
-    fn collect_visible(
-        &self,
-        text: &str,
-        pattern: &str,
-        viewport: &TextViewport,
-        options: &SearchOptions,
-    ) -> Vec<SearchMatch>;
-}
-
-/// MVPでは単純リテラルマッチャーを提供
-pub struct LiteralMatcher;
-```
+- `active`: 検索モードが継続中かどうか。
+- `start_cursor`: `C-g` キャンセル時に復帰するカーソル位置。
+- `wrapped`: 折り返し検索が発生したか。
+- `failed`: 現在のパターンで一致がない場合に true。
 
 ## 処理フロー
+1. **開始 (`start`)**
+   - 状態を初期化し、直前の検索語があれば引き継ぐ。
+   - マッチ済みであればカーソル近傍から最初の一致を選択。
+2. **文字追加 (`input_char`)**
+   - パターン末尾に文字を追加し、マッチ集合を再計算。
+   - ケースフォールディング（小文字のみ → 大文字小文字無視）を適用。
+3. **文字削除 (`delete_char`)**
+   - パターンを1文字短くし、空文字の場合はハイライトとUIを初期化。
+4. **移動 (`repeat_forward` / `repeat_backward`)**
+   - 現在の `matches` から次/前のマッチを選択。端に到達したら折り返し。
+5. **終了 (`accept`) / キャンセル (`cancel`)**
+   - `Enter`: 状態を終了し、最後に移動した位置を保持。
+   - `C-g`: `start_cursor` に戻して状態を完全リセット。
 
-### 1. 検索開始
-1. `SearchController::start(direction)` が呼び出される
-2. `IncrementalSearchState` を初期化し、`start_position` に現在のポイントを記録
-3. `SearchUIAdapter` を通じてミニバッファにプロンプトを表示
-4. 初回は空パターンのためマッチ探索を行わず、入力待機状態に遷移
+## ハイライト生成
+- `SearchHighlight` には行番号と列範囲、および現在マッチ（太字表示）かどうかを格納。
+- `TextArea::prepare_lines` で `Span` に変換し、現在マッチは背景シアン、その他は `Color::Rgb(0, 80, 80)` を使用。
 
-### 2. パターン更新
-1. ユーザー入力（文字追加/削除）が `SearchController` に到達
-2. `IncrementalSearchEngine::update_pattern` が呼ばれ、`pattern` を更新
-3. `StringMatcher::find_first` により新しいマッチポイントを取得
-4. 成功時: `current_position` と `current_index` を更新し、ハイライトイベントを発火
-5. 失敗時: `failed = true` としてUIにエラー表示を依頼
-6. 折り返しが必要な場合は `SearchWrapDetector` が補助し、1度だけ通知
+## ミニバッファ連携
+- `SearchUiState` に次の情報を格納:
+  - `prompt_label` (`I-search` / `I-search backward`)
+  - `pattern`
+  - `status` (`Active`/`Wrapped`/`NotFound`)
+  - `current_match` / `total_matches`
+  - `message`: 失敗や折り返しをユーザーに通知
+- `App::handle_key_event` で検索中は専用ハンドラにディスパッチ。
+- ミニバッファが情報メッセージを表示している場合でも `Ctrl+s` で即座に検索へ移行するよう `MinibufferSystem::is_message_displayed` を追加（2025-09-27 修正）。
 
-### 3. 移動操作
-- `C-s`/`C-r` 操作は `SearchController::move_next/prev` にルーティング
-- 現在の `matches` を参照し、必要に応じて追加探索
-- 画面上に表示するマッチ集合は `collect_visible` で都度再構築
+## 非機能要件
+- **性能**: 1MB程度のテキストで100ms以内の応答。
+- **安全性**: UTF-8 文字境界を保持し、結合文字も正しく扱う。
+- **テスト**: `cargo test -- --test-threads=1` で 240 件のテストが成功することを確認。
 
-### 4. 終了・キャンセル
-- `Enter`: `state.active = false` にし、最後の `current_position` を確定
-- `C-g`: `start_position` にカーソルを戻し、`state` を初期化
-- いずれも `SearchUIAdapter::clear` を呼んでハイライトを解除
-
-## UI統合
-- `SearchUIAdapter` がミニバッファ表示と本文ハイライト制御の橋渡しを担う。
-- ミニバッファには `SearchPromptState`（モード、パターン、件数、折り返しフラグ）を渡す。
-- 本文ハイライトは `HighlightRequest` として `ui/highlight.rs` に通知し、レンダリングフレームで適用する。
-
-## 状態遷移図
-```
-┌────────────┐   文字入力    ┌──────────────┐
-│ Idle       │────────────▶│ AwaitingInput │
-└────────────┘               └──────┬───────┘
-       ▲    C-s/C-r開始             │ 成功/失敗
-       │                            ▼
-       │                         ┌───────────────┐
- C-g   │                         │ Matching      │
-       │◀────────────────────────│ (Active)      │
-       │   Enter確定/Cancel      └──────┬────────┘
-       │                                │ move next/prev
-       │                                ▼
-       │                         ┌───────────────┐
-       └─────────────────────────│ Navigating    │
-                                 └───────────────┘
-```
-
-## 性能最適化ポイント
-- **差分マッチング**: パターンに1文字追加された際、既存マッチ集合からのフィルタリングでO(k)（k:既存マッチ数）に抑制。
-- **部分ハイライト**: 表示中のウィンドウ範囲外はマッチ計算を遅延し、スクロール時に再配信。
-- **LRUキャッシュ**: 最近使用した検索語とマッチ位置をLRUで保持し、同一クエリの再検索を高速化。
-
-## エラーハンドリング
-| エラー種別 | 発生条件 | 対応 |
-| --- | --- | --- |
-| `SearchError::EmptyPattern` | 文字削除で空文字列になった場合 | マッチリストを初期化し成功扱い |
-| `SearchError::NotFound` | マッチが見つからない | 状態は維持、UIに失敗表示 |
-| `SearchError::InvalidUtf8Boundary` | ギャップバッファの境界計算で失敗 | `AltreError`に昇格し操作を中断 |
-
-## テスト方針
-- 単体テスト: `incremental.rs` の状態遷移、`matcher.rs` のマッチング精度
-- 統合テスト: TUIイベント→検索→ハイライトのエンドツーエンド確認
-- プロパティテスト: ランダム文字列上での差分マッチングの整合性検証
-- ベンチマーク: 1MBテキスト、10文字パターンでのレイテンシ測定
-
-## 将来拡張
-- `RegexMatcher` 実装による正規表現検索
-- 検索履歴のリングバッファ化とミニバッファ履歴連携
-- 検索結果のストリーミング通知（大規模ファイル対応）
+## 今後の拡張
+- 正規表現検索 (`RegexMatcher`) の追加とグループハイライト。
+- 検索語履歴のリングバッファ化（`M-p`/`M-n` で履歴移動）。
+- 大規模ファイルのための段階的サンプリングやバックグラウンド検索。
+- alisp コマンドからの検索API公開。
 

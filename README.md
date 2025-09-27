@@ -292,6 +292,26 @@ mv tasks/proceeding/02_gap_buffer_design.md tasks/done/
   - ミニバッファの単体・履歴・補完・統合・エラー検証テストを追加
   - TempDirベースの補完用フィクスチャとキー入力ヘルパーを整備
   - `cargo test minibuffer --offline` で安定成功することを確認
+- **17_search_replace_specification_analysis.md** (2025-09-27 完了)
+  - Emacs検索・置換機能を分析しaltre向け仕様を策定
+  - `docs/design/search_replace_spec.md` にMVP範囲と非機能要件を文書化
+  - キーバインドとキャンセル/折り返し挙動を定義
+- **18_incremental_search_architecture_design.md** (2025-09-27 完了)
+  - インクリメンタル検索モジュール構成と状態遷移を設計
+  - `docs/design/incremental_search_architecture.md` を新規作成
+  - 差分マッチングとUI統合フローを整理
+- **19_search_replace_data_structures.md** (2025-09-27 完了)
+  - 検索アルゴリズム選択戦略とキャッシュ設計を確立
+  - `docs/design/search_data_structures.md` にデータ構造仕様を記述
+  - 差分更新・大規模テキスト対応の方針をまとめる
+- **20_search_replace_ui_ux_design.md** (2025-09-27 完了)
+  - ミニバッファ表示・ハイライト設計を策定
+  - `docs/design/search_ui_ux.md` を新規作成
+  - 状態別メッセージとアクセシビリティ要件を定義
+- **21_incremental_search_implementation.md** (2025-09-27 完了)
+  - `app/src/search/` にインクリメンタル検索エンジンと状態管理を実装
+  - C-s/C-r 等のキーバインドをアプリに統合し検索UI/ハイライトを描画
+  - `cargo test -- --test-threads=1` で全テストを確認
 
 ### 関連ドキュメント
 - **詳細仕様**: `QA.md` - プロジェクト仕様と開発決定事項

@@ -83,6 +83,8 @@ pub struct TextEditor {
     buffer: GapBuffer,
     /// カーソル位置
     cursor: CursorPosition,
+    /// マーク位置（文字インデックス）
+    mark: Option<usize>,
     /// ナビゲーションシステム
     navigation: NavigationSystem,
     /// 変更通知システム
@@ -97,6 +99,7 @@ impl TextEditor {
         Self {
             buffer: GapBuffer::new(),
             cursor: CursorPosition::new(),
+            mark: None,
             navigation: NavigationSystem::new(),
             change_notifier: ChangeNotifier::new(),
             last_operation_time: Instant::now(),
@@ -108,6 +111,7 @@ impl TextEditor {
         Self {
             buffer: GapBuffer::from_str(s),
             cursor: CursorPosition::new(),
+            mark: None,
             navigation: NavigationSystem::new(),
             change_notifier: ChangeNotifier::new(),
             last_operation_time: Instant::now(),
@@ -304,6 +308,7 @@ impl TextEditor {
         // 行・列情報を再計算
         self.recalculate_cursor_line_column(&text);
         let _ = self.sync_navigation_cursor();
+        self.clamp_mark_position();
     }
 
     /// カーソルの行・列位置を再計算
@@ -339,6 +344,7 @@ impl TextEditor {
         // 行・列の境界値も調整
         let text = self.buffer.to_string();
         self.clamp_cursor_line_column(&text);
+        self.clamp_mark_position();
     }
 
     /// 行・列位置の境界値チェック
@@ -413,6 +419,39 @@ impl TextEditor {
             .replace("\r", "\n")    // Mac CR → LF
     }
 
+    fn adjust_mark_on_insert(&mut self, at: usize, len: usize) {
+        if len == 0 {
+            return;
+        }
+        if let Some(mark) = self.mark {
+            if at <= mark {
+                self.mark = Some(mark + len);
+            }
+        }
+    }
+
+    fn adjust_mark_on_delete(&mut self, start: usize, len: usize) {
+        if len == 0 {
+            return;
+        }
+        if let Some(mark) = self.mark {
+            if mark >= start + len {
+                self.mark = Some(mark - len);
+            } else if mark >= start {
+                self.mark = Some(start);
+            }
+        }
+    }
+
+    fn clamp_mark_position(&mut self) {
+        if let Some(mark) = self.mark {
+            let len = self.buffer.len_chars();
+            if mark > len {
+                self.mark = Some(len);
+            }
+        }
+    }
+
     /// ナビゲーション状態をカーソル位置と同期
     fn sync_navigation_cursor(&mut self) -> Result<()> {
         self.navigation.set_cursor(self.cursor);
@@ -477,6 +516,8 @@ impl EditOperations for TextEditor {
             // 2. カーソル位置の取得
             let cursor_pos = editor.cursor.char_pos;
 
+            editor.adjust_mark_on_insert(cursor_pos, 1);
+
             // 3. ギャップバッファに挿入
             editor.buffer.insert(cursor_pos, ch)
                 .map_err(|_| EditError::BufferError("挿入失敗".to_string()))?;
@@ -497,6 +538,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(())
         });
@@ -519,12 +561,14 @@ impl EditOperations for TextEditor {
 
             let cursor_pos = editor.cursor.char_pos;
 
+             let char_count = normalized.chars().count();
+             editor.adjust_mark_on_insert(cursor_pos, char_count);
+
             // ギャップバッファに挿入
             editor.buffer.insert_str(cursor_pos, &normalized)
                 .map_err(|_| EditError::BufferError("文字列挿入失敗".to_string()))?;
 
             // カーソル位置を更新
-            let char_count = normalized.chars().count();
             editor.cursor.char_pos += char_count;
             editor.update_cursor_after_insert(&normalized);
 
@@ -535,6 +579,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(())
         });
@@ -558,6 +603,7 @@ impl EditOperations for TextEditor {
             }
 
             let pos = editor.cursor.char_pos - 1;
+            editor.adjust_mark_on_delete(pos, 1);
             let deleted_char = editor.buffer.delete(pos)
                 .map_err(|_| EditError::BufferError("削除失敗".to_string()))?;
 
@@ -582,6 +628,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(deleted_char)
         });
@@ -600,6 +647,7 @@ impl EditOperations for TextEditor {
             }
 
             let pos = editor.cursor.char_pos;
+            editor.adjust_mark_on_delete(pos, 1);
             let deleted_char = editor.buffer.delete(pos)
                 .map_err(|_| EditError::BufferError("削除失敗".to_string()))?;
 
@@ -612,6 +660,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(deleted_char)
         });
@@ -626,6 +675,7 @@ impl EditOperations for TextEditor {
 
         let result = self.safe_execute(|editor| {
             let cursor_pos = editor.cursor.char_pos;
+            editor.adjust_mark_on_insert(cursor_pos, 1);
 
             // LF統一ポリシー
             editor.buffer.insert_str(cursor_pos, "\n")
@@ -643,6 +693,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(())
         });
@@ -663,6 +714,9 @@ impl EditOperations for TextEditor {
             let deleted_text = editor.buffer.delete_range(start, end)
                 .map_err(|_| EditError::BufferError("範囲削除失敗".to_string()))?;
 
+            let removed_len = deleted_text.chars().count();
+            editor.adjust_mark_on_delete(start, removed_len);
+
             // カーソル位置を調整
             if editor.cursor.char_pos > start {
                 if editor.cursor.char_pos <= end {
@@ -682,6 +736,7 @@ impl EditOperations for TextEditor {
             });
 
             editor.sync_navigation_cursor()?;
+            editor.clamp_mark_position();
 
             Ok(deleted_text)
         });
@@ -760,6 +815,99 @@ fn word_boundary_backward(chars: &[char], end: usize) -> usize {
     }
 
     idx
+}
+
+impl TextEditor {
+    /// マークを現在のカーソル位置に設定
+    pub fn set_mark(&mut self) {
+        self.mark = Some(self.cursor.char_pos);
+    }
+
+    /// マークを消去
+    pub fn clear_mark(&mut self) {
+        self.mark = None;
+    }
+
+    /// マーク位置を取得
+    pub fn mark(&self) -> Option<usize> {
+        self.mark
+    }
+
+    /// 選択範囲（マークとポイント）を取得
+    pub fn selection_range(&self) -> Option<(usize, usize)> {
+        let mark = self.mark?;
+        let cursor = self.cursor.char_pos;
+        if mark == cursor {
+            None
+        } else if mark < cursor {
+            Some((mark, cursor))
+        } else {
+            Some((cursor, mark))
+        }
+    }
+
+    /// 範囲テキストを取得
+    pub fn get_text_range(&self, start: usize, end: usize) -> Result<String> {
+        self.buffer
+            .substring(start, end)
+            .map_err(|_| EditError::BufferError("範囲取得失敗".to_string()).into())
+    }
+
+    /// 選択範囲のテキストを取得
+    pub fn selection_text(&self) -> Result<Option<String>> {
+        if let Some((start, end)) = self.selection_range() {
+            self.get_text_range(start, end).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 範囲を削除（公開用ラッパー）
+    pub fn delete_range_span(&mut self, start: usize, end: usize) -> Result<String> {
+        <Self as EditOperations>::delete_range(self, start, end)
+    }
+
+    /// カーソルとマークを入れ替える
+    pub fn swap_cursor_and_mark(&mut self) -> Result<()> {
+        let mark = match self.mark {
+            Some(mark) => mark,
+            None => return Ok(()),
+        };
+
+        let cursor_pos = self.cursor.char_pos;
+        self.move_cursor_to_char(mark)?;
+        self.mark = Some(cursor_pos);
+        Ok(())
+    }
+
+    /// バッファ全体を選択
+    pub fn mark_entire_buffer(&mut self) -> Result<()> {
+        self.mark = Some(0);
+        let len = self.buffer.len_chars();
+        self.move_cursor_to_char(len)
+    }
+
+    /// 指定位置の行・列を取得
+    pub fn position_to_line_column(&self, char_pos: usize) -> (usize, usize) {
+        let mut line = 0usize;
+        let mut column = 0usize;
+        let mut count = 0usize;
+
+        for ch in self.buffer.to_string().chars() {
+            if count == char_pos {
+                return (line, column);
+            }
+            if ch == '\n' {
+                line += 1;
+                column = 0;
+            } else {
+                column += 1;
+            }
+            count += 1;
+        }
+
+        (line, column)
+    }
 }
 
 #[cfg(test)]

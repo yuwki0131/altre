@@ -109,6 +109,11 @@ pub enum Command {
     Yank,
     YankPop,
     KeyboardQuit,
+    SetMark,
+    KillRegion,
+    CopyRegion,
+    ExchangePointAndMark,
+    MarkBuffer,
     ScrollPageDown,
     ScrollPageUp,
     Recenter,
@@ -152,6 +157,11 @@ impl Command {
             "yank" => Command::Yank,
             "yank-pop" => Command::YankPop,
             "keyboard-quit" => Command::KeyboardQuit,
+            "set-mark-command" => Command::SetMark,
+            "kill-region" => Command::KillRegion,
+            "copy-region-as-kill" => Command::CopyRegion,
+            "exchange-point-and-mark" => Command::ExchangePointAndMark,
+            "mark-whole-buffer" => Command::MarkBuffer,
             "scroll-up" => Command::ScrollPageDown,
             "scroll-down" => Command::ScrollPageUp,
             "recenter-top-bottom" => Command::Recenter,
@@ -189,6 +199,11 @@ impl Command {
             Command::Yank => "キルリングから貼り付け",
             Command::YankPop => "直前のヤンクを置き換え",
             Command::KeyboardQuit => "操作をキャンセル",
+            Command::SetMark => "マークを設定",
+            Command::KillRegion => "リージョンを削除",
+            Command::CopyRegion => "リージョンをコピー",
+            Command::ExchangePointAndMark => "カーソルとマークを交換",
+            Command::MarkBuffer => "バッファ全体を選択",
             Command::ScrollPageDown => "画面を下にスクロール",
             Command::ScrollPageUp => "画面を上にスクロール",
             Command::Recenter => "画面を再配置",
@@ -358,8 +373,13 @@ impl CommandProcessor {
             | Command::ScrollPageUp
             | Command::Recenter
             | Command::ScrollLeft
-            | Command::ScrollRight => {
-                CommandResult::error("スクロールコマンドはアプリ側で処理します".to_string())
+            | Command::ScrollRight
+            | Command::SetMark
+            | Command::KillRegion
+            | Command::CopyRegion
+            | Command::ExchangePointAndMark
+            | Command::MarkBuffer => {
+                CommandResult::error("このコマンドはアプリ側で処理します".to_string())
             }
             Command::FindFile => self.execute_find_file(),
             Command::SaveBuffer => self.execute_save_buffer(),
@@ -678,6 +698,11 @@ mod tests {
         assert!(matches!(Command::from_string("recenter-top-bottom"), Command::Recenter));
         assert!(matches!(Command::from_string("scroll-left"), Command::ScrollLeft));
         assert!(matches!(Command::from_string("scroll-right"), Command::ScrollRight));
+        assert!(matches!(Command::from_string("set-mark-command"), Command::SetMark));
+        assert!(matches!(Command::from_string("kill-region"), Command::KillRegion));
+        assert!(matches!(Command::from_string("copy-region-as-kill"), Command::CopyRegion));
+        assert!(matches!(Command::from_string("exchange-point-and-mark"), Command::ExchangePointAndMark));
+        assert!(matches!(Command::from_string("mark-whole-buffer"), Command::MarkBuffer));
     }
 
     #[test]

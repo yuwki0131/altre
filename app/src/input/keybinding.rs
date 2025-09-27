@@ -211,6 +211,20 @@ impl Key {
         }
     }
 
+    pub fn ctrl_w() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('w'),
+        }
+    }
+
+    pub fn alt_w() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('w'),
+        }
+    }
+
     pub fn ctrl_v() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -250,6 +264,13 @@ impl Key {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
             code: KeyCode::Char('g'),
+        }
+    }
+
+    pub fn ctrl_space() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char(' '),
         }
     }
 
@@ -319,6 +340,16 @@ pub enum Action {
     InsertNewline,
     /// 行キル
     KillLine,
+    /// マーク設定
+    SetMark,
+    /// リージョンキル
+    KillRegion,
+    /// リージョンコピー
+    CopyRegion,
+    /// カーソルとマークの交換
+    ExchangePointAndMark,
+    /// バッファ全選択
+    MarkBuffer,
     /// ページスクロール（下）
     ScrollPageDown,
     /// ページスクロール（上）
@@ -368,6 +399,11 @@ impl Action {
             Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
             Action::KillLine => Some(Command::KillLine),
+            Action::SetMark => Some(Command::SetMark),
+            Action::KillRegion => Some(Command::KillRegion),
+            Action::CopyRegion => Some(Command::CopyRegion),
+            Action::ExchangePointAndMark => Some(Command::ExchangePointAndMark),
+            Action::MarkBuffer => Some(Command::MarkBuffer),
             Action::ScrollPageDown => Some(Command::ScrollPageDown),
             Action::ScrollPageUp => Some(Command::ScrollPageUp),
             Action::Recenter => Some(Command::Recenter),
@@ -577,6 +613,9 @@ impl ModernKeyMap {
         single.insert(Key::ctrl_v(), Action::ScrollPageDown);
         single.insert(Key::alt_v(), Action::ScrollPageUp);
         single.insert(Key::ctrl_l(), Action::Recenter);
+        single.insert(Key::ctrl_space(), Action::SetMark);
+        single.insert(Key::ctrl_w(), Action::KillRegion);
+        single.insert(Key::alt_w(), Action::CopyRegion);
 
         // 矢印キー
         single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
@@ -604,6 +643,7 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
         cx_prefix.insert(Key::ctrl_s(), Action::FileSave);
         cx_prefix.insert(Key::ctrl_c(), Action::Quit);
+        cx_prefix.insert(Key::ctrl_x(), Action::ExchangePointAndMark);
         cx_prefix.insert(Key::shift_less(), Action::ScrollHorizontalLeft);
         cx_prefix.insert(
             Key {
@@ -619,6 +659,13 @@ impl ModernKeyMap {
                 code: KeyCode::Char('>'),
             },
             Action::ScrollHorizontalRight,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('h'),
+            },
+            Action::MarkBuffer,
         );
 
         // コマンド実行
@@ -1079,6 +1126,17 @@ mod tests {
         // C-f 入力
         let result2 = keymap.process_key(Key::ctrl_f());
         assert_eq!(result2, KeyProcessResult::Action(Action::FileOpen));
+
+        // C-x C-x
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+
+        // C-x h
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            KeyProcessResult::Action(Action::MarkBuffer)
+        );
     }
 
     #[test]
@@ -1091,6 +1149,9 @@ mod tests {
         assert_eq!(keymap.process_key(Key::ctrl_v()), KeyProcessResult::Action(Action::ScrollPageDown));
         assert_eq!(keymap.process_key(Key::alt_v()), KeyProcessResult::Action(Action::ScrollPageUp));
         assert_eq!(keymap.process_key(Key::ctrl_l()), KeyProcessResult::Action(Action::Recenter));
+        assert_eq!(keymap.process_key(Key::ctrl_space()), KeyProcessResult::Action(Action::SetMark));
+        assert_eq!(keymap.process_key(Key::ctrl_w()), KeyProcessResult::Action(Action::KillRegion));
+        assert_eq!(keymap.process_key(Key::alt_w()), KeyProcessResult::Action(Action::CopyRegion));
 
         // C-g でプレフィックス解除
         keymap.process_key(Key::ctrl_x());
@@ -1101,6 +1162,14 @@ mod tests {
         assert_eq!(keymap.process_key(Key::shift_less()), KeyProcessResult::Action(Action::ScrollHorizontalLeft));
         keymap.process_key(Key::ctrl_x());
         assert_eq!(keymap.process_key(Key::shift_greater()), KeyProcessResult::Action(Action::ScrollHorizontalRight));
+
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            KeyProcessResult::Action(Action::MarkBuffer)
+        );
     }
 
     #[test]
@@ -1166,6 +1235,11 @@ mod tests {
         assert_eq!(Action::Recenter.to_command(), Some(Command::Recenter));
         assert_eq!(Action::ScrollHorizontalLeft.to_command(), Some(Command::ScrollLeft));
         assert_eq!(Action::ScrollHorizontalRight.to_command(), Some(Command::ScrollRight));
+        assert_eq!(Action::SetMark.to_command(), Some(Command::SetMark));
+        assert_eq!(Action::KillRegion.to_command(), Some(Command::KillRegion));
+        assert_eq!(Action::CopyRegion.to_command(), Some(Command::CopyRegion));
+        assert_eq!(Action::ExchangePointAndMark.to_command(), Some(Command::ExchangePointAndMark));
+        assert_eq!(Action::MarkBuffer.to_command(), Some(Command::MarkBuffer));
         assert_eq!(Action::Yank.to_command(), Some(Command::Yank));
         assert_eq!(Action::YankPop.to_command(), Some(Command::YankPop));
         assert_eq!(Action::KeyboardQuit.to_command(), Some(Command::KeyboardQuit));

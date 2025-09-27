@@ -8,7 +8,7 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, ViewportState};
-use crate::search::{SearchController, SearchDirection};
+use crate::search::{SearchController, SearchDirection, SearchHighlight};
 use crate::editor::KillRing;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
@@ -453,6 +453,14 @@ impl App {
                 self.keyboard_quit();
                 Ok(())
             }
+            Command::SetMark => {
+                self.set_mark_command();
+                Ok(())
+            }
+            Command::KillRegion => self.kill_region(),
+            Command::CopyRegion => self.copy_region(),
+            Command::ExchangePointAndMark => self.exchange_point_and_mark(),
+            Command::MarkBuffer => self.mark_entire_buffer(),
             Command::ScrollPageDown => {
                 self.scroll_page_down();
                 Ok(())
@@ -604,6 +612,69 @@ impl App {
         }
     }
 
+    fn set_mark_command(&mut self) {
+        self.editor.set_mark();
+        self.show_info_message("マークを設定しました");
+        self.reset_recenter_cycle();
+    }
+
+    fn kill_region(&mut self) -> Result<()> {
+        if let Some((start, end)) = self.editor.selection_range() {
+            let text = self.editor.delete_range_span(start, end)?;
+            if text.is_empty() {
+                self.show_info_message("選択範囲が空です");
+            } else {
+                self.record_kill(text, KillMerge::Append);
+                self.kill_context = KillContext::Kill;
+                self.last_yank_range = None;
+            }
+            self.editor.clear_mark();
+            self.reset_recenter_cycle();
+            self.ensure_cursor_visible();
+        } else {
+            self.show_info_message("リージョンが選択されていません");
+        }
+        Ok(())
+    }
+
+    fn copy_region(&mut self) -> Result<()> {
+        if let Some((start, end)) = self.editor.selection_range() {
+            let text = self.editor.get_text_range(start, end)?;
+            if text.is_empty() {
+                self.show_info_message("選択範囲が空です");
+            } else {
+                self.record_kill(text, KillMerge::Append);
+                self.kill_context = KillContext::Kill;
+                self.last_yank_range = None;
+                self.show_info_message("リージョンをコピーしました");
+            }
+        } else {
+            self.show_info_message("リージョンが選択されていません");
+        }
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    fn exchange_point_and_mark(&mut self) -> Result<()> {
+        if self.editor.mark().is_none() {
+            self.show_info_message("マークが設定されていません");
+            return Ok(());
+        }
+        self.editor.swap_cursor_and_mark()?;
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    fn mark_entire_buffer(&mut self) -> Result<()> {
+        self.editor.mark_entire_buffer()?;
+        self.show_info_message("バッファ全体を選択しました");
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
     fn yank(&mut self) {
         let Some(text) = self.kill_ring.yank() else {
             self.show_info_message("キルリングが空です");
@@ -678,6 +749,7 @@ impl App {
         if self.search.is_active() {
             self.search.cancel(&mut self.editor);
         }
+        self.editor.clear_mark();
         self.show_info_message("キャンセルしました");
         self.ensure_cursor_visible();
     }
@@ -708,6 +780,50 @@ impl App {
         }
 
         (lines.max(1), max_columns)
+    }
+
+    fn selection_highlights(&self) -> Vec<SearchHighlight> {
+        let Some((start, end)) = self.editor.selection_range() else {
+            return Vec::new();
+        };
+
+        if start == end {
+            return Vec::new();
+        }
+
+        let (start_line, start_col) = self.editor.position_to_line_column(start);
+        let (end_line, end_col) = self.editor.position_to_line_column(end);
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut highlights = Vec::new();
+
+        let push_highlight = |line: usize, s: usize, e: usize, list: &mut Vec<SearchHighlight>| {
+            if e > s {
+                list.push(SearchHighlight {
+                    line,
+                    start_column: s,
+                    end_column: e,
+                    is_current: false,
+                });
+            }
+        };
+
+        if start_line == end_line {
+            push_highlight(start_line, start_col, end_col, &mut highlights);
+            return highlights;
+        }
+
+        let first_line_len = lines.get(start_line).map(|l| l.chars().count()).unwrap_or(0);
+        push_highlight(start_line, start_col, first_line_len, &mut highlights);
+
+        for line in (start_line + 1)..end_line {
+            let len = lines.get(line).map(|l| l.chars().count()).unwrap_or(0);
+            push_highlight(line, 0, len, &mut highlights);
+        }
+
+        push_highlight(end_line, 0, end_col, &mut highlights);
+
+        highlights
     }
 
     fn ensure_cursor_visible(&mut self) {
@@ -1001,7 +1117,11 @@ impl App {
 
     fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
         let search_ui = self.search.ui_state();
-        let highlights = self.search.highlights();
+        let search_highlights = self.search.highlights();
+        let selection_highlights = self.selection_highlights();
+        let mut combined_highlights = Vec::with_capacity(search_highlights.len() + selection_highlights.len());
+        combined_highlights.extend_from_slice(search_highlights);
+        combined_highlights.extend(selection_highlights.into_iter());
 
         self.renderer
             .render(
@@ -1010,7 +1130,7 @@ impl App {
                 &mut self.viewport,
                 &self.minibuffer,
                 search_ui,
-                highlights,
+                &combined_highlights,
             )
             .map_err(|err| Self::terminal_error("render", err))
     }

@@ -4,9 +4,9 @@
 
 use crate::buffer::{BufferManager, CursorPosition, EditOperations, NavigationAction, TextEditor};
 use crate::error::{AltreError, Result, UiError};
-use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action};
+use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
-use crate::minibuffer::MinibufferSystem;
+use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::AdvancedRenderer;
 use crate::search::{SearchController, SearchDirection};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -182,7 +182,18 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        // ミニバッファがアクティブな場合の処理
+        // ミニバッファのメッセージ表示があれば先に消去
+        if self.minibuffer.is_message_displayed() {
+            let key = Key::from(key_event);
+            if let Err(err) = self.minibuffer.handle_event(SystemEvent::KeyInput(key)) {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの処理に失敗しました: {}", err
+                )));
+                return Ok(());
+            }
+        }
+
+        // ミニバッファがインタラクティブな場合の処理
         if self.minibuffer.is_active() {
             return self.handle_minibuffer_key(key_event);
         }
@@ -520,9 +531,6 @@ impl App {
     }
 
     fn handle_minibuffer_key(&mut self, key_event: KeyEvent) -> Result<()> {
-        use crate::input::keybinding::Key;
-        use crate::minibuffer::{SystemEvent, SystemResponse};
-
         let key: Key = key_event.into();
 
         match self.minibuffer.handle_event(SystemEvent::KeyInput(key)) {
@@ -606,7 +614,6 @@ impl App {
     }
 
     fn process_minibuffer_timer(&mut self) {
-        use crate::minibuffer::SystemEvent;
         if let Err(err) = self.minibuffer.handle_event(SystemEvent::Update) {
             eprintln!("minibuffer update error: {}", err);
         }

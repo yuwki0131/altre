@@ -143,6 +143,30 @@ impl TextEditor {
         });
     }
 
+    /// 文字インデックスにカーソルを移動
+    pub fn move_cursor_to_char(&mut self, char_pos: usize) -> Result<()> {
+        self.start_performance_measurement();
+
+        let result = self.safe_execute(|editor| {
+            let len = editor.buffer.len_chars();
+            let target = char_pos.min(len);
+            let old_position = editor.cursor;
+
+            editor.cursor.char_pos = target;
+            editor.sync_cursor_with_buffer();
+
+            editor.change_notifier.notify(ChangeEvent::CursorMove {
+                old_position,
+                new_position: editor.cursor,
+            });
+
+            Ok(())
+        });
+
+        self.end_performance_measurement("move_cursor_to_char");
+        result
+    }
+
     /// 変更リスナーを追加
     pub fn add_change_listener(&mut self, listener: Box<dyn ChangeListener>) {
         self.change_notifier.add_listener(listener);
@@ -282,11 +306,8 @@ impl TextEditor {
 
     /// ナビゲーション状態をカーソル位置と同期
     fn sync_navigation_cursor(&mut self) -> Result<()> {
-        let text = self.buffer.to_string();
         self.navigation.set_cursor(self.cursor);
-        self.navigation
-            .recover_from_invalid_position(&text)
-            .map_err(|e| EditError::BufferError(format!("ナビゲーション更新に失敗しました: {}", e)).into())
+        Ok(())
     }
 
     /// ナビゲーション操作の実行

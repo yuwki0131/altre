@@ -8,6 +8,7 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::MinibufferSystem;
 use crate::ui::AdvancedRenderer;
+use crate::search::{SearchController, SearchDirection};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
@@ -46,6 +47,8 @@ pub struct App {
     keymap: ModernKeyMap,
     /// コマンドプロセッサー
     command_processor: CommandProcessor,
+    /// 検索コントローラ
+    search: SearchController,
     /// 現在のプレフィックスキー状態
     current_prefix: Option<String>,
     /// デバッグモード
@@ -64,6 +67,7 @@ impl App {
             renderer: AdvancedRenderer::new(),
             keymap: ModernKeyMap::new(),
             command_processor: CommandProcessor::new(),
+            search: SearchController::new(),
             current_prefix: None,
             debug_mode: std::env::var("ALTRE_DEBUG").is_ok(),
         })
@@ -183,6 +187,17 @@ impl App {
             return self.handle_minibuffer_key(key_event);
         }
 
+        // 検索モードがアクティブな場合は専用処理
+        if self.search.is_active() {
+            self.handle_search_key(key_event);
+            return Ok(());
+        }
+
+        // 検索開始キー（C-s/C-r）を優先的に処理
+        if self.try_start_search(&key_event) {
+            return Ok(());
+        }
+
         // 特殊キー処理（C-g, ESCなど）
         if self.handle_special_keys(&key_event) {
             return Ok(());
@@ -234,6 +249,73 @@ impl App {
                 true
             }
             _ => false,
+        }
+    }
+
+    fn try_start_search(&mut self, key_event: &KeyEvent) -> bool {
+        if self.keymap.is_partial_match() {
+            return false;
+        }
+
+        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+            match key_event.code {
+                KeyCode::Char('s') | KeyCode::Char('S') => {
+                    self.keymap.reset_partial_match();
+                    self.current_prefix = None;
+                    self.search.start(&mut self.editor, SearchDirection::Forward);
+                    return true;
+                }
+                KeyCode::Char('r') | KeyCode::Char('R') => {
+                    self.keymap.reset_partial_match();
+                    self.current_prefix = None;
+                    self.search.start(&mut self.editor, SearchDirection::Backward);
+                    return true;
+                }
+                _ => {}
+            }
+        }
+
+        false
+    }
+
+    fn handle_search_key(&mut self, key_event: KeyEvent) {
+        use KeyModifiers as KM;
+
+        let modifiers = key_event.modifiers;
+
+        match key_event.code {
+            KeyCode::Char('s') | KeyCode::Char('S') if modifiers.contains(KM::CONTROL) => {
+                self.search.repeat_forward(&mut self.editor);
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') if modifiers.contains(KM::CONTROL) => {
+                self.search.repeat_backward(&mut self.editor);
+            }
+            KeyCode::Char('w') | KeyCode::Char('W') if modifiers.contains(KM::CONTROL) => {
+                self.search.add_word_at_cursor(&mut self.editor);
+            }
+            KeyCode::Char('g') | KeyCode::Char('G') if modifiers.contains(KM::CONTROL) => {
+                self.search.cancel(&mut self.editor);
+            }
+            KeyCode::Enter => {
+                self.search.accept();
+            }
+            KeyCode::Backspace => {
+                self.search.delete_char(&mut self.editor);
+            }
+            KeyCode::Esc => {
+                self.search.cancel(&mut self.editor);
+            }
+            KeyCode::Char(ch) => {
+                if modifiers.contains(KM::CONTROL) || modifiers.contains(KM::ALT) {
+                    // 未対応の制御入力はキャンセル扱い
+                    if modifiers.contains(KM::CONTROL) && (ch == 'g' || ch == 'G') {
+                        self.search.cancel(&mut self.editor);
+                    }
+                } else {
+                    self.search.input_char(&mut self.editor, ch);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -515,8 +597,11 @@ impl App {
     }
 
     fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
+        let search_ui = self.search.ui_state();
+        let highlights = self.search.highlights();
+
         self.renderer
-            .render(terminal, &self.editor, &self.minibuffer)
+            .render(terminal, &self.editor, &self.minibuffer, search_ui, highlights)
             .map_err(|err| Self::terminal_error("render", err))
     }
 

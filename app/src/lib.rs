@@ -20,6 +20,7 @@ pub mod editor;
 // ロジック層
 pub mod input;
 pub mod minibuffer;
+pub mod search;
 
 // 表示層
 pub mod ui;

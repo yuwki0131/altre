@@ -2,13 +2,17 @@
 //!
 //! メインテキスト編集エリアの描画機能
 
+use std::collections::HashMap;
+
 use ratatui::{
     widgets::{Block, Borders, Paragraph},
     layout::Rect,
-    text::Line,
+    text::{Line, Span},
+    style::{Color, Modifier, Style},
     Frame,
 };
 use crate::buffer::TextEditor;
+use crate::search::SearchHighlight;
 use crate::ui::theme::{Theme, ComponentType};
 
 /// ビューポート情報
@@ -52,8 +56,8 @@ impl TextArea {
     }
 
     /// テキストを描画
-    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, content: &str) {
-        let lines = self.prepare_lines(content);
+    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, content: &str, highlights: &[SearchHighlight]) {
+        let lines = self.prepare_lines(content, highlights);
 
         let mut paragraph = Paragraph::new(lines);
 
@@ -72,18 +76,29 @@ impl TextArea {
     }
 
     /// テキストコンテンツを行に分割（カーソルは別途描画）
-    pub fn prepare_lines<'a>(&self, content: &'a str) -> Vec<Line<'a>> {
+    pub fn prepare_lines(&self, content: &str, highlights: &[SearchHighlight]) -> Vec<Line<'static>> {
         let text_lines: Vec<&str> = content.lines().collect();
         let mut lines = Vec::new();
 
-        for &line_text in text_lines.iter() {
-            // 全て通常の行として処理（カーソルは別途描画）
-            lines.push(Line::from(line_text));
+        let mut grouped: HashMap<usize, Vec<&SearchHighlight>> = HashMap::new();
+        for highlight in highlights {
+            grouped.entry(highlight.line).or_default().push(highlight);
+        }
+        for list in grouped.values_mut() {
+            list.sort_by_key(|h| h.start_column);
         }
 
-        // 空のファイルの場合は空行を追加
         if text_lines.is_empty() {
             lines.push(Line::from(""));
+            return lines;
+        }
+
+        for (idx, &line_text) in text_lines.iter().enumerate() {
+            if let Some(highlights) = grouped.get(&idx) {
+                lines.push(build_highlighted_line(line_text, highlights));
+            } else {
+                lines.push(Line::from(line_text.to_string()));
+            }
         }
 
         lines
@@ -174,6 +189,7 @@ impl TextAreaRenderer {
         area: Rect,
         editor: &TextEditor,
         theme: &Theme,
+        highlights: &[SearchHighlight],
         minibuffer_active: bool,
     ) -> Option<(u16, u16)> {
         let content = editor.to_string();
@@ -190,7 +206,7 @@ impl TextAreaRenderer {
             0
         };
 
-        let all_lines = text_area.prepare_lines(&content);
+        let all_lines = text_area.prepare_lines(&content, highlights);
 
         // 表示範囲を計算してスライス
         let visible_lines: Vec<Line> = if viewport_offset < all_lines.len() {
@@ -221,6 +237,60 @@ impl TextAreaRenderer {
             cursor_line.saturating_sub(area_height / 2)
         }
     }
+}
+
+fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> Line<'static> {
+    if highlights.is_empty() {
+        return Line::from(line_text.to_string());
+    }
+
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    let line_len = line_text.chars().count();
+    let mut cursor = 0usize;
+
+    for highlight in highlights {
+        if highlight.start_column >= line_len {
+            continue;
+        }
+
+        let start = highlight.start_column.min(line_len);
+        let end = highlight.end_column.min(line_len);
+
+        if start > cursor {
+            spans.push(Span::raw(substring_by_char(line_text, cursor, start)));
+        }
+
+        if end > start {
+            let segment = substring_by_char(line_text, start, end);
+            let style = if highlight.is_current {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+                    .fg(Color::White)
+                    .bg(Color::Rgb(0, 80, 80))
+            };
+            spans.push(Span::styled(segment, style));
+        }
+
+        cursor = end;
+    }
+
+    if cursor < line_len {
+        spans.push(Span::raw(substring_by_char(line_text, cursor, line_len)));
+    }
+
+    if spans.is_empty() {
+        Line::from(line_text.to_string())
+    } else {
+        Line::from(spans)
+    }
+}
+
+fn substring_by_char(text: &str, start: usize, end: usize) -> String {
+    text.chars().skip(start).take(end.saturating_sub(start)).collect()
 }
 
 impl Default for TextAreaRenderer {

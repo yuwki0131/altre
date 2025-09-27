@@ -153,6 +153,14 @@ impl MinibufferSystem {
         self.minibuffer.is_active()
     }
 
+    /// メッセージ表示中かどうか
+    pub fn is_message_displayed(&self) -> bool {
+        matches!(
+            self.minibuffer.state().mode,
+            super::MinibufferMode::ErrorDisplay { .. } | super::MinibufferMode::InfoDisplay { .. }
+        )
+    }
+
     /// 現在の入力内容を取得
     pub fn current_input(&self) -> &str {
         &self.minibuffer.state().input

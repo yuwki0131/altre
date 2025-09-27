@@ -9,13 +9,14 @@ use crate::ui::{
 };
 use crate::buffer::TextEditor;
 use crate::minibuffer::MinibufferSystem;
+use crate::search::{SearchHighlight, SearchStatus, SearchUiState};
 use ratatui::{
     backend::Backend,
     layout::Rect,
     Frame, Terminal,
     widgets::{Block, Borders, Paragraph, Clear},
-    style::Style,
-    text::Line,
+    style::{Color, Style},
+    text::{Line, Span},
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -182,6 +183,8 @@ impl AdvancedRenderer {
         terminal: &mut Terminal<B>,
         editor: &TextEditor,
         minibuffer: &MinibufferSystem,
+        search_ui: Option<&SearchUiState>,
+        search_highlights: &[SearchHighlight],
     ) -> io::Result<()> {
         let frame_start = Instant::now();
 
@@ -196,7 +199,7 @@ impl AdvancedRenderer {
             // レイアウト計算
             let areas = self.layout_manager.calculate_areas(
                 size,
-                minibuffer.is_active(),
+                minibuffer.is_active() || search_ui.is_some(),
                 true, // ステータスライン表示
             );
 
@@ -204,7 +207,7 @@ impl AdvancedRenderer {
             let diffs = self.calculate_diffs(editor, minibuffer, &areas);
 
             // レンダリング実行
-            self.render_frame(frame, editor, minibuffer, &areas, &diffs);
+            self.render_frame(frame, editor, minibuffer, search_ui, search_highlights, &areas, &diffs);
         })?;
 
         // 統計更新
@@ -220,11 +223,14 @@ impl AdvancedRenderer {
         frame: &mut Frame<'_>,
         editor: &TextEditor,
         minibuffer: &MinibufferSystem,
+        search_ui: Option<&SearchUiState>,
+        search_highlights: &[SearchHighlight],
         areas: &HashMap<AreaType, Rect>,
         _diffs: &[AreaDiff],
     ) {
         let theme = self.theme_manager.current_theme();
         let mut cursor_position: Option<(u16, u16)> = None;
+        let search_active = search_ui.is_some();
 
         // テキストエリア描画
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
@@ -233,9 +239,10 @@ impl AdvancedRenderer {
                 text_area,
                 editor,
                 theme,
-                minibuffer.is_active(),
+                if search_active { search_highlights } else { &[] },
+                minibuffer.is_active() || search_active,
             );
-            if !minibuffer.is_active() {
+            if !minibuffer.is_active() && !search_active {
                 cursor_position = text_cursor_pos;
             }
         }
@@ -247,8 +254,11 @@ impl AdvancedRenderer {
 
         // ミニバッファ描画
         if let Some(&minibuffer_area) = areas.get(&AreaType::Minibuffer) {
-            if minibuffer.is_active() {
-                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer);
+            if let Some(search) = search_ui {
+                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, Some(search));
+                cursor_position = minibuffer_cursor_pos;
+            } else if minibuffer.is_active() {
+                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, None);
                 cursor_position = minibuffer_cursor_pos;
             }
         }
@@ -265,39 +275,87 @@ impl AdvancedRenderer {
         frame: &mut Frame<'_>,
         area: Rect,
         minibuffer: &MinibufferSystem,
+        search_ui: Option<&SearchUiState>,
     ) -> Option<(u16, u16)> {
-        use ratatui::style::Color;
-
         let state = minibuffer.minibuffer_state();
+        if let Some(search) = search_ui {
+            let (line, cursor) = Self::search_line(area, search);
+            let paragraph = Paragraph::new(line).style(Style::default());
+            frame.render_widget(paragraph, area);
+            cursor
+        } else {
+            let (content, cursor_pos) = match &state.mode {
+                crate::minibuffer::MinibufferMode::FindFile
+                | crate::minibuffer::MinibufferMode::ExecuteCommand
+                | crate::minibuffer::MinibufferMode::EvalExpression
+                | crate::minibuffer::MinibufferMode::WriteFile => {
+                    let line = Self::line_without_cursor(&state.prompt, &state.input);
+                    let cursor_x = area.x + state.prompt.chars().count() as u16 + state.cursor_pos as u16;
+                    (line, Some((cursor_x, area.y)))
+                }
+                crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
+                    (Line::from(message.clone()).style(Style::default().fg(Color::Red)), None)
+                }
+                crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
+                    (Line::from(message.clone()).style(Style::default().fg(Color::Green)), None)
+                }
+                _ => (Line::from(""), None),
+            };
 
-        let (content, cursor_pos) = match &state.mode {
-            crate::minibuffer::MinibufferMode::FindFile
-            | crate::minibuffer::MinibufferMode::ExecuteCommand
-            | crate::minibuffer::MinibufferMode::EvalExpression
-            | crate::minibuffer::MinibufferMode::WriteFile => {
-                let line = Self::line_without_cursor(&state.prompt, &state.input);
-                let cursor_x = area.x + state.prompt.chars().count() as u16 + state.cursor_pos as u16;
-                (line, Some((cursor_x, area.y)))
-            }
-            crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
-                (Line::from(message.clone()).style(Style::default().fg(Color::Red)), None)
-            }
-            crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
-                (Line::from(message.clone()).style(Style::default().fg(Color::Green)), None)
-            }
-            _ => (Line::from(""), None),
+            let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
+            frame.render_widget(paragraph, area);
+
+            cursor_pos
+        }
+    }
+
+    fn search_line(area: Rect, search: &SearchUiState) -> (Line<'static>, Option<(u16, u16)>) {
+        let prompt_text = format!("{}: ", search.prompt_label);
+        let mut spans: Vec<Span<'static>> = Vec::new();
+        spans.push(Span::styled(prompt_text.clone(), Style::default().fg(Color::Cyan)));
+
+        let pattern_style = match search.status {
+            SearchStatus::Active => Style::default().fg(Color::White),
+            SearchStatus::Wrapped => Style::default().fg(Color::Yellow),
+            SearchStatus::NotFound => Style::default().fg(Color::Red),
         };
 
-        let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
-        frame.render_widget(paragraph, area);
+        spans.push(Span::styled(search.pattern.clone(), pattern_style));
 
-        cursor_pos
+        if search.total_matches > 0 {
+            let current = search.current_match.unwrap_or(0);
+            spans.push(Span::styled(
+                format!(" [{}/{}]", current, search.total_matches),
+                Style::default().fg(Color::Gray),
+            ));
+        }
+
+        if search.wrapped {
+            spans.push(Span::styled(" [wrap]", Style::default().fg(Color::Yellow)));
+        }
+
+        if let Some(message) = &search.message {
+            let style = if search.is_error() {
+                Style::default().fg(Color::Red)
+            } else {
+                Style::default().fg(Color::Green)
+            };
+            spans.push(Span::styled(format!(" {}", message), style));
+        }
+
+        let mut cursor_col = prompt_text.chars().count() + search.pattern.chars().count();
+        let max_col = area.width.saturating_sub(1) as usize;
+        if cursor_col > max_col {
+            cursor_col = max_col;
+        }
+        let cursor_x = area.x + cursor_col as u16;
+        let cursor_pos = Some((cursor_x, area.y));
+
+        (Line::from(spans), cursor_pos)
     }
 
     /// ミニバッファ用のカーソルなし行作成
     fn line_without_cursor(prompt: &str, input: &str) -> Line<'static> {
-        use ratatui::{text::Span, style::Color};
-
         let mut spans: Vec<Span<'static>> = Vec::new();
         spans.push(Span::styled(prompt.to_string(), Style::default().fg(Color::Cyan)));
         spans.push(Span::raw(input.to_string()));

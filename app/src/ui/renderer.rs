@@ -3,9 +3,10 @@
 //! 60fps描画、差分更新、画面更新最適化を実現
 
 use crate::ui::{
-    layout::{LayoutManager, AreaType},
-    theme::{ThemeManager, ComponentType},
+    layout::{AreaType, LayoutManager},
     text_area::TextAreaRenderer,
+    theme::{ComponentType, ThemeManager},
+    ViewportState,
 };
 use crate::buffer::TextEditor;
 use crate::minibuffer::MinibufferSystem;
@@ -182,6 +183,7 @@ impl AdvancedRenderer {
         &mut self,
         terminal: &mut Terminal<B>,
         editor: &TextEditor,
+        viewport: &mut ViewportState,
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
@@ -207,7 +209,16 @@ impl AdvancedRenderer {
             let diffs = self.calculate_diffs(editor, minibuffer, &areas);
 
             // レンダリング実行
-            self.render_frame(frame, editor, minibuffer, search_ui, search_highlights, &areas, &diffs);
+            self.render_frame(
+                frame,
+                editor,
+                viewport,
+                minibuffer,
+                search_ui,
+                search_highlights,
+                &areas,
+                &diffs,
+            );
         })?;
 
         // 統計更新
@@ -222,6 +233,7 @@ impl AdvancedRenderer {
         &mut self,
         frame: &mut Frame<'_>,
         editor: &TextEditor,
+        viewport: &mut ViewportState,
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
@@ -238,6 +250,7 @@ impl AdvancedRenderer {
                 frame,
                 text_area,
                 editor,
+                viewport,
                 theme,
                 if search_active { search_highlights } else { &[] },
                 minibuffer.is_active() || search_active,

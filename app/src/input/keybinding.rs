@@ -211,6 +211,41 @@ impl Key {
         }
     }
 
+    pub fn ctrl_v() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('v'),
+        }
+    }
+
+    pub fn alt_v() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('v'),
+        }
+    }
+
+    pub fn ctrl_l() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('l'),
+        }
+    }
+
+    pub fn shift_less() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            code: KeyCode::Char('<'),
+        }
+    }
+
+    pub fn shift_greater() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            code: KeyCode::Char('>'),
+        }
+    }
+
     pub fn ctrl_g() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -284,6 +319,16 @@ pub enum Action {
     InsertNewline,
     /// 行キル
     KillLine,
+    /// ページスクロール（下）
+    ScrollPageDown,
+    /// ページスクロール（上）
+    ScrollPageUp,
+    /// 画面再配置
+    Recenter,
+    /// 横スクロール（左）
+    ScrollHorizontalLeft,
+    /// 横スクロール（右）
+    ScrollHorizontalRight,
     /// ヤンク
     Yank,
     /// ヤンクポップ
@@ -323,6 +368,11 @@ impl Action {
             Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
             Action::KillLine => Some(Command::KillLine),
+            Action::ScrollPageDown => Some(Command::ScrollPageDown),
+            Action::ScrollPageUp => Some(Command::ScrollPageUp),
+            Action::Recenter => Some(Command::Recenter),
+            Action::ScrollHorizontalLeft => Some(Command::ScrollLeft),
+            Action::ScrollHorizontalRight => Some(Command::ScrollRight),
             Action::Yank => Some(Command::Yank),
             Action::YankPop => Some(Command::YankPop),
             Action::KeyboardQuit => Some(Command::KeyboardQuit),
@@ -524,6 +574,9 @@ impl ModernKeyMap {
         single.insert(Key::ctrl_e(), Action::Navigate(NavigationAction::MoveLineEnd));
         single.insert(Key::alt_f(), Action::Navigate(NavigationAction::MoveWordForward));
         single.insert(Key::alt_b(), Action::Navigate(NavigationAction::MoveWordBackward));
+        single.insert(Key::ctrl_v(), Action::ScrollPageDown);
+        single.insert(Key::alt_v(), Action::ScrollPageUp);
+        single.insert(Key::ctrl_l(), Action::Recenter);
 
         // 矢印キー
         single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
@@ -551,6 +604,22 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
         cx_prefix.insert(Key::ctrl_s(), Action::FileSave);
         cx_prefix.insert(Key::ctrl_c(), Action::Quit);
+        cx_prefix.insert(Key::shift_less(), Action::ScrollHorizontalLeft);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('<'),
+            },
+            Action::ScrollHorizontalLeft,
+        );
+        cx_prefix.insert(Key::shift_greater(), Action::ScrollHorizontalRight);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('>'),
+            },
+            Action::ScrollHorizontalRight,
+        );
 
         // コマンド実行
         single.insert(Key::alt_x(), Action::ExecuteCommand);
@@ -1019,10 +1088,19 @@ mod tests {
         assert_eq!(keymap.process_key(Key::ctrl_k()), KeyProcessResult::Action(Action::KillLine));
         assert_eq!(keymap.process_key(Key::ctrl_y()), KeyProcessResult::Action(Action::Yank));
         assert_eq!(keymap.process_key(Key::alt_y()), KeyProcessResult::Action(Action::YankPop));
+        assert_eq!(keymap.process_key(Key::ctrl_v()), KeyProcessResult::Action(Action::ScrollPageDown));
+        assert_eq!(keymap.process_key(Key::alt_v()), KeyProcessResult::Action(Action::ScrollPageUp));
+        assert_eq!(keymap.process_key(Key::ctrl_l()), KeyProcessResult::Action(Action::Recenter));
 
         // C-g でプレフィックス解除
         keymap.process_key(Key::ctrl_x());
         assert_eq!(keymap.process_key(Key::ctrl_g()), KeyProcessResult::Action(Action::KeyboardQuit));
+
+        // C-x < / C-x >
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::shift_less()), KeyProcessResult::Action(Action::ScrollHorizontalLeft));
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::shift_greater()), KeyProcessResult::Action(Action::ScrollHorizontalRight));
     }
 
     #[test]
@@ -1083,6 +1161,11 @@ mod tests {
         assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
         assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
+        assert_eq!(Action::ScrollPageDown.to_command(), Some(Command::ScrollPageDown));
+        assert_eq!(Action::ScrollPageUp.to_command(), Some(Command::ScrollPageUp));
+        assert_eq!(Action::Recenter.to_command(), Some(Command::Recenter));
+        assert_eq!(Action::ScrollHorizontalLeft.to_command(), Some(Command::ScrollLeft));
+        assert_eq!(Action::ScrollHorizontalRight.to_command(), Some(Command::ScrollRight));
         assert_eq!(Action::Yank.to_command(), Some(Command::Yank));
         assert_eq!(Action::YankPop.to_command(), Some(Command::YankPop));
         assert_eq!(Action::KeyboardQuit.to_command(), Some(Command::KeyboardQuit));

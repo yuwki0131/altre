@@ -13,6 +13,6 @@ pub mod renderer;
 pub use layout::{LayoutManager, AppLayout, AreaType};
 pub use text_area::{TextArea, TextAreaRenderer};
 pub use minibuffer::MinibufferRenderer;
-pub use viewport::ViewportManager;
+pub use viewport::{ViewportManager, ViewportState};
 pub use theme::{ThemeManager, Theme, ComponentType, ThemeType};
 pub use renderer::{AdvancedRenderer, FrameRateStats, RenderStats};

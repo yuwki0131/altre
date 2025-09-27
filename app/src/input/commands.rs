@@ -109,6 +109,11 @@ pub enum Command {
     Yank,
     YankPop,
     KeyboardQuit,
+    ScrollPageDown,
+    ScrollPageUp,
+    Recenter,
+    ScrollLeft,
+    ScrollRight,
 
     // ファイル操作
     FindFile,
@@ -147,6 +152,11 @@ impl Command {
             "yank" => Command::Yank,
             "yank-pop" => Command::YankPop,
             "keyboard-quit" => Command::KeyboardQuit,
+            "scroll-up" => Command::ScrollPageDown,
+            "scroll-down" => Command::ScrollPageUp,
+            "recenter-top-bottom" => Command::Recenter,
+            "scroll-left" => Command::ScrollLeft,
+            "scroll-right" => Command::ScrollRight,
             "find-file" => Command::FindFile,
             "save-buffer" => Command::SaveBuffer,
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
@@ -179,6 +189,11 @@ impl Command {
             Command::Yank => "キルリングから貼り付け",
             Command::YankPop => "直前のヤンクを置き換え",
             Command::KeyboardQuit => "操作をキャンセル",
+            Command::ScrollPageDown => "画面を下にスクロール",
+            Command::ScrollPageUp => "画面を上にスクロール",
+            Command::Recenter => "画面を再配置",
+            Command::ScrollLeft => "画面を左にスクロール",
+            Command::ScrollRight => "画面を右にスクロール",
             Command::InsertNewline => "改行を挿入",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
@@ -339,6 +354,13 @@ impl CommandProcessor {
             Command::Yank => self.handle_yank(),
             Command::YankPop => self.handle_yank_pop(),
             Command::KeyboardQuit => self.handle_keyboard_quit(),
+            Command::ScrollPageDown
+            | Command::ScrollPageUp
+            | Command::Recenter
+            | Command::ScrollLeft
+            | Command::ScrollRight => {
+                CommandResult::error("スクロールコマンドはアプリ側で処理します".to_string())
+            }
             Command::FindFile => self.execute_find_file(),
             Command::SaveBuffer => self.execute_save_buffer(),
             Command::SaveBuffersKillTerminal => self.execute_quit(),
@@ -650,6 +672,12 @@ mod tests {
             Command::Unknown(name) => assert_eq!(name, "unknown-command"),
             _ => panic!("Expected Unknown"),
         }
+
+        assert!(matches!(Command::from_string("scroll-up"), Command::ScrollPageDown));
+        assert!(matches!(Command::from_string("scroll-down"), Command::ScrollPageUp));
+        assert!(matches!(Command::from_string("recenter-top-bottom"), Command::Recenter));
+        assert!(matches!(Command::from_string("scroll-left"), Command::ScrollLeft));
+        assert!(matches!(Command::from_string("scroll-right"), Command::ScrollRight));
     }
 
     #[test]

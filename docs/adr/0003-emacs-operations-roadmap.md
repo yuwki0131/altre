@@ -16,30 +16,30 @@ altre は Emacs 互換の操作体系を目指しているが、現時点で実�
 - `C-f` / `C-b` : 1 文字進む / 戻る [done]
 - `C-n` / `C-p` : 次 / 前の行へ移動 [done]
 - `C-a` / `C-e` : 行頭 / 行末へ移動 [done]
-- `M-f` / `M-b` : 単語単位で前後へ移動 [todo]
+- `M-f` / `M-b` : 単語単位で前後へ移動 [done]
 - `M-<` / `M->` : バッファ先頭 / 末尾へ移動 [done]
-- `C-l` : カーソルを画面中央/上/下に再配置 [todo]
-- `C-v` / `M-v` : 画面スクロール [todo]
-- `C-x <` / `C-x >` : 横スクロール [todo]
+- `C-l` : カーソルを画面中央/上/下に再配置 [done]
+- `C-v` / `M-v` : 画面スクロール [done]
+- `C-x <` / `C-x >` : 横スクロール [done]
 
 ### 2. 編集 (Editing)
 - 通常文字入力 [done]
 - `Backspace` / `DEL` : 1 文字削除 [done]
 - `C-d` : 前方 1 文字削除 [done]
-- `M-d` / `M-Backspace` : 単語削除 [todo]
-- `C-k` : 行末までキル [todo]
-- `C-y` : ヤンク [todo]
-- `M-y` : ヤンク履歴巡回 [todo]
+- `M-d` / `M-Backspace` : 単語削除 [done]
+- `C-k` : 行末までキル [done]
+- `C-y` : ヤンク [done]
+- `M-y` : ヤンク履歴巡回 [done]
 - `C-s` / `C-r` : インクリメンタル検索 [done]
 - `M-%` : クエリ置換 [redesign]
 - `C-/` (`C-_`) : Undo [redesign]
-- `C-g` : 操作キャンセル [todo]
+- `C-g` : 操作キャンセル [done]
 
 ### 3. マーク / リージョン操作 [todo]
 - `C-space`, `C-w`, `M-w`, `C-x C-x`, `C-x h`
 
 ### 4. クリップボード (Kill Ring) [todo]
-- `C-k`, `C-w` / `M-w`, `C-y`, `M-y`
+- `C-k` [done], `C-y` [done], `M-y` [done], `C-w` / `M-w` [todo]
 
 ### 5. ファイル操作 (File)
 - `C-x C-f` : ファイルを開く [done]

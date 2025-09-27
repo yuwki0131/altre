@@ -6,7 +6,7 @@ use crate::buffer::cursor::CursorPosition;
 use crate::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig, LongLineStrategy};
 use std::cmp::min;
 #[cfg(test)]
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// ナビゲーション時のエラー。
 #[derive(Debug, Clone, thiserror::Error)]
@@ -32,6 +32,8 @@ pub enum NavigationAction {
     MoveLineEnd,
     MoveBufferStart,
     MoveBufferEnd,
+    MoveWordForward,
+    MoveWordBackward,
 }
 
 /// 行・列を含むカーソル位置。
@@ -63,6 +65,8 @@ struct TextSnapshot {
 
 #[cfg(test)]
 static SNAPSHOT_CREATIONS: AtomicUsize = AtomicUsize::new(0);
+#[cfg(test)]
+static SNAPSHOT_TRACKING_ENABLED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 struct SnapshotCache {
@@ -104,7 +108,9 @@ impl TextSnapshot {
 
     fn with_tab_width(text: &str, tab_width: usize) -> Self {
         #[cfg(test)]
-        SNAPSHOT_CREATIONS.fetch_add(1, Ordering::Relaxed);
+        if SNAPSHOT_TRACKING_ENABLED.load(Ordering::Relaxed) {
+            SNAPSHOT_CREATIONS.fetch_add(1, Ordering::Relaxed);
+        }
 
         let chars: Vec<char> = text.chars().collect();
         let mut line_starts = vec![0];
@@ -474,6 +480,8 @@ impl NavigationSystem {
             NavigationAction::MoveLineEnd => self.move_line_end(snapshot),
             NavigationAction::MoveBufferStart => self.move_buffer_start(snapshot),
             NavigationAction::MoveBufferEnd => self.move_buffer_end(snapshot),
+            NavigationAction::MoveWordForward => self.move_word_forward(snapshot),
+            NavigationAction::MoveWordBackward => self.move_word_backward(snapshot),
         }?;
 
         if moved {
@@ -617,6 +625,122 @@ impl NavigationSystem {
         self.extended.clear_preferred_column();
         Ok(true)
     }
+
+    fn move_word_forward(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
+        let len = snapshot.char_count();
+        let original_pos = self.cursor.char_pos;
+        if original_pos >= len {
+            return Ok(false);
+        }
+
+        let mut chars_iter = original_pos;
+        let mut saw_word = false;
+
+        while chars_iter < len {
+            let ch = snapshot
+                .char_at(chars_iter)
+                .ok_or_else(|| NavigationError::Internal("invalid char index".into()))?;
+            if is_word_char(ch) {
+                saw_word = true;
+                chars_iter += 1;
+                while chars_iter < len {
+                    let ch = snapshot
+                        .char_at(chars_iter)
+                        .ok_or_else(|| NavigationError::Internal("invalid char index".into()))?;
+                    if !is_word_char(ch) {
+                        break;
+                    }
+                    chars_iter += 1;
+                }
+                break;
+            } else {
+                chars_iter += 1;
+            }
+        }
+
+        if !saw_word {
+            // 到達できる単語が無い場合は末尾へ
+            chars_iter = len;
+        }
+
+        self.cursor.char_pos = chars_iter;
+        let line = snapshot.line_of_char(chars_iter);
+        let line_start = snapshot.line_start(line).unwrap_or(0);
+        let column = chars_iter.saturating_sub(line_start);
+        self.cursor.line = line;
+        self.cursor.column = column;
+        self.extended.clear_preferred_column();
+        Ok(self.cursor.char_pos != original_pos)
+    }
+
+    fn move_word_backward(&mut self, snapshot: &TextSnapshot) -> Result<bool, NavigationError> {
+        if self.cursor.char_pos == 0 {
+            return Ok(false);
+        }
+
+        let mut pos = self.cursor.char_pos;
+        let mut started_in_word = false;
+
+        // 既に単語内にいる場合は単語の開始まで戻る
+        while pos > 0 {
+            let ch = snapshot
+                .char_at(pos.saturating_sub(1))
+                .ok_or_else(|| NavigationError::Internal("invalid char index".into()))?;
+            if is_word_char(ch) {
+                pos -= 1;
+                started_in_word = true;
+            } else {
+                break;
+            }
+        }
+
+        if started_in_word {
+            let line = snapshot.line_of_char(pos);
+            let line_start = snapshot.line_start(line).unwrap_or(0);
+            self.cursor.char_pos = pos;
+            self.cursor.line = line;
+            self.cursor.column = pos.saturating_sub(line_start);
+            self.extended.clear_preferred_column();
+            return Ok(true);
+        }
+
+        // 非単語文字をスキップして前の単語へ
+        while pos > 0 {
+            let ch = snapshot
+                .char_at(pos.saturating_sub(1))
+                .ok_or_else(|| NavigationError::Internal("invalid char index".into()))?;
+            if !is_word_char(ch) {
+                pos -= 1;
+            } else {
+                break;
+            }
+        }
+
+        // 単語の先頭まで戻る
+        while pos > 0 {
+            let ch = snapshot
+                .char_at(pos.saturating_sub(1))
+                .ok_or_else(|| NavigationError::Internal("invalid char index".into()))?;
+            if is_word_char(ch) {
+                pos -= 1;
+            } else {
+                break;
+            }
+        }
+
+        let moved = pos != self.cursor.char_pos;
+        self.cursor.char_pos = pos;
+        let line = snapshot.line_of_char(pos);
+        let line_start = snapshot.line_start(line).unwrap_or(0);
+        self.cursor.line = line;
+        self.cursor.column = pos.saturating_sub(line_start);
+        self.extended.clear_preferred_column();
+        Ok(moved)
+    }
+}
+
+fn is_word_char(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
 }
 
 impl Default for NavigationSystem {
@@ -629,6 +753,22 @@ impl Default for NavigationSystem {
 mod tests {
     use super::*;
 
+    struct SnapshotTrackingGuard;
+
+    impl SnapshotTrackingGuard {
+        fn new() -> Self {
+            SNAPSHOT_TRACKING_ENABLED.store(true, Ordering::SeqCst);
+            SNAPSHOT_CREATIONS.store(0, Ordering::SeqCst);
+            Self
+        }
+    }
+
+    impl Drop for SnapshotTrackingGuard {
+        fn drop(&mut self) {
+            SNAPSHOT_TRACKING_ENABLED.store(false, Ordering::SeqCst);
+        }
+    }
+
     #[test]
     fn char_movement() {
         let mut nav = NavigationSystem::new();
@@ -637,6 +777,28 @@ mod tests {
         assert_eq!(nav.cursor().char_pos, 1);
         assert!(nav.navigate(text, NavigationAction::MoveCharBackward).unwrap());
         assert_eq!(nav.cursor().char_pos, 0);
+    }
+
+    #[test]
+    fn word_movement() {
+        let mut nav = NavigationSystem::new();
+        let text = "foo  bar_baz qux";
+
+        // move to middle of first word
+        assert!(nav.navigate(text, NavigationAction::MoveCharForward).unwrap());
+        assert!(nav.navigate(text, NavigationAction::MoveCharForward).unwrap());
+
+        // forward word should land after "foo"
+        assert!(nav.navigate(text, NavigationAction::MoveWordForward).unwrap());
+        assert_eq!(nav.cursor().char_pos, 3);
+
+        // second forward word should skip spaces and reach end of bar_baz
+        assert!(nav.navigate(text, NavigationAction::MoveWordForward).unwrap());
+        assert_eq!(nav.cursor().char_pos, 12);
+
+        // backward word returns to start of bar_baz
+        assert!(nav.navigate(text, NavigationAction::MoveWordBackward).unwrap());
+        assert_eq!(nav.cursor().char_pos, 5);
     }
 
     #[test]
@@ -697,8 +859,7 @@ mod tests {
         let mut nav = NavigationSystem::with_high_performance();
         let text = "abc";
 
-        #[cfg(test)]
-        SNAPSHOT_CREATIONS.store(0, Ordering::SeqCst);
+        let _guard = SnapshotTrackingGuard::new();
 
         assert!(nav
             .navigate_with_tab_width(text, NavigationAction::MoveCharForward, 4)

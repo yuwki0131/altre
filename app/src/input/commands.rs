@@ -3,6 +3,7 @@
 //! エディタコマンドの定義と実行
 
 use crate::buffer::{EditOperations, NavigationAction, TextEditor};
+use crate::editor::KillRing;
 use crate::file::{FileOperationManager, FileBuffer, expand_path};
 /// コマンド実行の結果
 #[derive(Debug, Clone)]
@@ -69,6 +70,23 @@ impl CommandResult {
     }
 }
 
+/// キルの追記方法
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KillJoin {
+    /// 既存エントリ末尾に連結
+    Append,
+    /// 既存エントリ先頭に連結
+    Prepend,
+}
+
+/// 直前のコマンド種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LastCommand {
+    Other,
+    Kill,
+    Yank,
+}
+
 /// コマンドの種類
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -77,12 +95,20 @@ pub enum Command {
     BackwardChar,
     NextLine,
     PreviousLine,
+    ForwardWord,
+    BackwardWord,
 
     // 編集操作
     InsertChar(char),
     DeleteBackwardChar,
     DeleteChar,
     InsertNewline,
+    KillWordForward,
+    KillWordBackward,
+    KillLine,
+    Yank,
+    YankPop,
+    KeyboardQuit,
 
     // ファイル操作
     FindFile,
@@ -110,9 +136,17 @@ impl Command {
             "backward-char" => Command::BackwardChar,
             "next-line" => Command::NextLine,
             "previous-line" => Command::PreviousLine,
+            "forward-word" => Command::ForwardWord,
+            "backward-word" => Command::BackwardWord,
             "delete-backward-char" => Command::DeleteBackwardChar,
             "delete-char" => Command::DeleteChar,
             "newline" => Command::InsertNewline,
+            "kill-word" => Command::KillWordForward,
+            "backward-kill-word" => Command::KillWordBackward,
+            "kill-line" => Command::KillLine,
+            "yank" => Command::Yank,
+            "yank-pop" => Command::YankPop,
+            "keyboard-quit" => Command::KeyboardQuit,
             "find-file" => Command::FindFile,
             "save-buffer" => Command::SaveBuffer,
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
@@ -134,9 +168,17 @@ impl Command {
             Command::BackwardChar => "カーソルを左に移動",
             Command::NextLine => "カーソルを下に移動",
             Command::PreviousLine => "カーソルを上に移動",
+            Command::ForwardWord => "次の単語末尾に移動",
+            Command::BackwardWord => "前の単語先頭に移動",
             Command::InsertChar(_) => "文字を挿入",
             Command::DeleteBackwardChar => "前の文字を削除",
             Command::DeleteChar => "カーソル位置の文字を削除",
+            Command::KillWordForward => "次の単語を削除",
+            Command::KillWordBackward => "前の単語を削除",
+            Command::KillLine => "行末まで削除",
+            Command::Yank => "キルリングから貼り付け",
+            Command::YankPop => "直前のヤンクを置き換え",
+            Command::KeyboardQuit => "操作をキャンセル",
             Command::InsertNewline => "改行を挿入",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
@@ -158,6 +200,9 @@ pub struct CommandProcessor {
     editor: TextEditor,
     file_manager: FileOperationManager,
     current_buffer: Option<FileBuffer>,
+    kill_ring: KillRing,
+    last_command: LastCommand,
+    last_yank_range: Option<(usize, usize)>,
 }
 
 impl CommandProcessor {
@@ -167,6 +212,9 @@ impl CommandProcessor {
             editor: TextEditor::new(),
             file_manager: FileOperationManager::new(),
             current_buffer: None,
+            kill_ring: KillRing::new(),
+            last_command: LastCommand::Other,
+            last_yank_range: None,
         }
     }
 
@@ -210,6 +258,40 @@ impl CommandProcessor {
             buffer.content = content.to_string();
             // 変更追跡は is_modified で確認できるので、特別な操作は不要
         }
+
+        self.last_command = LastCommand::Other;
+        self.last_yank_range = None;
+    }
+
+    fn record_kill(&mut self, text: String, join: KillJoin) {
+        if text.is_empty() {
+            return;
+        }
+
+        match join {
+            KillJoin::Append => {
+                if matches!(self.last_command, LastCommand::Kill) {
+                    self.kill_ring.append_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+            KillJoin::Prepend => {
+                if matches!(self.last_command, LastCommand::Kill) {
+                    self.kill_ring.prepend_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+        }
+
+        self.last_command = LastCommand::Kill;
+        self.last_yank_range = None;
+    }
+
+    fn reset_command_context(&mut self) {
+        self.last_command = LastCommand::Other;
+        self.last_yank_range = None;
     }
 
     /// パスでファイルを開く（公開API）
@@ -224,6 +306,8 @@ impl CommandProcessor {
             Command::BackwardChar => self.navigate(NavigationAction::MoveCharBackward),
             Command::NextLine => self.navigate(NavigationAction::MoveLineDown),
             Command::PreviousLine => self.navigate(NavigationAction::MoveLineUp),
+            Command::ForwardWord => self.navigate(NavigationAction::MoveWordForward),
+            Command::BackwardWord => self.navigate(NavigationAction::MoveWordBackward),
             Command::InsertChar(ch) => {
                 let res = self.editor.insert_char(ch);
                 self.handle_edit(res)
@@ -240,6 +324,21 @@ impl CommandProcessor {
                 let res = self.editor.insert_newline();
                 self.handle_edit(res)
             }
+            Command::KillWordForward => {
+                let res = self.editor.delete_word_forward();
+                self.handle_kill(res, KillJoin::Append)
+            }
+            Command::KillWordBackward => {
+                let res = self.editor.delete_word_backward();
+                self.handle_kill(res, KillJoin::Prepend)
+            }
+            Command::KillLine => {
+                let res = self.editor.kill_line_forward();
+                self.handle_kill(res, KillJoin::Append)
+            }
+            Command::Yank => self.handle_yank(),
+            Command::YankPop => self.handle_yank_pop(),
+            Command::KeyboardQuit => self.handle_keyboard_quit(),
             Command::FindFile => self.execute_find_file(),
             Command::SaveBuffer => self.execute_save_buffer(),
             Command::SaveBuffersKillTerminal => self.execute_quit(),
@@ -256,32 +355,134 @@ impl CommandProcessor {
 
     fn navigate(&mut self, action: NavigationAction) -> CommandResult {
         match self.editor.navigate(action) {
-            Ok(_) => CommandResult::success(),
-            Err(err) => CommandResult::error(err.to_string()),
+            Ok(_) => {
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
         }
     }
 
     fn handle_edit<T>(&mut self, result: crate::error::Result<T>) -> CommandResult {
         match result {
-            Ok(_) => CommandResult::success(),
-            Err(err) => CommandResult::error(err.to_string()),
+            Ok(_) => {
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
         }
     }
 
     fn handle_delete(&mut self, result: crate::error::Result<char>) -> CommandResult {
         match result {
-            Ok(_) => CommandResult::success(),
-            Err(err) => CommandResult::error(err.to_string()),
+            Ok(_) => {
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
         }
     }
 
+    fn handle_kill(&mut self, result: crate::error::Result<String>, join: KillJoin) -> CommandResult {
+        match result {
+            Ok(text) => {
+                if text.is_empty() {
+                    self.reset_command_context();
+                    return CommandResult::success();
+                }
+
+                self.record_kill(text, join);
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn handle_yank(&mut self) -> CommandResult {
+        let Some(text) = self.kill_ring.yank() else {
+            self.reset_command_context();
+            return CommandResult::error("キルリングが空です".to_string());
+        };
+
+        let start = self.editor.cursor().char_pos;
+        let len = text.chars().count();
+
+        match self.editor.insert_str(&text) {
+            Ok(_) => {
+                self.last_command = LastCommand::Yank;
+                self.last_yank_range = Some((start, len));
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn handle_yank_pop(&mut self) -> CommandResult {
+        if !matches!(self.last_command, LastCommand::Yank) {
+            self.reset_command_context();
+            return CommandResult::error("直前のコマンドがヤンクではありません".to_string());
+        }
+
+        let Some((start, previous_len)) = self.last_yank_range else {
+            self.reset_command_context();
+            return CommandResult::error("ヤンク範囲を特定できません".to_string());
+        };
+
+        if let Err(err) = self.editor.move_cursor_to_char(start) {
+            self.reset_command_context();
+            return CommandResult::error(err.to_string());
+        }
+
+        if let Err(err) = self.editor.delete_range(start, start + previous_len) {
+            self.reset_command_context();
+            return CommandResult::error(err.to_string());
+        }
+
+        let Some(next_text) = self.kill_ring.rotate() else {
+            self.reset_command_context();
+            return CommandResult::error("キルリングが空です".to_string());
+        };
+
+        let new_len = next_text.chars().count();
+        if let Err(err) = self.editor.insert_str(&next_text) {
+            self.reset_command_context();
+            return CommandResult::error(err.to_string());
+        }
+
+        self.last_command = LastCommand::Yank;
+        self.last_yank_range = Some((start, new_len));
+        CommandResult::success()
+    }
+
+    fn handle_keyboard_quit(&mut self) -> CommandResult {
+        self.reset_command_context();
+        CommandResult::success_with_message("操作をキャンセルしました".to_string())
+    }
+
     fn execute_find_file(&mut self) -> CommandResult {
+        self.reset_command_context();
         // TODO: ミニバッファでファイルパス入力を受け付ける実装が必要
         // 現在は簡易実装として仮のパスを使用
         self.execute_find_file_with_path("README.md".to_string())
     }
 
     fn execute_find_file_with_path(&mut self, path_input: String) -> CommandResult {
+        self.reset_command_context();
         // パス展開
         let expanded_path = match expand_path(&path_input) {
             Ok(path) => path,
@@ -321,6 +522,7 @@ impl CommandProcessor {
     }
 
     fn execute_save_buffer(&mut self) -> CommandResult {
+        self.reset_command_context();
         if let Some(ref mut buffer) = self.current_buffer {
             // エディタの内容をバッファに同期
             buffer.content = self.editor.to_string();
@@ -347,6 +549,7 @@ impl CommandProcessor {
     }
 
     pub fn save_buffer_as(&mut self, path_input: String) -> CommandResult {
+        self.reset_command_context();
         let expanded_path = match expand_path(&path_input) {
             Ok(path) => path,
             Err(err) => return CommandResult::error(format!("パス展開エラー: {}", err)),
@@ -372,14 +575,17 @@ impl CommandProcessor {
     }
 
     fn execute_quit(&mut self) -> CommandResult {
+        self.reset_command_context();
         CommandResult::quit()
     }
 
     fn execute_execute_command(&mut self) -> CommandResult {
+        self.reset_command_context();
         CommandResult::success_with_message("M-x は現在未実装です".to_string())
     }
 
     fn execute_eval_expression(&mut self) -> CommandResult {
+        self.reset_command_context();
         CommandResult::success_with_message("eval-expression はミニバッファで処理されます".to_string())
     }
 }
@@ -478,5 +684,36 @@ mod tests {
 
         let result = processor.execute(Command::Unknown("test".to_string()));
         assert!(!result.success);
+    }
+
+    #[test]
+    fn test_kill_line_and_yank() {
+        let mut processor = CommandProcessor::new();
+        processor.sync_editor_content("hello\nworld");
+
+        let result = processor.execute(Command::KillLine);
+        assert!(result.success);
+        assert_eq!(processor.editor().to_string(), "world");
+
+        let result = processor.execute(Command::Yank);
+        assert!(result.success);
+        assert_eq!(processor.editor().to_string(), "hello\nworld");
+    }
+
+    #[test]
+    fn test_yank_pop_rotates_entries() {
+        let mut processor = CommandProcessor::new();
+        processor.sync_editor_content("alpha beta gamma");
+
+        processor.execute(Command::KillWordForward);
+        processor.execute(Command::KillWordForward);
+
+        processor.execute(Command::MoveLineStart);
+        let yank_res = processor.execute(Command::Yank);
+        assert!(yank_res.success);
+
+        let pop_res = processor.execute(Command::YankPop);
+        assert!(pop_res.success);
+        assert!(processor.editor().to_string().contains("beta"));
     }
 }

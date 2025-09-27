@@ -167,6 +167,115 @@ impl TextEditor {
         result
     }
 
+    /// 単語を前方に削除し、削除文字列を返す
+    pub fn delete_word_forward(&mut self) -> Result<String> {
+        self.start_performance_measurement();
+
+        let result = self.safe_execute(|editor| {
+            let start = editor.cursor.char_pos;
+            let text = editor.buffer.to_string();
+            let chars: Vec<char> = text.chars().collect();
+            let end = word_boundary_forward(&chars, start);
+
+            if end == start {
+                return Ok(String::new());
+            }
+
+            let deleted = editor
+                .buffer
+                .delete_range(start, end)
+                .map_err(|_| EditError::BufferError("単語削除失敗".to_string()))?;
+
+            editor.sync_cursor_with_buffer();
+            editor.change_notifier.notify(ChangeEvent::Delete {
+                position: start,
+                content: deleted.clone(),
+            });
+            editor.sync_navigation_cursor()?;
+
+            Ok(deleted)
+        });
+
+        self.end_performance_measurement("delete_word_forward");
+        result
+    }
+
+    /// 単語を後方に削除し、削除文字列を返す
+    pub fn delete_word_backward(&mut self) -> Result<String> {
+        self.start_performance_measurement();
+
+        let result = self.safe_execute(|editor| {
+            let end = editor.cursor.char_pos;
+            let text = editor.buffer.to_string();
+            let chars: Vec<char> = text.chars().collect();
+            let start = word_boundary_backward(&chars, end);
+
+            if start == end {
+                return Ok(String::new());
+            }
+
+            let deleted = editor
+                .buffer
+                .delete_range(start, end)
+                .map_err(|_| EditError::BufferError("単語削除失敗".to_string()))?;
+
+            editor.cursor.char_pos = start;
+            editor.sync_cursor_with_buffer();
+            editor.change_notifier.notify(ChangeEvent::Delete {
+                position: start,
+                content: deleted.clone(),
+            });
+            editor.sync_navigation_cursor()?;
+
+            Ok(deleted)
+        });
+
+        self.end_performance_measurement("delete_word_backward");
+        result
+    }
+
+    /// カーソル位置から行末（改行を含む）まで削除
+    pub fn kill_line_forward(&mut self) -> Result<String> {
+        self.start_performance_measurement();
+
+        let result = self.safe_execute(|editor| {
+            let start = editor.cursor.char_pos;
+            let text = editor.buffer.to_string();
+            let chars: Vec<char> = text.chars().collect();
+
+            if start >= chars.len() {
+                return Ok(String::new());
+            }
+
+            let mut end = start;
+            while end < chars.len() && chars[end] != '\n' {
+                end += 1;
+            }
+
+            if end < chars.len() {
+                end += 1; // 改行を含める
+            }
+
+            let deleted = editor
+                .buffer
+                .delete_range(start, end)
+                .map_err(|_| EditError::BufferError("行削除に失敗しました".to_string()))?;
+
+            editor.cursor.char_pos = start;
+            editor.sync_cursor_with_buffer();
+            editor.change_notifier.notify(ChangeEvent::Delete {
+                position: start,
+                content: deleted.clone(),
+            });
+            editor.sync_navigation_cursor()?;
+
+            Ok(deleted)
+        });
+
+        self.end_performance_measurement("kill_line_forward");
+        result
+    }
+
     /// 変更リスナーを追加
     pub fn add_change_listener(&mut self, listener: Box<dyn ChangeListener>) {
         self.change_notifier.add_listener(listener);
@@ -580,12 +689,77 @@ impl EditOperations for TextEditor {
         self.end_performance_measurement("delete_range");
         result
     }
+
 }
 
 impl Default for TextEditor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn is_word_char(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
+}
+
+fn word_boundary_forward(chars: &[char], start: usize) -> usize {
+    let len = chars.len();
+    if start >= len {
+        return len;
+    }
+
+    let mut idx = start;
+
+    // スペースは先に飛ばし、削除対象に含める
+    while idx < len && chars[idx].is_whitespace() {
+        idx += 1;
+    }
+
+    if idx == start {
+        // 単語内にいる場合、その単語終端まで進む
+        while idx < len && is_word_char(chars[idx]) {
+            idx += 1;
+        }
+        if idx == start {
+            // 単語でも空白でもない -> 1文字消す
+            return (start + 1).min(len);
+        }
+        return idx;
+    }
+
+    // 空白を含めた場合、続く単語末尾まで進む
+    while idx < len && is_word_char(chars[idx]) {
+        idx += 1;
+    }
+    idx
+}
+
+fn word_boundary_backward(chars: &[char], end: usize) -> usize {
+    if end == 0 {
+        return 0;
+    }
+
+    let mut idx = end;
+
+    // 手前の空白を削除対象に含める
+    while idx > 0 && chars[idx - 1].is_whitespace() {
+        idx -= 1;
+    }
+
+    if idx == 0 {
+        return 0;
+    }
+
+    if !is_word_char(chars[idx - 1]) {
+        // 単語でなければ単一文字を削除
+        return idx - 1;
+    }
+
+    while idx > 0 && is_word_char(chars[idx - 1]) {
+        idx -= 1;
+    }
+
+    idx
 }
 
 #[cfg(test)]
@@ -652,6 +826,58 @@ mod tests {
         assert!(editor.insert_str("hello world").is_ok());
         assert_eq!(editor.to_string(), "hello world");
         assert_eq!(editor.cursor.char_pos, 11);
+    }
+
+    #[test]
+    fn test_delete_word_forward() {
+        let mut editor = TextEditor::from_str("foo  bar");
+        editor.cursor.char_pos = 0;
+        let deleted = editor.delete_word_forward().unwrap();
+        assert_eq!(deleted, "foo");
+        assert_eq!(editor.to_string(), "  bar");
+
+        let deleted_ws = editor.delete_word_forward().unwrap();
+        assert_eq!(deleted_ws, "  bar");
+        assert_eq!(editor.to_string(), "");
+    }
+
+    #[test]
+    fn test_delete_word_backward() {
+        let mut editor = TextEditor::from_str("foo bar");
+        editor.cursor.char_pos = 7;
+        let deleted = editor.delete_word_backward().unwrap();
+        assert_eq!(deleted, "bar");
+        assert_eq!(editor.to_string(), "foo ");
+
+        let deleted_again = editor.delete_word_backward().unwrap();
+        assert_eq!(deleted_again, "foo ");
+        assert_eq!(editor.to_string(), "");
+    }
+
+    #[test]
+    fn test_kill_line_forward() {
+        let mut editor = TextEditor::from_str("hello\nworld");
+        editor.cursor.char_pos = 0;
+
+        let killed = editor.kill_line_forward().unwrap();
+        assert_eq!(killed, "hello\n");
+        assert_eq!(editor.to_string(), "world");
+        assert_eq!(editor.cursor.char_pos, 0);
+
+        // 行末（改行位置）でのキルは改行のみ削除
+        let mut editor2 = TextEditor::from_str("line1\nline2");
+        editor2.cursor.char_pos = "line1".chars().count();
+        let killed_line_end = editor2.kill_line_forward().unwrap();
+        assert_eq!(killed_line_end, "\n");
+        assert_eq!(editor2.to_string(), "line1line2");
+        assert_eq!(editor2.cursor.char_pos, "line1".chars().count());
+
+        // バッファ終端では削除しない
+        let mut editor3 = TextEditor::from_str("abc");
+        editor3.cursor.char_pos = editor3.buffer.len_chars();
+        let killed_eob = editor3.kill_line_forward().unwrap();
+        assert_eq!(killed_eob, "");
+        assert_eq!(editor3.to_string(), "abc");
     }
 
     #[test]

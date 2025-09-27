@@ -16,6 +16,11 @@
 | `C-e` | Move Line End | 現在行の末尾へ移動 |
 | `M-<` | Beginning of Buffer | バッファの先頭へ移動 |
 | `M->` | End of Buffer | バッファの末尾へ移動 |
+| `M-f` | Forward Word | 次の単語末尾へ移動 |
+| `M-b` | Backward Word | 前の単語先頭へ移動 |
+| `C-v` | Scroll Page Down | 画面を下方向にスクロール |
+| `M-v` | Scroll Page Up | 画面を上方向にスクロール |
+| `C-l` | Recenter | カーソル行を中央→上→下の順に再配置 |
 | `↑` / `↓` / `←` / `→` | 矢印キー移動 | 方向キーで移動（端末互換） |
 
 ## 2. 編集コマンド
@@ -25,6 +30,13 @@
 | `Enter` | Insert Newline | 改行を挿入 |
 | `Backspace` | Delete Backward Char | カーソル左の文字を削除 |
 | `C-d` | Delete Char | カーソル右の文字を削除 |
+| `M-d` | Kill Word | カーソル以降の単語を削除しキルリングへ |
+| `M-Backspace` | Backward Kill Word | カーソル以前の単語を削除しキルリングへ |
+| `C-k` | Kill Line | カーソル位置から行末（改行を含む）まで削除しキルリングへ |
+| `C-y` | Yank | キルリングの最新エントリを貼り付け |
+| `M-y` | Yank Pop | 直前のヤンクを次のエントリで置き換え |
+| `C-x <` | Scroll Left | 水平スクロール（右側のテキストを表示） |
+| `C-x >` | Scroll Right | 水平スクロール（左側のテキストを表示） |
 
 ## 3. ファイル操作
 | キー | コマンド | 説明 |
@@ -38,7 +50,7 @@
 |------|----------|------|
 | `M-x` | Execute Command | コマンド名を入力して実行 |
 | `M-:` | Eval Expression | alisp 式を入力・評価 |
-| `C-g` | Cancel | ミニバッファ操作をキャンセル（`MinibufferResult::Cancel`） |
+| `C-g` | Keyboard Quit | 進行中の操作をキャンセルし、メッセージを表示 |
 | `Tab` | Complete | 補完候補を表示・選択 |
 
 ## 5. 保存関連コマンド

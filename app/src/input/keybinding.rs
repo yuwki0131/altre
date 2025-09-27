@@ -113,6 +113,34 @@ impl Key {
         }
     }
 
+    pub fn alt_f() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('f'),
+        }
+    }
+
+    pub fn alt_b() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('b'),
+        }
+    }
+
+    pub fn alt_d() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('d'),
+        }
+    }
+
+    pub fn alt_backspace() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Backspace,
+        }
+    }
+
     pub fn alt_less() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
@@ -159,6 +187,34 @@ impl Key {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
             code: KeyCode::Char('d'),
+        }
+    }
+
+    pub fn ctrl_k() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('k'),
+        }
+    }
+
+    pub fn ctrl_y() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('y'),
+        }
+    }
+
+    pub fn alt_y() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('y'),
+        }
+    }
+
+    pub fn ctrl_g() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('g'),
         }
     }
 
@@ -222,8 +278,18 @@ pub enum Action {
     InsertChar(char),
     /// 文字削除
     DeleteChar(DeleteDirection),
+    /// 単語削除
+    KillWord(KillDirection),
     /// 改行
     InsertNewline,
+    /// 行キル
+    KillLine,
+    /// ヤンク
+    Yank,
+    /// ヤンクポップ
+    YankPop,
+    /// キーボードキャンセル
+    KeyboardQuit,
     /// ファイル操作
     FileOpen,
     FileSave,
@@ -247,11 +313,19 @@ impl Action {
                 NavigationAction::MoveLineEnd => Some(Command::MoveLineEnd),
                 NavigationAction::MoveBufferStart => Some(Command::MoveBufferStart),
                 NavigationAction::MoveBufferEnd => Some(Command::MoveBufferEnd),
+                NavigationAction::MoveWordForward => Some(Command::ForwardWord),
+                NavigationAction::MoveWordBackward => Some(Command::BackwardWord),
             },
             Action::InsertChar(ch) => Some(Command::InsertChar(*ch)),
             Action::DeleteChar(DeleteDirection::Backward) => Some(Command::DeleteBackwardChar),
             Action::DeleteChar(DeleteDirection::Forward) => Some(Command::DeleteChar),
+            Action::KillWord(KillDirection::Forward) => Some(Command::KillWordForward),
+            Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
+            Action::KillLine => Some(Command::KillLine),
+            Action::Yank => Some(Command::Yank),
+            Action::YankPop => Some(Command::YankPop),
+            Action::KeyboardQuit => Some(Command::KeyboardQuit),
             Action::FileOpen => Some(Command::FindFile),
             Action::FileSave => Some(Command::SaveBuffer),
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
@@ -266,6 +340,13 @@ impl Action {
 pub enum DeleteDirection {
     Backward,  // Backspace
     Forward,   // Delete
+}
+
+/// 単語キル方向
+#[derive(Debug, Clone, PartialEq)]
+pub enum KillDirection {
+    Forward,
+    Backward,
 }
 
 /// キーシーケンス（連続キー対応）
@@ -441,6 +522,8 @@ impl ModernKeyMap {
         single.insert(Key::ctrl_b(), Action::Navigate(NavigationAction::MoveCharBackward));
         single.insert(Key::ctrl_a(), Action::Navigate(NavigationAction::MoveLineStart));
         single.insert(Key::ctrl_e(), Action::Navigate(NavigationAction::MoveLineEnd));
+        single.insert(Key::alt_f(), Action::Navigate(NavigationAction::MoveWordForward));
+        single.insert(Key::alt_b(), Action::Navigate(NavigationAction::MoveWordBackward));
 
         // 矢印キー
         single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
@@ -456,6 +539,12 @@ impl ModernKeyMap {
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Backspace }, Action::DeleteChar(DeleteDirection::Backward));
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Delete }, Action::DeleteChar(DeleteDirection::Forward));
         single.insert(Key::ctrl_d(), Action::DeleteChar(DeleteDirection::Forward));
+        single.insert(Key::alt_d(), Action::KillWord(KillDirection::Forward));
+        single.insert(Key::alt_backspace(), Action::KillWord(KillDirection::Backward));
+        single.insert(Key::ctrl_k(), Action::KillLine);
+        single.insert(Key::ctrl_y(), Action::Yank);
+        single.insert(Key::alt_y(), Action::YankPop);
+        single.insert(Key::ctrl_g(), Action::KeyboardQuit);
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
 
         // ファイル操作（C-xプレフィックス）
@@ -522,6 +611,10 @@ impl ModernKeyMap {
     fn process_cx_prefix_key(&mut self, key: Key) -> KeyProcessResult {
         // 状態をリセット
         self.partial_match_state = PartialMatchState::None;
+
+        if key == Key::ctrl_g() {
+            return KeyProcessResult::Action(Action::KeyboardQuit);
+        }
 
         // C-xプレフィックス用のマッピングを確認
         if let Some(action) = self.cx_prefix_bindings.get(&key) {
@@ -920,6 +1013,19 @@ mod tests {
     }
 
     #[test]
+    fn test_modern_keymap_kill_ring_bindings() {
+        let mut keymap = ModernKeyMap::new();
+
+        assert_eq!(keymap.process_key(Key::ctrl_k()), KeyProcessResult::Action(Action::KillLine));
+        assert_eq!(keymap.process_key(Key::ctrl_y()), KeyProcessResult::Action(Action::Yank));
+        assert_eq!(keymap.process_key(Key::alt_y()), KeyProcessResult::Action(Action::YankPop));
+
+        // C-g でプレフィックス解除
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_g()), KeyProcessResult::Action(Action::KeyboardQuit));
+    }
+
+    #[test]
     fn test_modern_keymap_insertable_char() {
         let mut keymap = ModernKeyMap::new();
         let key = Key {
@@ -973,7 +1079,13 @@ mod tests {
         assert_eq!(Action::InsertChar('x').to_command(), Some(Command::InsertChar('x')));
         assert_eq!(Action::DeleteChar(DeleteDirection::Backward).to_command(), Some(Command::DeleteBackwardChar));
         assert_eq!(Action::DeleteChar(DeleteDirection::Forward).to_command(), Some(Command::DeleteChar));
+        assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
+        assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
+        assert_eq!(Action::Yank.to_command(), Some(Command::Yank));
+        assert_eq!(Action::YankPop.to_command(), Some(Command::YankPop));
+        assert_eq!(Action::KeyboardQuit.to_command(), Some(Command::KeyboardQuit));
         assert_eq!(Action::FileOpen.to_command(), Some(Command::FindFile));
         assert_eq!(Action::FileSave.to_command(), Some(Command::SaveBuffer));
         assert_eq!(Action::Quit.to_command(), Some(Command::SaveBuffersKillTerminal));

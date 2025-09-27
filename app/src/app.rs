@@ -9,6 +9,7 @@ use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::AdvancedRenderer;
 use crate::search::{SearchController, SearchDirection};
+use crate::editor::KillRing;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
@@ -53,6 +54,25 @@ pub struct App {
     current_prefix: Option<String>,
     /// デバッグモード
     debug_mode: bool,
+    /// キルリング
+    kill_ring: KillRing,
+    /// 直前のキル関連コマンド
+    kill_context: KillContext,
+    /// 直近のヤンク範囲
+    last_yank_range: Option<(usize, usize)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KillContext {
+    None,
+    Kill,
+    Yank,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KillMerge {
+    Append,
+    Prepend,
 }
 
 impl App {
@@ -70,6 +90,9 @@ impl App {
             search: SearchController::new(),
             current_prefix: None,
             debug_mode: std::env::var("ALTRE_DEBUG").is_ok(),
+            kill_ring: KillRing::new(),
+            kill_context: KillContext::None,
+            last_yank_range: None,
         })
     }
 
@@ -251,6 +274,7 @@ impl App {
             (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
                 self.keymap.reset_partial_match();
                 self.current_prefix = None;
+                self.keyboard_quit();
                 true
             }
             // ESC: キーシーケンスのキャンセル（無反応）
@@ -367,24 +391,52 @@ impl App {
                 if let Err(err) = self.editor.insert_char(ch) {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
                 Ok(())
             }
             Command::DeleteBackwardChar => {
                 if let Err(err) = self.editor.delete_backward() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
                 Ok(())
             }
             Command::DeleteChar => {
                 if let Err(err) = self.editor.delete_forward() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
                 Ok(())
             }
             Command::InsertNewline => {
                 if let Err(err) = self.editor.insert_newline() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
+                Ok(())
+            }
+            Command::KillWordForward => {
+                self.kill_word_forward();
+                Ok(())
+            }
+            Command::KillWordBackward => {
+                self.kill_word_backward();
+                Ok(())
+            }
+            Command::KillLine => {
+                self.kill_line_forward();
+                Ok(())
+            }
+            Command::Yank => {
+                self.yank();
+                Ok(())
+            }
+            Command::YankPop => {
+                self.yank_pop();
+                Ok(())
+            }
+            Command::KeyboardQuit => {
+                self.keyboard_quit();
                 Ok(())
             }
             Command::SaveBuffer => {
@@ -456,6 +508,131 @@ impl App {
                 Ok(())
             }
         }
+    }
+
+    fn record_kill(&mut self, text: String, merge: KillMerge) {
+        if text.is_empty() {
+            self.reset_kill_context();
+            return;
+        }
+
+        match merge {
+            KillMerge::Append => {
+                if matches!(self.kill_context, KillContext::Kill) {
+                    self.kill_ring.append_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+            KillMerge::Prepend => {
+                if matches!(self.kill_context, KillContext::Kill) {
+                    self.kill_ring.prepend_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+        }
+
+        self.kill_context = KillContext::Kill;
+        self.last_yank_range = None;
+    }
+
+    fn kill_word_forward(&mut self) {
+        match self.editor.delete_word_forward() {
+            Ok(text) => self.record_kill(text, KillMerge::Append),
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn kill_word_backward(&mut self) {
+        match self.editor.delete_word_backward() {
+            Ok(text) => self.record_kill(text, KillMerge::Prepend),
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn kill_line_forward(&mut self) {
+        match self.editor.kill_line_forward() {
+            Ok(text) => self.record_kill(text, KillMerge::Append),
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn yank(&mut self) {
+        let Some(text) = self.kill_ring.yank() else {
+            self.show_info_message("キルリングが空です");
+            self.reset_kill_context();
+            return;
+        };
+
+        let start = self.editor.cursor().char_pos;
+        let len = text.chars().count();
+
+        match self.editor.insert_str(&text) {
+            Ok(_) => {
+                self.kill_context = KillContext::Yank;
+                self.last_yank_range = Some((start, len));
+            }
+            Err(err) => {
+                self.reset_kill_context();
+                self.show_error_message(err);
+            }
+        }
+    }
+
+    fn yank_pop(&mut self) {
+        if !matches!(self.kill_context, KillContext::Yank) {
+            self.show_info_message("直前のコマンドがヤンクではありません");
+            self.reset_kill_context();
+            return;
+        }
+
+        let Some((start, previous_len)) = self.last_yank_range else {
+            self.show_info_message("ヤンク範囲が不明です");
+            self.reset_kill_context();
+            return;
+        };
+
+        if let Err(err) = self.editor.move_cursor_to_char(start) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        if let Err(err) = self.editor.delete_range(start, start + previous_len) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        let Some(next_text) = self.kill_ring.rotate() else {
+            self.reset_kill_context();
+            self.show_info_message("キルリングが空です");
+            return;
+        };
+
+        let new_len = next_text.chars().count();
+        if let Err(err) = self.editor.insert_str(&next_text) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        self.kill_context = KillContext::Yank;
+        self.last_yank_range = Some((start, new_len));
+    }
+
+    fn keyboard_quit(&mut self) {
+        self.reset_kill_context();
+        if self.search.is_active() {
+            self.search.cancel(&mut self.editor);
+        }
+        self.show_info_message("キャンセルしました");
+    }
+
+    fn reset_kill_context(&mut self) {
+        self.kill_context = KillContext::None;
+        self.last_yank_range = None;
     }
 
     fn start_find_file_prompt(&mut self) -> Result<()> {
@@ -597,6 +774,7 @@ impl App {
     }
 
     fn navigate(&mut self, action: NavigationAction) {
+        self.reset_kill_context();
         match self.editor.navigate(action) {
             Ok(true) => {}
             Ok(false) => self.show_info_message("これ以上移動できません"),

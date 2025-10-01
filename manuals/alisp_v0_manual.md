@@ -133,4 +133,4 @@ alisp v0 は altre のミニバッファから実行できる軽量 Lisp 方言�
 - `docs/design/alisp_runtime_architecture.md`
 - `manuals/user_guide.md`（ミニバッファの操作方法）
 
-alisp v0 は実験的な段階です。フィードバックや要望は Issue に投稿してください。
+alisp v0 は実験的な段階で、使い勝手のメモとして残しています。気付いた点は `tasks/` や `docs/` に自分用メモとして追記してください。

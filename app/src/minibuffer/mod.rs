@@ -39,6 +39,10 @@ pub enum MinibufferMode {
     EvalExpression,
     /// ファイル保存入力
     WriteFile,
+    /// バッファ切り替え入力
+    SwitchBuffer,
+    /// バッファ削除入力
+    KillBuffer,
     /// 保存確認
     SaveConfirmation,
     /// エラーメッセージ表示
@@ -153,6 +157,10 @@ pub enum MinibufferResult {
     Continue,
     /// コマンド実行
     Execute(String),
+    /// バッファ切り替え
+    SwitchBuffer(String),
+    /// バッファ削除
+    KillBuffer(String),
     /// 式評価
     EvalExpression(String),
     /// 保存用ファイルパス
@@ -245,6 +253,8 @@ pub struct ModernMinibuffer {
     completion_engine: Box<dyn completion::CompletionEngine>,
     /// コマンド実行者
     command_executor: Option<Box<dyn CommandExecutor>>,
+    /// バッファ名候補
+    buffer_candidates: Vec<String>,
 }
 
 impl std::fmt::Debug for ModernMinibuffer {
@@ -254,6 +264,7 @@ impl std::fmt::Debug for ModernMinibuffer {
             .field("style", &self.style)
             .field("completion_engine", &"<CompletionEngine>")
             .field("command_executor", &self.command_executor.as_ref().map(|_| "<CommandExecutor>"))
+            .field("buffer_candidates", &self.buffer_candidates)
             .finish()
     }
 }
@@ -266,6 +277,7 @@ impl ModernMinibuffer {
             style: MinibufferStyle::default(),
             completion_engine: Box::new(completion::PathCompletion::new()),
             command_executor: None,
+            buffer_candidates: Vec::new(),
         }
     }
 
@@ -296,6 +308,26 @@ impl ModernMinibuffer {
         self.state.prompt = "Save file: ".to_string();
         self.state.input = initial_path.unwrap_or("").to_string();
         self.state.cursor_pos = self.state.input.chars().count();
+        self.update_completions();
+    }
+
+    /// バッファ切り替えを開始
+    pub fn start_switch_buffer(&mut self, buffers: &[String], initial: Option<&str>) {
+        self.state.mode = MinibufferMode::SwitchBuffer;
+        self.state.prompt = "Switch to buffer: ".to_string();
+        self.state.input = initial.unwrap_or("").to_string();
+        self.state.cursor_pos = self.state.input.chars().count();
+        self.buffer_candidates = buffers.to_vec();
+        self.update_completions();
+    }
+
+    /// バッファ削除を開始
+    pub fn start_kill_buffer(&mut self, buffers: &[String], initial: Option<&str>) {
+        self.state.mode = MinibufferMode::KillBuffer;
+        self.state.prompt = "Kill buffer: ".to_string();
+        self.state.input = initial.unwrap_or("").to_string();
+        self.state.cursor_pos = self.state.input.chars().count();
+        self.buffer_candidates = buffers.to_vec();
         self.update_completions();
     }
 
@@ -344,6 +376,7 @@ impl ModernMinibuffer {
         self.state.selected_completion = None;
         self.state.cursor_pos = 0;
         self.state.history_index = None;
+        self.buffer_candidates.clear();
     }
 
     /// 現在の状態を取得
@@ -532,8 +565,10 @@ impl ModernMinibuffer {
     }
 
     fn update_completions(&mut self) {
-        // 入力が短すぎる場合は補完しない（パフォーマンス考慮）
-        if self.state.input.len() < 2 {
+        // パス補完時のみ入力長による制限を適用
+        if matches!(self.state.mode, MinibufferMode::FindFile | MinibufferMode::WriteFile)
+            && self.state.input.len() < 2
+        {
             self.state.completions.clear();
             self.state.selected_completion = None;
             return;
@@ -545,6 +580,21 @@ impl ModernMinibuffer {
                 let mut limited_completions = completions.unwrap_or_default();
                 limited_completions.truncate(50); // QA.mdの回答
                 self.state.completions = limited_completions;
+            }
+            MinibufferMode::SwitchBuffer | MinibufferMode::KillBuffer => {
+                if self.buffer_candidates.is_empty() {
+                    self.state.completions.clear();
+                } else if self.state.input.is_empty() {
+                    self.state.completions = self.buffer_candidates.clone();
+                } else {
+                    let needle = self.state.input.to_lowercase();
+                    self.state.completions = self
+                        .buffer_candidates
+                        .iter()
+                        .filter(|candidate| candidate.to_lowercase().starts_with(&needle))
+                        .cloned()
+                        .collect();
+                }
             }
             MinibufferMode::ExecuteCommand => {
                 // コマンド補完は将来実装
@@ -681,6 +731,26 @@ impl ModernMinibuffer {
                     self.add_to_history(input.clone());
                     self.deactivate();
                     MinibufferResult::Execute(input)
+                }
+            }
+            MinibufferMode::SwitchBuffer => {
+                if input.is_empty() {
+                    self.deactivate();
+                    MinibufferResult::SwitchBuffer(String::new())
+                } else {
+                    self.add_to_history(input.clone());
+                    self.deactivate();
+                    MinibufferResult::SwitchBuffer(input)
+                }
+            }
+            MinibufferMode::KillBuffer => {
+                if input.is_empty() {
+                    self.deactivate();
+                    MinibufferResult::KillBuffer(String::new())
+                } else {
+                    self.add_to_history(input.clone());
+                    self.deactivate();
+                    MinibufferResult::KillBuffer(input)
                 }
             }
             MinibufferMode::EvalExpression => {

@@ -126,6 +126,11 @@ pub enum Command {
     WriteFile,        // C-x C-w (別名保存)
     SaveAllBuffers,   // C-x s (全バッファ保存)
 
+    // バッファ操作
+    SwitchToBuffer,   // C-x b
+    KillBuffer,       // C-x k
+    ListBuffers,      // C-x C-b
+
     // ウィンドウ操作
     SplitWindowBelow,   // C-x 2
     SplitWindowRight,   // C-x 3
@@ -180,6 +185,9 @@ impl Command {
             "save-buffer" => Command::SaveBuffer,
             "write-file" => Command::WriteFile,
             "save-some-buffers" => Command::SaveAllBuffers,
+            "switch-to-buffer" => Command::SwitchToBuffer,
+            "kill-buffer" => Command::KillBuffer,
+            "list-buffers" => Command::ListBuffers,
             "split-window-below" => Command::SplitWindowBelow,
             "split-window-right" => Command::SplitWindowRight,
             "delete-other-windows" => Command::DeleteOtherWindows,
@@ -230,6 +238,9 @@ impl Command {
             Command::SaveBuffer => "バッファを保存",
             Command::WriteFile => "別名でファイルを保存",
             Command::SaveAllBuffers => "すべてのバッファを保存",
+            Command::SwitchToBuffer => "バッファを切り替え",
+            Command::KillBuffer => "バッファを削除",
+            Command::ListBuffers => "バッファ一覧を表示",
             Command::SplitWindowBelow => "ウィンドウを上下に分割",
             Command::SplitWindowRight => "ウィンドウを左右に分割",
             Command::DeleteOtherWindows => "現在のウィンドウのみ表示",
@@ -284,6 +295,17 @@ impl CommandProcessor {
     /// 現在のバッファへの可変参照
     pub fn current_buffer_mut(&mut self) -> Option<&mut FileBuffer> {
         self.current_buffer.as_mut()
+    }
+
+    /// 指定のバッファを現在のバッファとして読み込む
+    pub fn set_current_buffer(&mut self, buffer: FileBuffer) {
+        self.current_buffer = Some(buffer);
+        if let Some(ref current) = self.current_buffer {
+            self.editor = TextEditor::from_str(&current.content);
+        } else {
+            self.editor = TextEditor::new();
+        }
+        self.reset_command_context();
     }
 
     /// エディタ内容を同期
@@ -402,6 +424,9 @@ impl CommandProcessor {
             | Command::DeleteOtherWindows
             | Command::DeleteWindow
             | Command::OtherWindow
+            | Command::SwitchToBuffer
+            | Command::KillBuffer
+            | Command::ListBuffers
             | Command::SetMark
             | Command::KillRegion
             | Command::CopyRegion

@@ -69,6 +69,9 @@ fn test_action_to_command_conversion() {
     assert_eq!(Action::CopyRegion.to_command(), Some(Command::CopyRegion));
     assert_eq!(Action::ExchangePointAndMark.to_command(), Some(Command::ExchangePointAndMark));
     assert_eq!(Action::MarkBuffer.to_command(), Some(Command::MarkBuffer));
+    assert_eq!(Action::SwitchBuffer.to_command(), Some(Command::SwitchToBuffer));
+    assert_eq!(Action::KillBuffer.to_command(), Some(Command::KillBuffer));
+    assert_eq!(Action::ListBuffers.to_command(), Some(Command::ListBuffers));
 }
 
 #[test]

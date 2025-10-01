@@ -371,6 +371,10 @@ pub enum Action {
     FileSave,
     WriteFile,         // C-x C-w
     SaveAllBuffers,    // C-x s
+    /// バッファ操作
+    SwitchBuffer,
+    KillBuffer,
+    ListBuffers,
     /// ウィンドウ操作
     SplitWindowHorizontally, // C-x 2
     SplitWindowVertically,   // C-x 3
@@ -424,6 +428,9 @@ impl Action {
             Action::FileSave => Some(Command::SaveBuffer),
             Action::WriteFile => Some(Command::WriteFile),
             Action::SaveAllBuffers => Some(Command::SaveAllBuffers),
+            Action::SwitchBuffer => Some(Command::SwitchToBuffer),
+            Action::KillBuffer => Some(Command::KillBuffer),
+            Action::ListBuffers => Some(Command::ListBuffers),
             Action::SplitWindowHorizontally => Some(Command::SplitWindowBelow),
             Action::SplitWindowVertically => Some(Command::SplitWindowRight),
             Action::DeleteOtherWindows => Some(Command::DeleteOtherWindows),
@@ -665,6 +672,21 @@ impl ModernKeyMap {
             },
             Action::SaveAllBuffers,
         );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('b'),
+            },
+            Action::SwitchBuffer,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('k'),
+            },
+            Action::KillBuffer,
+        );
+        cx_prefix.insert(Key::ctrl_b(), Action::ListBuffers);
         cx_prefix.insert(
             Key {
                 modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
@@ -1033,6 +1055,33 @@ impl KeyMap {
                 KeyCombination::plain(CrosstermKeyCode::Char('s')),
             ]),
             KeyBinding::Command("save-some-buffers".to_string()),
+        );
+
+        // C-x b (switch-to-buffer)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('b')),
+            ]),
+            KeyBinding::Command("switch-to-buffer".to_string()),
+        );
+
+        // C-x k (kill-buffer)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('k')),
+            ]),
+            KeyBinding::Command("kill-buffer".to_string()),
+        );
+
+        // C-x C-b (list-buffers)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::ctrl(CrosstermKeyCode::Char('b')),
+            ]),
+            KeyBinding::Command("list-buffers".to_string()),
         );
 
         // C-x 2 (split-window-below)

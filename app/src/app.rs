@@ -2,21 +2,22 @@
 //!
 //! アプリケーション全体の状態管理とメインループを実装
 
-use crate::buffer::{BufferManager, CursorPosition, EditOperations, NavigationAction, TextEditor};
-use crate::error::{AltreError, Result, UiError};
+use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor};
+use crate::error::{AltreError, Result, UiError, FileError};
 use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{SearchController, SearchDirection, SearchHighlight};
 use crate::editor::KillRing;
+use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::env;
 use std::io::stdout;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// デバッグ出力マクロ
@@ -28,6 +29,35 @@ macro_rules! debug_log {
     };
 }
 
+#[derive(Clone)]
+struct OpenBuffer {
+    id: usize,
+    file: FileBuffer,
+    cursor: CursorPosition,
+}
+
+impl OpenBuffer {
+    fn new(id: usize, file: FileBuffer) -> Self {
+        Self {
+            id,
+            cursor: CursorPosition::new(),
+            file,
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.file.name
+    }
+
+    fn path(&self) -> Option<&PathBuf> {
+        self.file.path.as_ref()
+    }
+
+    fn is_modified(&self) -> bool {
+        self.file.is_modified()
+    }
+}
+
 /// メインアプリケーション構造体
 ///
 /// 全てのコンポーネントを統合し、アプリケーションのライフサイクルを管理
@@ -36,8 +66,6 @@ pub struct App {
     running: bool,
     /// 初期化状態
     initialized: bool,
-    /// バッファマネージャー
-    buffer_manager: BufferManager,
     /// メインエディタ
     editor: TextEditor,
     /// ミニバッファシステム
@@ -62,6 +90,14 @@ pub struct App {
     last_yank_range: Option<(usize, usize)>,
     /// ウィンドウ管理
     window_manager: WindowManager,
+    /// 開いているバッファ一覧
+    buffers: Vec<OpenBuffer>,
+    /// 現在アクティブなバッファID
+    current_buffer_id: Option<usize>,
+    /// 直前にアクティブだったバッファID
+    last_buffer_id: Option<usize>,
+    /// バッファID払い出し用カウンタ
+    next_buffer_id: usize,
     /// `C-l` の再配置サイクル
     recenter_step: u8,
 }
@@ -82,10 +118,9 @@ enum KillMerge {
 impl App {
     /// 新しいアプリケーションインスタンスを作成
     pub fn new() -> Result<Self> {
-        Ok(App {
+        let mut app = App {
             running: true,
             initialized: true,
-            buffer_manager: BufferManager::new(),
             editor: TextEditor::new(),
             minibuffer: MinibufferSystem::new(),
             renderer: AdvancedRenderer::new(),
@@ -98,8 +133,16 @@ impl App {
             kill_context: KillContext::None,
             last_yank_range: None,
             window_manager: WindowManager::new(),
+            buffers: Vec::new(),
+            current_buffer_id: None,
+            last_buffer_id: None,
+            next_buffer_id: 0,
             recenter_step: 0,
-        })
+        };
+
+        app.initialize_default_buffer()?;
+
+        Ok(app)
     }
 
     /// メインイベントループを実行
@@ -142,24 +185,14 @@ impl App {
 
     /// ファイルを開く
     pub fn open_file(&mut self, file_path: &str) -> Result<()> {
-        let _buffer_id = self.buffer_manager.create_buffer();
-
-        if Path::new(file_path).exists() {
-            // TODO: 実際のファイル読み込みを実装
-            self.show_info_message(format!("未実装: {} の読み込み", file_path));
-        } else {
-            self.show_error_message(AltreError::Application(format!(
-                "ファイルが存在しません: {}",
-                file_path
-            )));
-        }
-
+        let message = self.open_file_at_path(file_path)?;
+        self.show_info_message(message);
         Ok(())
     }
 
     /// バッファが存在するかを確認
     pub fn has_buffer(&self) -> bool {
-        self.buffer_manager.current_buffer_id().is_some()
+        !self.buffers.is_empty()
     }
 
     /// 文字を挿入
@@ -187,6 +220,256 @@ impl App {
     /// カーソル位置を取得
     pub fn get_cursor_position(&self) -> &CursorPosition {
         self.editor.cursor()
+    }
+
+    fn initialize_default_buffer(&mut self) -> Result<()> {
+        let id = self.allocate_buffer_id();
+        let file_buffer = FileBuffer::new_empty("*scratch*".to_string());
+        self.buffers.push(OpenBuffer::new(id, file_buffer));
+        self.current_buffer_id = Some(id);
+        self.load_buffer_by_id(id, false)?;
+        Ok(())
+    }
+
+    fn allocate_buffer_id(&mut self) -> usize {
+        let id = self.next_buffer_id;
+        self.next_buffer_id = self.next_buffer_id.saturating_add(1);
+        id
+    }
+
+    fn find_buffer_index(&self, id: usize) -> Option<usize> {
+        self.buffers.iter().position(|buffer| buffer.id == id)
+    }
+
+    fn find_buffer_index_by_name(&self, name: &str) -> Option<usize> {
+        self.buffers.iter().position(|buffer| buffer.name() == name)
+    }
+
+    fn find_buffer_id_by_path(&self, path: &Path) -> Option<usize> {
+        self.buffers
+            .iter()
+            .find(|buffer| buffer.path().map_or(false, |p| p == path))
+            .map(|buffer| buffer.id)
+    }
+
+    fn current_buffer_index(&self) -> Option<usize> {
+        self.current_buffer_id
+            .and_then(|id| self.find_buffer_index(id))
+    }
+
+    fn current_buffer(&self) -> Option<&OpenBuffer> {
+        if let Some(id) = self.current_buffer_id {
+            if let Some(index) = self.find_buffer_index(id) {
+                return self.buffers.get(index);
+            }
+        }
+        None
+    }
+
+    pub fn current_buffer_name(&self) -> Option<String> {
+        self.current_buffer().map(|buffer| buffer.name().to_string())
+    }
+
+    fn persist_current_buffer_state(&mut self) {
+        if let Some(index) = self.current_buffer_index() {
+            if let Some(buffer) = self.buffers.get_mut(index) {
+                buffer.file.content = self.editor.to_string();
+                buffer.cursor = *self.editor.cursor();
+            }
+        }
+    }
+
+    fn load_buffer_by_id(&mut self, id: usize, persist_current: bool) -> Result<()> {
+        if self.current_buffer_id == Some(id) {
+            return Ok(());
+        }
+
+        if persist_current {
+            self.persist_current_buffer_state();
+        }
+
+        let index = self.find_buffer_index(id)
+            .ok_or_else(|| AltreError::Application(format!("バッファID {} が見つかりません", id)))?;
+
+        let (content, cursor, file_clone) = {
+            let buffer = &self.buffers[index];
+            (
+                buffer.file.content.clone(),
+                buffer.cursor,
+                buffer.file.clone(),
+            )
+        };
+
+        if let Some(current_id) = self.current_buffer_id {
+            if current_id != id {
+                self.last_buffer_id = Some(current_id);
+            }
+        }
+
+        self.current_buffer_id = Some(id);
+        self.editor = TextEditor::from_str(&content);
+        self.editor.set_cursor(cursor);
+        self.command_processor.set_current_buffer(file_clone);
+        self.command_processor.sync_editor_content(&self.editor.to_string());
+
+        if let Some(viewport) = self.window_manager.focused_viewport_mut() {
+            *viewport = ViewportState::new();
+        }
+
+        self.recenter_step = 0;
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    pub fn buffer_names(&self) -> Vec<String> {
+        self.buffers.iter().map(|buffer| buffer.name().to_string()).collect()
+    }
+
+    fn buffer_display_lines(&self) -> Vec<String> {
+        self.buffers
+            .iter()
+            .map(|buffer| {
+                let mut markers = String::new();
+                if Some(buffer.id) == self.current_buffer_id {
+                    markers.push('*');
+                } else {
+                    markers.push(' ');
+                }
+
+                if buffer.is_modified() {
+                    markers.push('!');
+                } else {
+                    markers.push(' ');
+                }
+
+                let path = buffer
+                    .path()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "[未保存]".to_string());
+
+                format!("{} {:<20} {}", markers, buffer.name(), path)
+            })
+            .collect()
+    }
+
+    fn last_buffer_name(&self) -> Option<String> {
+        self.last_buffer_id
+            .and_then(|id| self.find_buffer_index(id))
+            .and_then(|index| self.buffers.get(index))
+            .map(|buffer| buffer.name().to_string())
+    }
+
+    pub fn switch_buffer(&mut self, name: &str) -> Result<()> {
+        self.switch_to_buffer_by_name(name)
+    }
+
+    pub fn kill_buffer(&mut self, name: Option<&str>) -> Result<()> {
+        self.kill_buffer_by_name(name)
+    }
+
+    fn switch_to_buffer_by_name(&mut self, name: &str) -> Result<()> {
+        if name.trim().is_empty() {
+            self.show_error_message(AltreError::Application("バッファ名を入力してください".to_string()));
+            return Ok(());
+        }
+
+        let index = self.find_buffer_index_by_name(name)
+            .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", name)))?;
+        let target_id = self.buffers[index].id;
+        self.load_buffer_by_id(target_id, true)?;
+        self.show_info_message(format!("バッファを切り替えました: {}", name));
+        Ok(())
+    }
+
+    fn kill_buffer_by_name(&mut self, name: Option<&str>) -> Result<()> {
+        if self.buffers.len() <= 1 {
+            self.show_error_message(AltreError::Application("最後のバッファは削除できません".to_string()));
+            return Ok(());
+        }
+
+        let target_id = if let Some(buffer_name) = name.filter(|n| !n.trim().is_empty()) {
+            let index = self.find_buffer_index_by_name(buffer_name)
+                .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", buffer_name)))?;
+            self.buffers[index].id
+        } else {
+            self.current_buffer_id
+                .ok_or_else(|| AltreError::Application("カレントバッファが存在しません".to_string()))?
+        };
+
+        let index = self.find_buffer_index(target_id)
+            .ok_or_else(|| AltreError::Application("指定されたバッファが見つかりません".to_string()))?;
+
+        if self.buffers[index].is_modified() {
+            let name = self.buffers[index].name().to_string();
+            self.show_error_message(AltreError::Application(format!(
+                "バッファ '{}' は未保存の変更があります", name
+            )));
+            return Ok(());
+        }
+
+        let removing_current = self.current_buffer_id == Some(target_id);
+        if removing_current {
+            self.persist_current_buffer_state();
+        }
+
+        let removed_name = self.buffers[index].name().to_string();
+        self.buffers.remove(index);
+
+        if self.last_buffer_id == Some(target_id) {
+            self.last_buffer_id = None;
+        }
+
+        if removing_current {
+            self.current_buffer_id = None;
+
+            let fallback_id = self
+                .last_buffer_id
+                .and_then(|id| self.find_buffer_index(id))
+                .and_then(|idx| self.buffers.get(idx))
+                .map(|buffer| buffer.id)
+                .or_else(|| self.buffers.first().map(|buffer| buffer.id))
+                .ok_or_else(|| AltreError::Application("他のバッファが存在しません".to_string()))?;
+
+            self.load_buffer_by_id(fallback_id, false)?;
+        }
+
+        self.show_info_message(format!("バッファを削除しました: {}", removed_name));
+        Ok(())
+    }
+
+    fn show_buffer_list(&mut self) {
+        let lines = self.buffer_display_lines();
+        if lines.is_empty() {
+            self.show_info_message("バッファはありません");
+        } else {
+            self.show_info_message(lines.join("\n"));
+        }
+    }
+
+    fn open_file_at_path(&mut self, path_input: &str) -> Result<String> {
+        let expanded_path = expand_path(path_input)
+            .map_err(|err| AltreError::Application(format!("パス展開エラー: {}", err)))?;
+
+        if let Some(existing_id) = self.find_buffer_id_by_path(&expanded_path) {
+            self.load_buffer_by_id(existing_id, true)?;
+            return Ok(format!("既存のバッファに切り替えました: {}", expanded_path.display()));
+        }
+
+        let mut file_manager = FileOperationManager::new();
+        let file_buffer = match file_manager.open_file(expanded_path.clone()) {
+            Ok(buffer) => buffer,
+            Err(AltreError::File(FileError::NotFound { .. })) => file_manager
+                .create_new_file_buffer(expanded_path.clone())
+                .map_err(|err| AltreError::Application(format!("ファイル操作エラー: {}", err)))?,
+            Err(err) => return Err(err),
+        };
+
+        let id = self.allocate_buffer_id();
+        self.buffers.push(OpenBuffer::new(id, file_buffer));
+
+        self.load_buffer_by_id(id, true)?;
+
+        Ok(format!("ファイルを開きました: {}", expanded_path.display()))
     }
 
     fn current_viewport_mut(&mut self) -> &mut ViewportState {
@@ -515,18 +798,36 @@ impl App {
                 self.focus_next_window();
                 Ok(())
             }
+            Command::SwitchToBuffer => {
+                let buffers = self.buffer_names();
+                let initial = self.last_buffer_name();
+                self.minibuffer.start_switch_buffer(&buffers, initial.as_deref())?;
+                Ok(())
+            }
+            Command::KillBuffer => {
+                let buffers = self.buffer_names();
+                let current_name = self.current_buffer().map(|buffer| buffer.name().to_string());
+                self.minibuffer.start_kill_buffer(&buffers, current_name.as_deref())?;
+                Ok(())
+            }
+            Command::ListBuffers => {
+                self.show_buffer_list();
+                Ok(())
+            }
             Command::WriteFile => {
                 // C-x C-w 実行時は常にファイルパスを確認
-                if let Some(buffer) = self.command_processor.current_buffer() {
-                    if let Some(ref path) = buffer.path {
-                        let suggested = path.file_name()
+                if let Some(buffer) = self.current_buffer() {
+                    let suggested = if let Some(ref path) = buffer.file.path {
+                        path.file_name()
                             .and_then(|n| n.to_str())
                             .unwrap_or("untitled")
-                            .to_string();
-                        self.start_save_as_prompt(&suggested)?;
+                            .to_string()
+                    } else if buffer.file.name.trim().is_empty() {
+                        "untitled".to_string()
                     } else {
-                        self.start_save_as_prompt("untitled")?;
-                    }
+                        buffer.file.name.clone()
+                    };
+                    self.start_save_as_prompt(&suggested)?;
                 } else {
                     self.start_save_as_prompt("untitled")?;
                 }
@@ -534,57 +835,87 @@ impl App {
             }
 
             Command::SaveAllBuffers => {
-                // 現在は単一バッファのみ対応
-                let result = self.command_processor.execute(Command::SaveBuffer);
-                if result.success {
-                    if let Some(msg) = result.message {
-                        self.show_info_message(msg);
+                self.persist_current_buffer_state();
+
+                let original_id = self.current_buffer_id;
+                let mut saved_count = 0usize;
+
+                for idx in 0..self.buffers.len() {
+                    let buffer_clone = self.buffers[idx].file.clone();
+                    self.command_processor.set_current_buffer(buffer_clone);
+                    let content = self.buffers[idx].file.content.clone();
+                    self.command_processor.sync_editor_content(&content);
+
+                    let result = self.command_processor.execute(Command::SaveBuffer);
+                    if result.success {
+                        if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                            self.buffers[idx].file = updated;
+                        }
+                        saved_count += 1;
+                    } else if let Some(msg) = result.message {
+                        self.show_error_message(AltreError::Application(msg));
+                        return Ok(());
                     }
-                } else if let Some(msg) = result.message {
-                    self.show_error_message(AltreError::Application(msg));
                 }
+
+                if let Some(id) = original_id {
+                    if let Some(index) = self.find_buffer_index(id) {
+                        let buffer_clone = self.buffers[index].file.clone();
+                        self.command_processor.set_current_buffer(buffer_clone);
+                        self.command_processor.sync_editor_content(&self.editor.to_string());
+                    }
+                }
+
+                self.show_info_message(format!("{} 個のバッファを保存しました", saved_count));
                 Ok(())
             }
 
             Command::SaveBuffer => {
-                match self.command_processor.current_buffer() {
-                    Some(buffer) => {
-                        if buffer.path.is_none() {
-                            let suggested = if buffer.name.trim().is_empty() {
-                                "untitled".to_string()
-                            } else {
-                                buffer.name.clone()
-                            };
-                            self.start_save_as_prompt(&suggested)?;
+                self.persist_current_buffer_state();
+
+                if let Some(index) = self.current_buffer_index() {
+                    let needs_path = self.buffers[index].file.path.is_none();
+                    if needs_path {
+                        let suggested = if self.buffers[index].file.name.trim().is_empty() {
+                            "untitled".to_string()
                         } else {
-                            let result = self.command_processor.execute(Command::SaveBuffer);
-                            if result.success {
-                                if let Some(msg) = result.message {
-                                    self.show_info_message(msg);
-                                }
-                            } else if let Some(msg) = result.message {
-                                self.show_error_message(AltreError::Application(msg));
+                            self.buffers[index].file.name.clone()
+                        };
+                        self.start_save_as_prompt(&suggested)?;
+                    } else {
+                        let buffer_clone = self.buffers[index].file.clone();
+                        self.command_processor.set_current_buffer(buffer_clone);
+                        self.command_processor.sync_editor_content(&self.editor.to_string());
+
+                        let result = self.command_processor.execute(Command::SaveBuffer);
+                        if result.success {
+                            if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                                self.buffers[index].file = updated;
                             }
+                            if let Some(msg) = result.message {
+                                self.show_info_message(msg);
+                            }
+                        } else if let Some(msg) = result.message {
+                            self.show_error_message(AltreError::Application(msg));
                         }
                     }
-                    None => {
-                        // ファイルが開かれていない場合、新規ファイル名を入力するためのミニバッファを起動
-                        let current_dir = std::env::current_dir()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|_| "~/".to_string());
+                } else {
+                    let current_dir = std::env::current_dir()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_else(|_| "~/".to_string());
 
-                        let initial_path = if current_dir.ends_with('/') {
-                            format!("{}untitled", current_dir)
-                        } else {
-                            format!("{}/untitled", current_dir)
-                        };
+                    let initial_path = if current_dir.ends_with('/') {
+                        format!("{}untitled", current_dir)
+                    } else {
+                        format!("{}/untitled", current_dir)
+                    };
 
-                        self.start_save_as_prompt(&initial_path)?;
-                    }
+                    self.start_save_as_prompt(&initial_path)?;
                 }
                 Ok(())
             }
             Command::SaveBuffersKillTerminal | Command::Quit => {
+                self.persist_current_buffer_state();
                 self.shutdown();
                 Ok(())
             }
@@ -1126,41 +1457,34 @@ impl App {
                 use crate::minibuffer::FileOperation;
                 match file_op {
                     FileOperation::Open(path) => {
-                        // ファイルを開く
-                        debug_log!(self, "Opening file: {}", path);
-                        let result = self.command_processor.open_file(path.clone());
-                        if result.success {
-                            if let Some(msg) = result.message {
-                                self.show_info_message(msg);
-                            }
-                            // エディタの内容を同期（TODO: より良い統合方法を検討）
-                            let editor_content = self.command_processor.editor().to_string();
-                            self.editor = crate::buffer::TextEditor::from_str(&editor_content);
-                            if let Some(viewport) = self.window_manager.focused_viewport_mut() {
-                                *viewport = ViewportState::new();
-                            }
-                            self.recenter_step = 0;
-                            self.ensure_cursor_visible();
-                            debug_log!(self, "File opened successfully, editor synchronized");
-                        } else {
-                            if let Some(msg) = result.message {
-                                self.show_error_message(AltreError::Application(msg));
-                            }
+                        debug_log!(self, "Opening file via minibuffer: {}", path);
+                        match self.open_file_at_path(&path) {
+                            Ok(message) => self.show_info_message(message),
+                            Err(err) => self.show_error_message(err),
                         }
                     }
                     FileOperation::SaveAs(path) => {
-                        // 現在のエディタ内容を同期
-                        let editor_content = self.editor.to_string();
-                        self.command_processor.sync_editor_content(&editor_content);
-
-                        let result = self.command_processor.save_buffer_as(path.clone());
-                        if result.success {
-                            if let Some(msg) = result.message {
-                                self.show_info_message(msg);
+                        self.persist_current_buffer_state();
+                        if let Some(index) = self.current_buffer_index() {
+                            if let Some(current) = self.buffers.get(index) {
+                                self.command_processor.set_current_buffer(current.file.clone());
                             }
-                            self.ensure_cursor_visible();
-                        } else if let Some(msg) = result.message {
-                            self.show_error_message(AltreError::Application(msg));
+                            self.command_processor.sync_editor_content(&self.editor.to_string());
+                            let result = self.command_processor.save_buffer_as(path.clone());
+                            if result.success {
+                                if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                                    if let Some(buffer) = self.buffers.get_mut(index) {
+                                        buffer.file = updated;
+                                        buffer.cursor = *self.editor.cursor();
+                                    }
+                                }
+                                if let Some(msg) = result.message {
+                                    self.show_info_message(msg);
+                                }
+                                self.ensure_cursor_visible();
+                            } else if let Some(msg) = result.message {
+                                self.show_error_message(AltreError::Application(msg));
+                            }
                         }
                     }
                     _ => {
@@ -1171,6 +1495,36 @@ impl App {
             }
             Ok(SystemResponse::ExecuteCommand(cmd)) => {
                 self.show_info_message(format!("コマンド実行: {}", cmd));
+                Ok(())
+            }
+            Ok(SystemResponse::SwitchBuffer(name)) => {
+                let target = if name.trim().is_empty() {
+                    self.last_buffer_name()
+                } else {
+                    Some(name)
+                };
+
+                if let Some(buffer_name) = target {
+                    if let Err(err) = self.switch_to_buffer_by_name(&buffer_name) {
+                        self.show_error_message(err);
+                    }
+                } else {
+                    self.show_error_message(AltreError::Application(
+                        "切り替えるバッファが見つかりません".to_string()
+                    ));
+                }
+                Ok(())
+            }
+            Ok(SystemResponse::KillBuffer(name)) => {
+                let trimmed = name.trim();
+                let target = if trimmed.is_empty() { None } else { Some(trimmed) };
+                if let Err(err) = self.kill_buffer_by_name(target) {
+                    self.show_error_message(err);
+                }
+                Ok(())
+            }
+            Ok(SystemResponse::ListBuffers) => {
+                self.show_buffer_list();
                 Ok(())
             }
             Ok(SystemResponse::Quit) => {

@@ -97,6 +97,12 @@ pub enum SystemResponse {
     ExecuteCommand(String),
     /// ファイル操作要求
     FileOperation(FileOperation),
+    /// バッファ切り替え要求
+    SwitchBuffer(String),
+    /// バッファ削除要求
+    KillBuffer(String),
+    /// バッファ一覧表示
+    ListBuffers,
     /// システム終了要求
     Quit,
     /// 何もしない
@@ -142,6 +148,7 @@ impl MinibufferSystem {
             super::MinibufferMode::FindFile => SystemState::FindFile,
             super::MinibufferMode::ExecuteCommand => SystemState::ExecuteCommand,
             super::MinibufferMode::EvalExpression => SystemState::ExecuteCommand,
+            super::MinibufferMode::SwitchBuffer | super::MinibufferMode::KillBuffer => SystemState::ExecuteCommand,
             super::MinibufferMode::ErrorDisplay { .. } => SystemState::ErrorDisplay,
             super::MinibufferMode::InfoDisplay { .. } => SystemState::InfoDisplay,
             _ => SystemState::Inactive,
@@ -210,6 +217,8 @@ impl MinibufferSystem {
         match result {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
+            MinibufferResult::SwitchBuffer(name) => Ok(SystemResponse::SwitchBuffer(name)),
+            MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
             MinibufferResult::Cancel => {
@@ -227,6 +236,8 @@ impl MinibufferSystem {
         match result {
             MinibufferResult::Continue => Ok(SystemResponse::Continue),
             MinibufferResult::Execute(command) => self.handle_execute_result(command),
+            MinibufferResult::SwitchBuffer(name) => Ok(SystemResponse::SwitchBuffer(name)),
+            MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
@@ -251,6 +262,16 @@ impl MinibufferSystem {
         } else if command == "write-file" || command == "save-buffer-as" {
             self.minibuffer.start_write_file(None);
             Ok(SystemResponse::Continue)
+        } else if let Some(buffer_name) = command.strip_prefix("switch-to-buffer ") {
+            Ok(SystemResponse::SwitchBuffer(buffer_name.trim().to_string()))
+        } else if command == "switch-to-buffer" {
+            Ok(SystemResponse::SwitchBuffer(String::new()))
+        } else if let Some(buffer_name) = command.strip_prefix("kill-buffer ") {
+            Ok(SystemResponse::KillBuffer(buffer_name.trim().to_string()))
+        } else if command == "kill-buffer" {
+            Ok(SystemResponse::KillBuffer(String::new()))
+        } else if command == "list-buffers" {
+            Ok(SystemResponse::ListBuffers)
         } else if let Some(expr) = command.strip_prefix("eval-expression ") {
             self.handle_eval_expression(expr.to_string())
         } else if command == "eval-expression" {
@@ -323,6 +344,18 @@ impl MinibufferSystem {
     /// ファイル保存を開始
     pub fn start_write_file(&mut self, initial_path: Option<&str>) -> Result<SystemResponse> {
         self.minibuffer.start_write_file(initial_path);
+        Ok(SystemResponse::Continue)
+    }
+
+    /// バッファ切り替えを開始
+    pub fn start_switch_buffer(&mut self, buffers: &[String], initial: Option<&str>) -> Result<SystemResponse> {
+        self.minibuffer.start_switch_buffer(buffers, initial);
+        Ok(SystemResponse::Continue)
+    }
+
+    /// バッファ削除を開始
+    pub fn start_kill_buffer(&mut self, buffers: &[String], initial: Option<&str>) -> Result<SystemResponse> {
+        self.minibuffer.start_kill_buffer(buffers, initial);
         Ok(SystemResponse::Continue)
     }
 

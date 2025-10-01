@@ -99,6 +99,13 @@ impl Key {
         }
     }
 
+    pub fn ctrl_w() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('w'),
+        }
+    }
+
     pub fn ctrl_a() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -110,6 +117,34 @@ impl Key {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
             code: KeyCode::Char('e'),
+        }
+    }
+
+    pub fn alt_f() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('f'),
+        }
+    }
+
+    pub fn alt_b() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('b'),
+        }
+    }
+
+    pub fn alt_d() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('d'),
+        }
+    }
+
+    pub fn alt_backspace() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Backspace,
         }
     }
 
@@ -159,6 +194,83 @@ impl Key {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
             code: KeyCode::Char('d'),
+        }
+    }
+
+    pub fn ctrl_k() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('k'),
+        }
+    }
+
+    pub fn ctrl_y() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('y'),
+        }
+    }
+
+    pub fn alt_y() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('y'),
+        }
+    }
+
+    pub fn alt_w() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('w'),
+        }
+    }
+
+    pub fn ctrl_v() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('v'),
+        }
+    }
+
+    pub fn alt_v() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('v'),
+        }
+    }
+
+    pub fn ctrl_l() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('l'),
+        }
+    }
+
+    pub fn shift_less() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            code: KeyCode::Char('<'),
+        }
+    }
+
+    pub fn shift_greater() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            code: KeyCode::Char('>'),
+        }
+    }
+
+    pub fn ctrl_g() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('g'),
+        }
+    }
+
+    pub fn ctrl_space() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char(' '),
         }
     }
 
@@ -222,11 +334,53 @@ pub enum Action {
     InsertChar(char),
     /// 文字削除
     DeleteChar(DeleteDirection),
+    /// 単語削除
+    KillWord(KillDirection),
     /// 改行
     InsertNewline,
+    /// 行キル
+    KillLine,
+    /// マーク設定
+    SetMark,
+    /// リージョンキル
+    KillRegion,
+    /// リージョンコピー
+    CopyRegion,
+    /// カーソルとマークの交換
+    ExchangePointAndMark,
+    /// バッファ全選択
+    MarkBuffer,
+    /// ページスクロール（下）
+    ScrollPageDown,
+    /// ページスクロール（上）
+    ScrollPageUp,
+    /// 画面再配置
+    Recenter,
+    /// 横スクロール（左）
+    ScrollHorizontalLeft,
+    /// 横スクロール（右）
+    ScrollHorizontalRight,
+    /// ヤンク
+    Yank,
+    /// ヤンクポップ
+    YankPop,
+    /// キーボードキャンセル
+    KeyboardQuit,
     /// ファイル操作
     FileOpen,
     FileSave,
+    WriteFile,         // C-x C-w
+    SaveAllBuffers,    // C-x s
+    /// バッファ操作
+    SwitchBuffer,
+    KillBuffer,
+    ListBuffers,
+    /// ウィンドウ操作
+    SplitWindowHorizontally, // C-x 2
+    SplitWindowVertically,   // C-x 3
+    DeleteOtherWindows,      // C-x 1
+    DeleteWindow,            // C-x 0
+    FocusOtherWindow,        // C-x o
     /// アプリケーション制御
     Quit,
     /// コマンド実行
@@ -247,13 +401,41 @@ impl Action {
                 NavigationAction::MoveLineEnd => Some(Command::MoveLineEnd),
                 NavigationAction::MoveBufferStart => Some(Command::MoveBufferStart),
                 NavigationAction::MoveBufferEnd => Some(Command::MoveBufferEnd),
+                NavigationAction::MoveWordForward => Some(Command::ForwardWord),
+                NavigationAction::MoveWordBackward => Some(Command::BackwardWord),
             },
             Action::InsertChar(ch) => Some(Command::InsertChar(*ch)),
             Action::DeleteChar(DeleteDirection::Backward) => Some(Command::DeleteBackwardChar),
             Action::DeleteChar(DeleteDirection::Forward) => Some(Command::DeleteChar),
+            Action::KillWord(KillDirection::Forward) => Some(Command::KillWordForward),
+            Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
+            Action::KillLine => Some(Command::KillLine),
+            Action::SetMark => Some(Command::SetMark),
+            Action::KillRegion => Some(Command::KillRegion),
+            Action::CopyRegion => Some(Command::CopyRegion),
+            Action::ExchangePointAndMark => Some(Command::ExchangePointAndMark),
+            Action::MarkBuffer => Some(Command::MarkBuffer),
+            Action::ScrollPageDown => Some(Command::ScrollPageDown),
+            Action::ScrollPageUp => Some(Command::ScrollPageUp),
+            Action::Recenter => Some(Command::Recenter),
+            Action::ScrollHorizontalLeft => Some(Command::ScrollLeft),
+            Action::ScrollHorizontalRight => Some(Command::ScrollRight),
+            Action::Yank => Some(Command::Yank),
+            Action::YankPop => Some(Command::YankPop),
+            Action::KeyboardQuit => Some(Command::KeyboardQuit),
             Action::FileOpen => Some(Command::FindFile),
             Action::FileSave => Some(Command::SaveBuffer),
+            Action::WriteFile => Some(Command::WriteFile),
+            Action::SaveAllBuffers => Some(Command::SaveAllBuffers),
+            Action::SwitchBuffer => Some(Command::SwitchToBuffer),
+            Action::KillBuffer => Some(Command::KillBuffer),
+            Action::ListBuffers => Some(Command::ListBuffers),
+            Action::SplitWindowHorizontally => Some(Command::SplitWindowBelow),
+            Action::SplitWindowVertically => Some(Command::SplitWindowRight),
+            Action::DeleteOtherWindows => Some(Command::DeleteOtherWindows),
+            Action::DeleteWindow => Some(Command::DeleteWindow),
+            Action::FocusOtherWindow => Some(Command::OtherWindow),
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
             Action::EvalExpression => Some(Command::EvalExpression),
@@ -266,6 +448,13 @@ impl Action {
 pub enum DeleteDirection {
     Backward,  // Backspace
     Forward,   // Delete
+}
+
+/// 単語キル方向
+#[derive(Debug, Clone, PartialEq)]
+pub enum KillDirection {
+    Forward,
+    Backward,
 }
 
 /// キーシーケンス（連続キー対応）
@@ -441,6 +630,14 @@ impl ModernKeyMap {
         single.insert(Key::ctrl_b(), Action::Navigate(NavigationAction::MoveCharBackward));
         single.insert(Key::ctrl_a(), Action::Navigate(NavigationAction::MoveLineStart));
         single.insert(Key::ctrl_e(), Action::Navigate(NavigationAction::MoveLineEnd));
+        single.insert(Key::alt_f(), Action::Navigate(NavigationAction::MoveWordForward));
+        single.insert(Key::alt_b(), Action::Navigate(NavigationAction::MoveWordBackward));
+        single.insert(Key::ctrl_v(), Action::ScrollPageDown);
+        single.insert(Key::alt_v(), Action::ScrollPageUp);
+        single.insert(Key::ctrl_l(), Action::Recenter);
+        single.insert(Key::ctrl_space(), Action::SetMark);
+        single.insert(Key::ctrl_w(), Action::KillRegion);
+        single.insert(Key::alt_w(), Action::CopyRegion);
 
         // 矢印キー
         single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
@@ -456,12 +653,100 @@ impl ModernKeyMap {
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Backspace }, Action::DeleteChar(DeleteDirection::Backward));
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Delete }, Action::DeleteChar(DeleteDirection::Forward));
         single.insert(Key::ctrl_d(), Action::DeleteChar(DeleteDirection::Forward));
+        single.insert(Key::alt_d(), Action::KillWord(KillDirection::Forward));
+        single.insert(Key::alt_backspace(), Action::KillWord(KillDirection::Backward));
+        single.insert(Key::ctrl_k(), Action::KillLine);
+        single.insert(Key::ctrl_y(), Action::Yank);
+        single.insert(Key::alt_y(), Action::YankPop);
+        single.insert(Key::ctrl_g(), Action::KeyboardQuit);
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
 
         // ファイル操作（C-xプレフィックス）
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
         cx_prefix.insert(Key::ctrl_s(), Action::FileSave);
+        cx_prefix.insert(Key::ctrl_w(), Action::WriteFile);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('s'),
+            },
+            Action::SaveAllBuffers,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('b'),
+            },
+            Action::SwitchBuffer,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('k'),
+            },
+            Action::KillBuffer,
+        );
+        cx_prefix.insert(Key::ctrl_b(), Action::ListBuffers);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('2'),
+            },
+            Action::SplitWindowHorizontally,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('3'),
+            },
+            Action::SplitWindowVertically,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('1'),
+            },
+            Action::DeleteOtherWindows,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('0'),
+            },
+            Action::DeleteWindow,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('o'),
+            },
+            Action::FocusOtherWindow,
+        );
         cx_prefix.insert(Key::ctrl_c(), Action::Quit);
+        cx_prefix.insert(Key::ctrl_x(), Action::ExchangePointAndMark);
+        cx_prefix.insert(Key::shift_less(), Action::ScrollHorizontalLeft);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('<'),
+            },
+            Action::ScrollHorizontalLeft,
+        );
+        cx_prefix.insert(Key::shift_greater(), Action::ScrollHorizontalRight);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('>'),
+            },
+            Action::ScrollHorizontalRight,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('h'),
+            },
+            Action::MarkBuffer,
+        );
 
         // コマンド実行
         single.insert(Key::alt_x(), Action::ExecuteCommand);
@@ -522,6 +807,10 @@ impl ModernKeyMap {
     fn process_cx_prefix_key(&mut self, key: Key) -> KeyProcessResult {
         // 状態をリセット
         self.partial_match_state = PartialMatchState::None;
+
+        if key == Key::ctrl_g() {
+            return KeyProcessResult::Action(Action::KeyboardQuit);
+        }
 
         // C-xプレフィックス用のマッピングを確認
         if let Some(action) = self.cx_prefix_bindings.get(&key) {
@@ -750,6 +1039,96 @@ impl KeyMap {
             KeyBinding::Command("save-buffer".to_string()),
         );
 
+        // C-x C-w (write-file)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::ctrl(CrosstermKeyCode::Char('w')),
+            ]),
+            KeyBinding::Command("write-file".to_string()),
+        );
+
+        // C-x s (save-some-buffers)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('s')),
+            ]),
+            KeyBinding::Command("save-some-buffers".to_string()),
+        );
+
+        // C-x b (switch-to-buffer)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('b')),
+            ]),
+            KeyBinding::Command("switch-to-buffer".to_string()),
+        );
+
+        // C-x k (kill-buffer)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('k')),
+            ]),
+            KeyBinding::Command("kill-buffer".to_string()),
+        );
+
+        // C-x C-b (list-buffers)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::ctrl(CrosstermKeyCode::Char('b')),
+            ]),
+            KeyBinding::Command("list-buffers".to_string()),
+        );
+
+        // C-x 2 (split-window-below)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('2')),
+            ]),
+            KeyBinding::Command("split-window-below".to_string()),
+        );
+
+        // C-x 3 (split-window-right)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('3')),
+            ]),
+            KeyBinding::Command("split-window-right".to_string()),
+        );
+
+        // C-x 1 (delete-other-windows)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('1')),
+            ]),
+            KeyBinding::Command("delete-other-windows".to_string()),
+        );
+
+        // C-x 0 (delete-window)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('0')),
+            ]),
+            KeyBinding::Command("delete-window".to_string()),
+        );
+
+        // C-x o (other-window)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('o')),
+            ]),
+            KeyBinding::Command("other-window".to_string()),
+        );
+
         // C-x C-c (save-buffers-kill-terminal)
         self.bind_global(
             LegacyKeySequence::new(vec![
@@ -917,6 +1296,50 @@ mod tests {
         // C-f 入力
         let result2 = keymap.process_key(Key::ctrl_f());
         assert_eq!(result2, KeyProcessResult::Action(Action::FileOpen));
+
+        // C-x C-x
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+
+        // C-x h
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            KeyProcessResult::Action(Action::MarkBuffer)
+        );
+    }
+
+    #[test]
+    fn test_modern_keymap_kill_ring_bindings() {
+        let mut keymap = ModernKeyMap::new();
+
+        assert_eq!(keymap.process_key(Key::ctrl_k()), KeyProcessResult::Action(Action::KillLine));
+        assert_eq!(keymap.process_key(Key::ctrl_y()), KeyProcessResult::Action(Action::Yank));
+        assert_eq!(keymap.process_key(Key::alt_y()), KeyProcessResult::Action(Action::YankPop));
+        assert_eq!(keymap.process_key(Key::ctrl_v()), KeyProcessResult::Action(Action::ScrollPageDown));
+        assert_eq!(keymap.process_key(Key::alt_v()), KeyProcessResult::Action(Action::ScrollPageUp));
+        assert_eq!(keymap.process_key(Key::ctrl_l()), KeyProcessResult::Action(Action::Recenter));
+        assert_eq!(keymap.process_key(Key::ctrl_space()), KeyProcessResult::Action(Action::SetMark));
+        assert_eq!(keymap.process_key(Key::ctrl_w()), KeyProcessResult::Action(Action::KillRegion));
+        assert_eq!(keymap.process_key(Key::alt_w()), KeyProcessResult::Action(Action::CopyRegion));
+
+        // C-g でプレフィックス解除
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_g()), KeyProcessResult::Action(Action::KeyboardQuit));
+
+        // C-x < / C-x >
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::shift_less()), KeyProcessResult::Action(Action::ScrollHorizontalLeft));
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::shift_greater()), KeyProcessResult::Action(Action::ScrollHorizontalRight));
+
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            KeyProcessResult::Action(Action::MarkBuffer)
+        );
     }
 
     #[test]
@@ -973,7 +1396,23 @@ mod tests {
         assert_eq!(Action::InsertChar('x').to_command(), Some(Command::InsertChar('x')));
         assert_eq!(Action::DeleteChar(DeleteDirection::Backward).to_command(), Some(Command::DeleteBackwardChar));
         assert_eq!(Action::DeleteChar(DeleteDirection::Forward).to_command(), Some(Command::DeleteChar));
+        assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
+        assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
+        assert_eq!(Action::ScrollPageDown.to_command(), Some(Command::ScrollPageDown));
+        assert_eq!(Action::ScrollPageUp.to_command(), Some(Command::ScrollPageUp));
+        assert_eq!(Action::Recenter.to_command(), Some(Command::Recenter));
+        assert_eq!(Action::ScrollHorizontalLeft.to_command(), Some(Command::ScrollLeft));
+        assert_eq!(Action::ScrollHorizontalRight.to_command(), Some(Command::ScrollRight));
+        assert_eq!(Action::SetMark.to_command(), Some(Command::SetMark));
+        assert_eq!(Action::KillRegion.to_command(), Some(Command::KillRegion));
+        assert_eq!(Action::CopyRegion.to_command(), Some(Command::CopyRegion));
+        assert_eq!(Action::ExchangePointAndMark.to_command(), Some(Command::ExchangePointAndMark));
+        assert_eq!(Action::MarkBuffer.to_command(), Some(Command::MarkBuffer));
+        assert_eq!(Action::Yank.to_command(), Some(Command::Yank));
+        assert_eq!(Action::YankPop.to_command(), Some(Command::YankPop));
+        assert_eq!(Action::KeyboardQuit.to_command(), Some(Command::KeyboardQuit));
         assert_eq!(Action::FileOpen.to_command(), Some(Command::FindFile));
         assert_eq!(Action::FileSave.to_command(), Some(Command::SaveBuffer));
         assert_eq!(Action::Quit.to_command(), Some(Command::SaveBuffersKillTerminal));

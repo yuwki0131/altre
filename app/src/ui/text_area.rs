@@ -5,23 +5,15 @@
 use std::collections::HashMap;
 
 use ratatui::{
-    widgets::{Block, Borders, Paragraph},
     layout::Rect,
-    text::{Line, Span},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Clear},
     Frame,
 };
 use crate::buffer::TextEditor;
 use crate::search::SearchHighlight;
 use crate::ui::theme::{Theme, ComponentType};
-
-/// ビューポート情報
-#[derive(Debug, Clone)]
-pub struct Viewport {
-    pub start_line: usize,
-    pub end_line: usize,
-    pub scroll_x: usize,
-}
 
 /// テキストエリア描画器
 #[derive(Debug)]
@@ -105,7 +97,12 @@ impl TextArea {
     }
 
     /// 画面上のカーソル位置を計算
-    pub fn calculate_cursor_screen_position(&self, area: Rect, viewport_start_line: usize) -> Option<(u16, u16)> {
+    pub fn calculate_cursor_screen_position(
+        &self,
+        area: Rect,
+        viewport_start_line: usize,
+        scroll_x: usize,
+    ) -> Option<(u16, u16)> {
         // カーソル行が表示領域内にあるかチェック
         if self.cursor_line < viewport_start_line {
             return None;
@@ -120,7 +117,11 @@ impl TextArea {
         let content_x = if self.show_border { area.x + 1 } else { area.x };
         let content_y = if self.show_border { area.y + 1 } else { area.y };
 
-        let cursor_x = content_x + self.cursor_column as u16;
+        if self.cursor_column < scroll_x {
+            return None;
+        }
+
+        let cursor_x = content_x + (self.cursor_column - scroll_x) as u16;
         let cursor_y = content_y + screen_line as u16;
 
         // 表示領域内かチェック
@@ -188,6 +189,7 @@ impl TextAreaRenderer {
         frame: &mut Frame<'_>,
         area: Rect,
         editor: &TextEditor,
+        viewport: &mut crate::ui::ViewportState,
         theme: &Theme,
         highlights: &[SearchHighlight],
         minibuffer_active: bool,
@@ -195,47 +197,43 @@ impl TextAreaRenderer {
         let content = editor.to_string();
         let cursor_pos = editor.cursor();
 
-        // TextAreaを使ってテキスト描画
         let mut text_area = TextArea::new();
         text_area.set_cursor(cursor_pos.line, cursor_pos.column);
 
-        // ビューポート管理：ミニバッファがアクティブな時のスクロール調整
-        let viewport_offset = if minibuffer_active {
-            self.calculate_viewport_offset(cursor_pos.line, area.height as usize)
-        } else {
-            0
-        };
-
         let all_lines = text_area.prepare_lines(&content, highlights);
 
-        // 表示範囲を計算してスライス
-        let visible_lines: Vec<Line> = if viewport_offset < all_lines.len() {
-            all_lines[viewport_offset..].iter()
-                .take(area.height as usize)
-                .cloned()
-                .collect()
+        let total_lines = if content.is_empty() {
+            1
         } else {
-            vec![Line::from("")] // 空行を表示
+            all_lines.len().max(1)
         };
 
-        let paragraph = Paragraph::new(visible_lines)
-            .style(theme.style(&ComponentType::TextArea));
+        let max_line_columns = content
+            .lines()
+            .map(|line| line.chars().count())
+            .max()
+            .unwrap_or(0);
 
+        viewport.update_dimensions(area.height as usize, area.width as usize);
+
+        if minibuffer_active {
+            viewport.top_line = cursor_pos.line.saturating_sub(viewport.height / 2);
+        }
+
+        viewport.clamp_vertical(total_lines);
+        viewport.clamp_horizontal(max_line_columns);
+
+        let scroll_y = viewport.top_line.min(u16::MAX as usize) as u16;
+        let scroll_x = viewport.scroll_x.min(u16::MAX as usize) as u16;
+
+        let paragraph = Paragraph::new(all_lines)
+            .style(theme.style(&ComponentType::TextArea))
+            .scroll((scroll_y, scroll_x));
+
+        frame.render_widget(Clear, area);
         frame.render_widget(paragraph, area);
 
-        // カーソル位置を計算して返す
-        text_area.calculate_cursor_screen_position(area, viewport_offset)
-    }
-
-    /// ビューポートオフセットを計算
-    fn calculate_viewport_offset(&self, cursor_line: usize, area_height: usize) -> usize {
-        // ミニバッファがアクティブな時、カーソル行が見えるようにオフセット調整
-        if cursor_line < area_height {
-            0  // カーソルが表示領域内にある場合はオフセット不要
-        } else {
-            // カーソルを中央付近に表示するようオフセット
-            cursor_line.saturating_sub(area_height / 2)
-        }
+        text_area.calculate_cursor_screen_position(area, viewport.top_line, viewport.scroll_x)
     }
 }
 

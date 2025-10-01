@@ -6,6 +6,7 @@ pub mod input_buffer;
 pub mod text_editor;
 pub mod edit_operations;
 pub mod change_notifier;
+pub mod kill_ring;
 
 // 公開API
 pub use input_buffer::{InputBuffer, InputBufferError, InputBufferStats};
@@ -18,6 +19,7 @@ pub use change_notifier::{
     AdvancedChangeNotifier, ExtendedChangeEvent, ExtendedChangeListener,
     ViewportInfo, ChangeNotifierStats, BatchInfo, ListenerId,
 };
+pub use kill_ring::KillRing;
 
 // 互換性のため、bufferモジュールから必要な型を再エクスポート
 pub use crate::buffer::{

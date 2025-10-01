@@ -2,20 +2,22 @@
 //!
 //! アプリケーション全体の状態管理とメインループを実装
 
-use crate::buffer::{BufferManager, CursorPosition, EditOperations, NavigationAction, TextEditor};
-use crate::error::{AltreError, Result, UiError};
+use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor};
+use crate::error::{AltreError, Result, UiError, FileError};
 use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
-use crate::ui::AdvancedRenderer;
-use crate::search::{SearchController, SearchDirection};
+use crate::ui::{AdvancedRenderer, WindowManager, SplitOrientation, ViewportState};
+use crate::search::{SearchController, SearchDirection, SearchHighlight};
+use crate::editor::KillRing;
+use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::env;
 use std::io::stdout;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// デバッグ出力マクロ
@@ -27,6 +29,35 @@ macro_rules! debug_log {
     };
 }
 
+#[derive(Clone)]
+struct OpenBuffer {
+    id: usize,
+    file: FileBuffer,
+    cursor: CursorPosition,
+}
+
+impl OpenBuffer {
+    fn new(id: usize, file: FileBuffer) -> Self {
+        Self {
+            id,
+            cursor: CursorPosition::new(),
+            file,
+        }
+    }
+
+    fn name(&self) -> &str {
+        &self.file.name
+    }
+
+    fn path(&self) -> Option<&PathBuf> {
+        self.file.path.as_ref()
+    }
+
+    fn is_modified(&self) -> bool {
+        self.file.is_modified()
+    }
+}
+
 /// メインアプリケーション構造体
 ///
 /// 全てのコンポーネントを統合し、アプリケーションのライフサイクルを管理
@@ -35,8 +66,6 @@ pub struct App {
     running: bool,
     /// 初期化状態
     initialized: bool,
-    /// バッファマネージャー
-    buffer_manager: BufferManager,
     /// メインエディタ
     editor: TextEditor,
     /// ミニバッファシステム
@@ -53,15 +82,45 @@ pub struct App {
     current_prefix: Option<String>,
     /// デバッグモード
     debug_mode: bool,
+    /// キルリング
+    kill_ring: KillRing,
+    /// 直前のキル関連コマンド
+    kill_context: KillContext,
+    /// 直近のヤンク範囲
+    last_yank_range: Option<(usize, usize)>,
+    /// ウィンドウ管理
+    window_manager: WindowManager,
+    /// 開いているバッファ一覧
+    buffers: Vec<OpenBuffer>,
+    /// 現在アクティブなバッファID
+    current_buffer_id: Option<usize>,
+    /// 直前にアクティブだったバッファID
+    last_buffer_id: Option<usize>,
+    /// バッファID払い出し用カウンタ
+    next_buffer_id: usize,
+    /// `C-l` の再配置サイクル
+    recenter_step: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KillContext {
+    None,
+    Kill,
+    Yank,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KillMerge {
+    Append,
+    Prepend,
 }
 
 impl App {
     /// 新しいアプリケーションインスタンスを作成
     pub fn new() -> Result<Self> {
-        Ok(App {
+        let mut app = App {
             running: true,
             initialized: true,
-            buffer_manager: BufferManager::new(),
             editor: TextEditor::new(),
             minibuffer: MinibufferSystem::new(),
             renderer: AdvancedRenderer::new(),
@@ -70,7 +129,20 @@ impl App {
             search: SearchController::new(),
             current_prefix: None,
             debug_mode: std::env::var("ALTRE_DEBUG").is_ok(),
-        })
+            kill_ring: KillRing::new(),
+            kill_context: KillContext::None,
+            last_yank_range: None,
+            window_manager: WindowManager::new(),
+            buffers: Vec::new(),
+            current_buffer_id: None,
+            last_buffer_id: None,
+            next_buffer_id: 0,
+            recenter_step: 0,
+        };
+
+        app.initialize_default_buffer()?;
+
+        Ok(app)
     }
 
     /// メインイベントループを実行
@@ -113,24 +185,14 @@ impl App {
 
     /// ファイルを開く
     pub fn open_file(&mut self, file_path: &str) -> Result<()> {
-        let _buffer_id = self.buffer_manager.create_buffer();
-
-        if Path::new(file_path).exists() {
-            // TODO: 実際のファイル読み込みを実装
-            self.show_info_message(format!("未実装: {} の読み込み", file_path));
-        } else {
-            self.show_error_message(AltreError::Application(format!(
-                "ファイルが存在しません: {}",
-                file_path
-            )));
-        }
-
+        let message = self.open_file_at_path(file_path)?;
+        self.show_info_message(message);
         Ok(())
     }
 
     /// バッファが存在するかを確認
     pub fn has_buffer(&self) -> bool {
-        self.buffer_manager.current_buffer_id().is_some()
+        !self.buffers.is_empty()
     }
 
     /// 文字を挿入
@@ -158,6 +220,270 @@ impl App {
     /// カーソル位置を取得
     pub fn get_cursor_position(&self) -> &CursorPosition {
         self.editor.cursor()
+    }
+
+    fn initialize_default_buffer(&mut self) -> Result<()> {
+        let id = self.allocate_buffer_id();
+        let file_buffer = FileBuffer::new_empty("*scratch*".to_string());
+        self.buffers.push(OpenBuffer::new(id, file_buffer));
+        self.current_buffer_id = Some(id);
+        self.load_buffer_by_id(id, false)?;
+        Ok(())
+    }
+
+    fn allocate_buffer_id(&mut self) -> usize {
+        let id = self.next_buffer_id;
+        self.next_buffer_id = self.next_buffer_id.saturating_add(1);
+        id
+    }
+
+    fn find_buffer_index(&self, id: usize) -> Option<usize> {
+        self.buffers.iter().position(|buffer| buffer.id == id)
+    }
+
+    fn find_buffer_index_by_name(&self, name: &str) -> Option<usize> {
+        self.buffers.iter().position(|buffer| buffer.name() == name)
+    }
+
+    fn find_buffer_id_by_path(&self, path: &Path) -> Option<usize> {
+        self.buffers
+            .iter()
+            .find(|buffer| buffer.path().map_or(false, |p| p == path))
+            .map(|buffer| buffer.id)
+    }
+
+    fn current_buffer_index(&self) -> Option<usize> {
+        self.current_buffer_id
+            .and_then(|id| self.find_buffer_index(id))
+    }
+
+    fn current_buffer(&self) -> Option<&OpenBuffer> {
+        if let Some(id) = self.current_buffer_id {
+            if let Some(index) = self.find_buffer_index(id) {
+                return self.buffers.get(index);
+            }
+        }
+        None
+    }
+
+    pub fn current_buffer_name(&self) -> Option<String> {
+        self.current_buffer().map(|buffer| buffer.name().to_string())
+    }
+
+    fn persist_current_buffer_state(&mut self) {
+        if let Some(index) = self.current_buffer_index() {
+            if let Some(buffer) = self.buffers.get_mut(index) {
+                buffer.file.content = self.editor.to_string();
+                buffer.cursor = *self.editor.cursor();
+            }
+        }
+    }
+
+    fn load_buffer_by_id(&mut self, id: usize, persist_current: bool) -> Result<()> {
+        if self.current_buffer_id == Some(id) {
+            return Ok(());
+        }
+
+        if persist_current {
+            self.persist_current_buffer_state();
+        }
+
+        let index = self.find_buffer_index(id)
+            .ok_or_else(|| AltreError::Application(format!("バッファID {} が見つかりません", id)))?;
+
+        let (content, cursor, file_clone) = {
+            let buffer = &self.buffers[index];
+            (
+                buffer.file.content.clone(),
+                buffer.cursor,
+                buffer.file.clone(),
+            )
+        };
+
+        if let Some(current_id) = self.current_buffer_id {
+            if current_id != id {
+                self.last_buffer_id = Some(current_id);
+            }
+        }
+
+        self.current_buffer_id = Some(id);
+        self.editor = TextEditor::from_str(&content);
+        self.editor.set_cursor(cursor);
+        self.command_processor.set_current_buffer(file_clone);
+        self.command_processor.sync_editor_content(&self.editor.to_string());
+
+        if let Some(viewport) = self.window_manager.focused_viewport_mut() {
+            *viewport = ViewportState::new();
+        }
+
+        self.recenter_step = 0;
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    pub fn buffer_names(&self) -> Vec<String> {
+        self.buffers.iter().map(|buffer| buffer.name().to_string()).collect()
+    }
+
+    fn buffer_display_lines(&self) -> Vec<String> {
+        self.buffers
+            .iter()
+            .map(|buffer| {
+                let mut markers = String::new();
+                if Some(buffer.id) == self.current_buffer_id {
+                    markers.push('*');
+                } else {
+                    markers.push(' ');
+                }
+
+                if buffer.is_modified() {
+                    markers.push('!');
+                } else {
+                    markers.push(' ');
+                }
+
+                let path = buffer
+                    .path()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "[未保存]".to_string());
+
+                format!("{} {:<20} {}", markers, buffer.name(), path)
+            })
+            .collect()
+    }
+
+    fn last_buffer_name(&self) -> Option<String> {
+        self.last_buffer_id
+            .and_then(|id| self.find_buffer_index(id))
+            .and_then(|index| self.buffers.get(index))
+            .map(|buffer| buffer.name().to_string())
+    }
+
+    pub fn switch_buffer(&mut self, name: &str) -> Result<()> {
+        self.switch_to_buffer_by_name(name)
+    }
+
+    pub fn kill_buffer(&mut self, name: Option<&str>) -> Result<()> {
+        self.kill_buffer_by_name(name)
+    }
+
+    fn switch_to_buffer_by_name(&mut self, name: &str) -> Result<()> {
+        if name.trim().is_empty() {
+            self.show_error_message(AltreError::Application("バッファ名を入力してください".to_string()));
+            return Ok(());
+        }
+
+        let index = self.find_buffer_index_by_name(name)
+            .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", name)))?;
+        let target_id = self.buffers[index].id;
+        self.load_buffer_by_id(target_id, true)?;
+        self.show_info_message(format!("バッファを切り替えました: {}", name));
+        Ok(())
+    }
+
+    fn kill_buffer_by_name(&mut self, name: Option<&str>) -> Result<()> {
+        if self.buffers.len() <= 1 {
+            self.show_error_message(AltreError::Application("最後のバッファは削除できません".to_string()));
+            return Ok(());
+        }
+
+        let target_id = if let Some(buffer_name) = name.filter(|n| !n.trim().is_empty()) {
+            let index = self.find_buffer_index_by_name(buffer_name)
+                .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", buffer_name)))?;
+            self.buffers[index].id
+        } else {
+            self.current_buffer_id
+                .ok_or_else(|| AltreError::Application("カレントバッファが存在しません".to_string()))?
+        };
+
+        let index = self.find_buffer_index(target_id)
+            .ok_or_else(|| AltreError::Application("指定されたバッファが見つかりません".to_string()))?;
+
+        if self.buffers[index].is_modified() {
+            let name = self.buffers[index].name().to_string();
+            self.show_error_message(AltreError::Application(format!(
+                "バッファ '{}' は未保存の変更があります", name
+            )));
+            return Ok(());
+        }
+
+        let removing_current = self.current_buffer_id == Some(target_id);
+        if removing_current {
+            self.persist_current_buffer_state();
+        }
+
+        let removed_name = self.buffers[index].name().to_string();
+        self.buffers.remove(index);
+
+        if self.last_buffer_id == Some(target_id) {
+            self.last_buffer_id = None;
+        }
+
+        if removing_current {
+            self.current_buffer_id = None;
+
+            let fallback_id = self
+                .last_buffer_id
+                .and_then(|id| self.find_buffer_index(id))
+                .and_then(|idx| self.buffers.get(idx))
+                .map(|buffer| buffer.id)
+                .or_else(|| self.buffers.first().map(|buffer| buffer.id))
+                .ok_or_else(|| AltreError::Application("他のバッファが存在しません".to_string()))?;
+
+            self.load_buffer_by_id(fallback_id, false)?;
+        }
+
+        self.show_info_message(format!("バッファを削除しました: {}", removed_name));
+        Ok(())
+    }
+
+    fn show_buffer_list(&mut self) {
+        let lines = self.buffer_display_lines();
+        if lines.is_empty() {
+            self.show_info_message("バッファはありません");
+        } else {
+            self.show_info_message(lines.join("\n"));
+        }
+    }
+
+    fn open_file_at_path(&mut self, path_input: &str) -> Result<String> {
+        let expanded_path = expand_path(path_input)
+            .map_err(|err| AltreError::Application(format!("パス展開エラー: {}", err)))?;
+
+        if let Some(existing_id) = self.find_buffer_id_by_path(&expanded_path) {
+            self.load_buffer_by_id(existing_id, true)?;
+            return Ok(format!("既存のバッファに切り替えました: {}", expanded_path.display()));
+        }
+
+        let mut file_manager = FileOperationManager::new();
+        let file_buffer = match file_manager.open_file(expanded_path.clone()) {
+            Ok(buffer) => buffer,
+            Err(AltreError::File(FileError::NotFound { .. })) => file_manager
+                .create_new_file_buffer(expanded_path.clone())
+                .map_err(|err| AltreError::Application(format!("ファイル操作エラー: {}", err)))?,
+            Err(err) => return Err(err),
+        };
+
+        let id = self.allocate_buffer_id();
+        self.buffers.push(OpenBuffer::new(id, file_buffer));
+
+        self.load_buffer_by_id(id, true)?;
+
+        Ok(format!("ファイルを開きました: {}", expanded_path.display()))
+    }
+
+    fn current_viewport_mut(&mut self) -> &mut ViewportState {
+        self
+            .window_manager
+            .focused_viewport_mut()
+            .expect("フォーカスウィンドウが存在しません")
+    }
+
+    fn current_viewport(&self) -> &ViewportState {
+        self
+            .window_manager
+            .focused_viewport()
+            .expect("フォーカスウィンドウが存在しません")
     }
 
     fn event_loop<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
@@ -251,6 +577,7 @@ impl App {
             (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
                 self.keymap.reset_partial_match();
                 self.current_prefix = None;
+                self.keyboard_quit();
                 true
             }
             // ESC: キーシーケンスのキャンセル（無反応）
@@ -367,65 +694,228 @@ impl App {
                 if let Err(err) = self.editor.insert_char(ch) {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
                 Ok(())
             }
             Command::DeleteBackwardChar => {
                 if let Err(err) = self.editor.delete_backward() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
                 Ok(())
             }
             Command::DeleteChar => {
                 if let Err(err) = self.editor.delete_forward() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
                 Ok(())
             }
             Command::InsertNewline => {
                 if let Err(err) = self.editor.insert_newline() {
                     self.show_error_message(err);
                 }
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
                 Ok(())
             }
+            Command::KillWordForward => {
+                self.kill_word_forward();
+                Ok(())
+            }
+            Command::KillWordBackward => {
+                self.kill_word_backward();
+                Ok(())
+            }
+            Command::KillLine => {
+                self.kill_line_forward();
+                Ok(())
+            }
+            Command::Yank => {
+                self.yank();
+                Ok(())
+            }
+            Command::YankPop => {
+                self.yank_pop();
+                Ok(())
+            }
+            Command::KeyboardQuit => {
+                self.keyboard_quit();
+                Ok(())
+            }
+            Command::SetMark => {
+                self.set_mark_command();
+                Ok(())
+            }
+            Command::KillRegion => self.kill_region(),
+            Command::CopyRegion => self.copy_region(),
+            Command::ExchangePointAndMark => self.exchange_point_and_mark(),
+            Command::MarkBuffer => self.mark_entire_buffer(),
+            Command::ScrollPageDown => {
+                self.scroll_page_down();
+                Ok(())
+            }
+            Command::ScrollPageUp => {
+                self.scroll_page_up();
+                Ok(())
+            }
+            Command::Recenter => {
+                self.recenter_view();
+                Ok(())
+            }
+            Command::ScrollLeft => {
+                self.scroll_left();
+                Ok(())
+            }
+            Command::ScrollRight => {
+                self.scroll_right();
+                Ok(())
+            }
+            Command::SplitWindowBelow => {
+                self.split_window(SplitOrientation::Horizontal);
+                Ok(())
+            }
+            Command::SplitWindowRight => {
+                self.split_window(SplitOrientation::Vertical);
+                Ok(())
+            }
+            Command::DeleteOtherWindows => {
+                self.delete_other_windows();
+                Ok(())
+            }
+            Command::DeleteWindow => {
+                self.delete_current_window();
+                Ok(())
+            }
+            Command::OtherWindow => {
+                self.focus_next_window();
+                Ok(())
+            }
+            Command::SwitchToBuffer => {
+                let buffers = self.buffer_names();
+                let initial = self.last_buffer_name();
+                self.minibuffer.start_switch_buffer(&buffers, initial.as_deref())?;
+                Ok(())
+            }
+            Command::KillBuffer => {
+                let buffers = self.buffer_names();
+                let current_name = self.current_buffer().map(|buffer| buffer.name().to_string());
+                self.minibuffer.start_kill_buffer(&buffers, current_name.as_deref())?;
+                Ok(())
+            }
+            Command::ListBuffers => {
+                self.show_buffer_list();
+                Ok(())
+            }
+            Command::WriteFile => {
+                // C-x C-w 実行時は常にファイルパスを確認
+                if let Some(buffer) = self.current_buffer() {
+                    let suggested = if let Some(ref path) = buffer.file.path {
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("untitled")
+                            .to_string()
+                    } else if buffer.file.name.trim().is_empty() {
+                        "untitled".to_string()
+                    } else {
+                        buffer.file.name.clone()
+                    };
+                    self.start_save_as_prompt(&suggested)?;
+                } else {
+                    self.start_save_as_prompt("untitled")?;
+                }
+                Ok(())
+            }
+
+            Command::SaveAllBuffers => {
+                self.persist_current_buffer_state();
+
+                let original_id = self.current_buffer_id;
+                let mut saved_count = 0usize;
+
+                for idx in 0..self.buffers.len() {
+                    let buffer_clone = self.buffers[idx].file.clone();
+                    self.command_processor.set_current_buffer(buffer_clone);
+                    let content = self.buffers[idx].file.content.clone();
+                    self.command_processor.sync_editor_content(&content);
+
+                    let result = self.command_processor.execute(Command::SaveBuffer);
+                    if result.success {
+                        if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                            self.buffers[idx].file = updated;
+                        }
+                        saved_count += 1;
+                    } else if let Some(msg) = result.message {
+                        self.show_error_message(AltreError::Application(msg));
+                        return Ok(());
+                    }
+                }
+
+                if let Some(id) = original_id {
+                    if let Some(index) = self.find_buffer_index(id) {
+                        let buffer_clone = self.buffers[index].file.clone();
+                        self.command_processor.set_current_buffer(buffer_clone);
+                        self.command_processor.sync_editor_content(&self.editor.to_string());
+                    }
+                }
+
+                self.show_info_message(format!("{} 個のバッファを保存しました", saved_count));
+                Ok(())
+            }
+
             Command::SaveBuffer => {
-                match self.command_processor.current_buffer() {
-                    Some(buffer) => {
-                        if buffer.path.is_none() {
-                            let suggested = if buffer.name.trim().is_empty() {
-                                "untitled".to_string()
-                            } else {
-                                buffer.name.clone()
-                            };
-                            self.start_save_as_prompt(&suggested)?;
+                self.persist_current_buffer_state();
+
+                if let Some(index) = self.current_buffer_index() {
+                    let needs_path = self.buffers[index].file.path.is_none();
+                    if needs_path {
+                        let suggested = if self.buffers[index].file.name.trim().is_empty() {
+                            "untitled".to_string()
                         } else {
-                            let result = self.command_processor.execute(Command::SaveBuffer);
-                            if result.success {
-                                if let Some(msg) = result.message {
-                                    self.show_info_message(msg);
-                                }
-                            } else if let Some(msg) = result.message {
-                                self.show_error_message(AltreError::Application(msg));
+                            self.buffers[index].file.name.clone()
+                        };
+                        self.start_save_as_prompt(&suggested)?;
+                    } else {
+                        let buffer_clone = self.buffers[index].file.clone();
+                        self.command_processor.set_current_buffer(buffer_clone);
+                        self.command_processor.sync_editor_content(&self.editor.to_string());
+
+                        let result = self.command_processor.execute(Command::SaveBuffer);
+                        if result.success {
+                            if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                                self.buffers[index].file = updated;
                             }
+                            if let Some(msg) = result.message {
+                                self.show_info_message(msg);
+                            }
+                        } else if let Some(msg) = result.message {
+                            self.show_error_message(AltreError::Application(msg));
                         }
                     }
-                    None => {
-                        // ファイルが開かれていない場合、新規ファイル名を入力するためのミニバッファを起動
-                        let current_dir = std::env::current_dir()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|_| "~/".to_string());
+                } else {
+                    let current_dir = std::env::current_dir()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_else(|_| "~/".to_string());
 
-                        let initial_path = if current_dir.ends_with('/') {
-                            format!("{}untitled", current_dir)
-                        } else {
-                            format!("{}/untitled", current_dir)
-                        };
+                    let initial_path = if current_dir.ends_with('/') {
+                        format!("{}untitled", current_dir)
+                    } else {
+                        format!("{}/untitled", current_dir)
+                    };
 
-                        self.start_save_as_prompt(&initial_path)?;
-                    }
+                    self.start_save_as_prompt(&initial_path)?;
                 }
                 Ok(())
             }
             Command::SaveBuffersKillTerminal | Command::Quit => {
+                self.persist_current_buffer_state();
                 self.shutdown();
                 Ok(())
             }
@@ -456,6 +946,435 @@ impl App {
                 Ok(())
             }
         }
+    }
+
+    fn record_kill(&mut self, text: String, merge: KillMerge) {
+        if text.is_empty() {
+            self.reset_kill_context();
+            return;
+        }
+
+        match merge {
+            KillMerge::Append => {
+                if matches!(self.kill_context, KillContext::Kill) {
+                    self.kill_ring.append_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+            KillMerge::Prepend => {
+                if matches!(self.kill_context, KillContext::Kill) {
+                    self.kill_ring.prepend_to_front(&text);
+                } else {
+                    self.kill_ring.push(text);
+                }
+            }
+        }
+
+        self.kill_context = KillContext::Kill;
+        self.last_yank_range = None;
+    }
+
+    fn kill_word_forward(&mut self) {
+        match self.editor.delete_word_forward() {
+            Ok(text) => {
+                self.record_kill(text, KillMerge::Append);
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+            }
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn kill_word_backward(&mut self) {
+        match self.editor.delete_word_backward() {
+            Ok(text) => {
+                self.record_kill(text, KillMerge::Prepend);
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+            }
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn kill_line_forward(&mut self) {
+        match self.editor.kill_line_forward() {
+            Ok(text) => {
+                self.record_kill(text, KillMerge::Append);
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+            }
+            Err(err) => self.show_error_message(err),
+        }
+    }
+
+    fn set_mark_command(&mut self) {
+        self.editor.set_mark();
+        self.show_info_message("マークを設定しました");
+        self.reset_recenter_cycle();
+    }
+
+    fn kill_region(&mut self) -> Result<()> {
+        if let Some((start, end)) = self.editor.selection_range() {
+            let text = self.editor.delete_range_span(start, end)?;
+            if text.is_empty() {
+                self.show_info_message("選択範囲が空です");
+            } else {
+                self.record_kill(text, KillMerge::Append);
+                self.kill_context = KillContext::Kill;
+                self.last_yank_range = None;
+            }
+            self.editor.clear_mark();
+            self.reset_recenter_cycle();
+            self.ensure_cursor_visible();
+        } else {
+            self.show_info_message("リージョンが選択されていません");
+        }
+        Ok(())
+    }
+
+    fn copy_region(&mut self) -> Result<()> {
+        if let Some((start, end)) = self.editor.selection_range() {
+            let text = self.editor.get_text_range(start, end)?;
+            if text.is_empty() {
+                self.show_info_message("選択範囲が空です");
+            } else {
+                self.record_kill(text, KillMerge::Append);
+                self.kill_context = KillContext::Kill;
+                self.last_yank_range = None;
+                self.show_info_message("リージョンをコピーしました");
+            }
+        } else {
+            self.show_info_message("リージョンが選択されていません");
+        }
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    fn exchange_point_and_mark(&mut self) -> Result<()> {
+        if self.editor.mark().is_none() {
+            self.show_info_message("マークが設定されていません");
+            return Ok(());
+        }
+        self.editor.swap_cursor_and_mark()?;
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    fn mark_entire_buffer(&mut self) -> Result<()> {
+        self.editor.mark_entire_buffer()?;
+        self.show_info_message("バッファ全体を選択しました");
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+        Ok(())
+    }
+
+    fn yank(&mut self) {
+        let Some(text) = self.kill_ring.yank() else {
+            self.show_info_message("キルリングが空です");
+            self.reset_kill_context();
+            return;
+        };
+
+        let start = self.editor.cursor().char_pos;
+        let len = text.chars().count();
+
+        match self.editor.insert_str(&text) {
+            Ok(_) => {
+                self.kill_context = KillContext::Yank;
+                self.last_yank_range = Some((start, len));
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+            }
+            Err(err) => {
+                self.reset_kill_context();
+                self.show_error_message(err);
+            }
+        }
+    }
+
+    fn yank_pop(&mut self) {
+        if !matches!(self.kill_context, KillContext::Yank) {
+            self.show_info_message("直前のコマンドがヤンクではありません");
+            self.reset_kill_context();
+            return;
+        }
+
+        let Some((start, previous_len)) = self.last_yank_range else {
+            self.show_info_message("ヤンク範囲が不明です");
+            self.reset_kill_context();
+            return;
+        };
+
+        if let Err(err) = self.editor.move_cursor_to_char(start) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        if let Err(err) = self.editor.delete_range(start, start + previous_len) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        let Some(next_text) = self.kill_ring.rotate() else {
+            self.reset_kill_context();
+            self.show_info_message("キルリングが空です");
+            return;
+        };
+
+        let new_len = next_text.chars().count();
+        if let Err(err) = self.editor.insert_str(&next_text) {
+            self.reset_kill_context();
+            self.show_error_message(err);
+            return;
+        }
+
+        self.kill_context = KillContext::Yank;
+        self.last_yank_range = Some((start, new_len));
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn keyboard_quit(&mut self) {
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        if self.search.is_active() {
+            self.search.cancel(&mut self.editor);
+        }
+        self.editor.clear_mark();
+        self.show_info_message("キャンセルしました");
+        self.ensure_cursor_visible();
+    }
+
+    fn reset_kill_context(&mut self) {
+        self.kill_context = KillContext::None;
+        self.last_yank_range = None;
+    }
+
+    fn reset_recenter_cycle(&mut self) {
+        self.recenter_step = 0;
+    }
+
+    fn buffer_metrics(&self) -> (usize, usize) {
+        let content = self.editor.to_string();
+        if content.is_empty() {
+            return (1, 0);
+        }
+
+        let mut lines = 0usize;
+        let mut max_columns = 0usize;
+        for line in content.lines() {
+            lines += 1;
+            let columns = line.chars().count();
+            if columns > max_columns {
+                max_columns = columns;
+            }
+        }
+
+        (lines.max(1), max_columns)
+    }
+
+    fn selection_highlights(&self) -> Vec<SearchHighlight> {
+        let Some((start, end)) = self.editor.selection_range() else {
+            return Vec::new();
+        };
+
+        if start == end {
+            return Vec::new();
+        }
+
+        let (start_line, start_col) = self.editor.position_to_line_column(start);
+        let (end_line, end_col) = self.editor.position_to_line_column(end);
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut highlights = Vec::new();
+
+        let push_highlight = |line: usize, s: usize, e: usize, list: &mut Vec<SearchHighlight>| {
+            if e > s {
+                list.push(SearchHighlight {
+                    line,
+                    start_column: s,
+                    end_column: e,
+                    is_current: false,
+                });
+            }
+        };
+
+        if start_line == end_line {
+            push_highlight(start_line, start_col, end_col, &mut highlights);
+            return highlights;
+        }
+
+        let first_line_len = lines.get(start_line).map(|l| l.chars().count()).unwrap_or(0);
+        push_highlight(start_line, start_col, first_line_len, &mut highlights);
+
+        for line in (start_line + 1)..end_line {
+            let len = lines.get(line).map(|l| l.chars().count()).unwrap_or(0);
+            push_highlight(line, 0, len, &mut highlights);
+        }
+
+        push_highlight(end_line, 0, end_col, &mut highlights);
+
+        highlights
+    }
+
+    fn ensure_cursor_visible(&mut self) {
+        let (total_lines, max_columns) = self.buffer_metrics();
+        let cursor_line = self.editor.cursor().line;
+        let cursor_column = self.editor.cursor().column;
+
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.clamp_vertical(total_lines);
+
+            let height = viewport.height.max(1);
+            if cursor_line < viewport.top_line {
+                viewport.top_line = cursor_line;
+            } else if cursor_line >= viewport.top_line + height {
+                viewport.top_line = cursor_line + 1 - height;
+            }
+
+            viewport.clamp_vertical(total_lines);
+
+            if cursor_column < viewport.scroll_x {
+                viewport.scroll_x = cursor_column;
+            } else if cursor_column >= viewport.scroll_x + viewport.width {
+                viewport.scroll_x = cursor_column + 1 - viewport.width;
+            }
+
+            viewport.clamp_horizontal(max_columns);
+        }
+    }
+
+    fn move_cursor_vertical(&mut self, delta: isize) {
+        if delta > 0 {
+            for _ in 0..delta {
+                match self.editor.navigate(NavigationAction::MoveLineDown) {
+                    Ok(true) => {}
+                    _ => break,
+                }
+            }
+        } else {
+            for _ in 0..delta.unsigned_abs() {
+                match self.editor.navigate(NavigationAction::MoveLineUp) {
+                    Ok(true) => {}
+                    _ => break,
+                }
+            }
+        }
+    }
+
+    fn move_cursor_horizontal(&mut self, delta: isize) {
+        if delta > 0 {
+            for _ in 0..delta {
+                match self.editor.navigate(NavigationAction::MoveCharForward) {
+                    Ok(true) => {}
+                    _ => break,
+                }
+            }
+        } else {
+            for _ in 0..delta.unsigned_abs() {
+                match self.editor.navigate(NavigationAction::MoveCharBackward) {
+                    Ok(true) => {}
+                    _ => break,
+                }
+            }
+        }
+    }
+
+    fn scroll_page_down(&mut self) {
+        let (total_lines, _) = self.buffer_metrics();
+        let height = self.current_viewport().height.max(1);
+        let step = height.saturating_sub(1).max(1);
+        let old_top = self.current_viewport().top_line;
+        let max_top = total_lines.saturating_sub(height);
+        let new_top = (old_top + step).min(max_top);
+        let delta = new_top.saturating_sub(old_top);
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = new_top;
+        }
+        if delta > 0 {
+            self.move_cursor_vertical(delta as isize);
+        }
+        self.reset_recenter_cycle();
+        self.reset_kill_context();
+        self.ensure_cursor_visible();
+    }
+
+    fn scroll_page_up(&mut self) {
+        let height = self.current_viewport().height.max(1);
+        let step = height.saturating_sub(1).max(1);
+        let old_top = self.current_viewport().top_line;
+        let new_top = old_top.saturating_sub(step);
+        let delta = old_top.saturating_sub(new_top);
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = new_top;
+        }
+        if delta > 0 {
+            self.move_cursor_vertical(-(delta as isize));
+        }
+        self.reset_recenter_cycle();
+        self.reset_kill_context();
+        self.ensure_cursor_visible();
+    }
+
+    fn recenter_view(&mut self) {
+        let (total_lines, _) = self.buffer_metrics();
+        let height = self.current_viewport().height.max(1);
+        let cursor_line = self.editor.cursor().line;
+        let max_top = total_lines.saturating_sub(height);
+
+        let desired_top = match self.recenter_step % 3 {
+            0 => cursor_line.saturating_sub(height / 2),
+            1 => cursor_line,
+            _ => cursor_line.saturating_add(1).saturating_sub(height),
+        };
+
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = desired_top.min(max_top);
+        }
+        self.recenter_step = (self.recenter_step + 1) % 3;
+        self.reset_kill_context();
+        self.ensure_cursor_visible();
+    }
+
+    fn horizontal_scroll_step(&self) -> usize {
+        (self.current_viewport().width / 2).max(1)
+    }
+
+    fn scroll_left(&mut self) {
+        let step = self.horizontal_scroll_step();
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.scroll_x = viewport.scroll_x.saturating_add(step);
+        }
+        self.move_cursor_horizontal(step as isize);
+        self.reset_recenter_cycle();
+        self.reset_kill_context();
+        self.ensure_cursor_visible();
+    }
+
+    fn scroll_right(&mut self) {
+        let step = self.horizontal_scroll_step();
+        let current_scroll = self.current_viewport().scroll_x;
+        if current_scroll > 0 {
+            let delta = current_scroll.min(step);
+            {
+                let viewport = self.current_viewport_mut();
+                viewport.scroll_x -= delta;
+            }
+            self.move_cursor_horizontal(-(delta as isize));
+        }
+        self.reset_recenter_cycle();
+        self.reset_kill_context();
+        self.ensure_cursor_visible();
     }
 
     fn start_find_file_prompt(&mut self) -> Result<()> {
@@ -538,35 +1457,34 @@ impl App {
                 use crate::minibuffer::FileOperation;
                 match file_op {
                     FileOperation::Open(path) => {
-                        // ファイルを開く
-                        debug_log!(self, "Opening file: {}", path);
-                        let result = self.command_processor.open_file(path.clone());
-                        if result.success {
-                            if let Some(msg) = result.message {
-                                self.show_info_message(msg);
-                            }
-                            // エディタの内容を同期（TODO: より良い統合方法を検討）
-                            let editor_content = self.command_processor.editor().to_string();
-                            self.editor = crate::buffer::TextEditor::from_str(&editor_content);
-                            debug_log!(self, "File opened successfully, editor synchronized");
-                        } else {
-                            if let Some(msg) = result.message {
-                                self.show_error_message(AltreError::Application(msg));
-                            }
+                        debug_log!(self, "Opening file via minibuffer: {}", path);
+                        match self.open_file_at_path(&path) {
+                            Ok(message) => self.show_info_message(message),
+                            Err(err) => self.show_error_message(err),
                         }
                     }
                     FileOperation::SaveAs(path) => {
-                        // 現在のエディタ内容を同期
-                        let editor_content = self.editor.to_string();
-                        self.command_processor.sync_editor_content(&editor_content);
-
-                        let result = self.command_processor.save_buffer_as(path.clone());
-                        if result.success {
-                            if let Some(msg) = result.message {
-                                self.show_info_message(msg);
+                        self.persist_current_buffer_state();
+                        if let Some(index) = self.current_buffer_index() {
+                            if let Some(current) = self.buffers.get(index) {
+                                self.command_processor.set_current_buffer(current.file.clone());
                             }
-                        } else if let Some(msg) = result.message {
-                            self.show_error_message(AltreError::Application(msg));
+                            self.command_processor.sync_editor_content(&self.editor.to_string());
+                            let result = self.command_processor.save_buffer_as(path.clone());
+                            if result.success {
+                                if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                                    if let Some(buffer) = self.buffers.get_mut(index) {
+                                        buffer.file = updated;
+                                        buffer.cursor = *self.editor.cursor();
+                                    }
+                                }
+                                if let Some(msg) = result.message {
+                                    self.show_info_message(msg);
+                                }
+                                self.ensure_cursor_visible();
+                            } else if let Some(msg) = result.message {
+                                self.show_error_message(AltreError::Application(msg));
+                            }
                         }
                     }
                     _ => {
@@ -577,6 +1495,36 @@ impl App {
             }
             Ok(SystemResponse::ExecuteCommand(cmd)) => {
                 self.show_info_message(format!("コマンド実行: {}", cmd));
+                Ok(())
+            }
+            Ok(SystemResponse::SwitchBuffer(name)) => {
+                let target = if name.trim().is_empty() {
+                    self.last_buffer_name()
+                } else {
+                    Some(name)
+                };
+
+                if let Some(buffer_name) = target {
+                    if let Err(err) = self.switch_to_buffer_by_name(&buffer_name) {
+                        self.show_error_message(err);
+                    }
+                } else {
+                    self.show_error_message(AltreError::Application(
+                        "切り替えるバッファが見つかりません".to_string()
+                    ));
+                }
+                Ok(())
+            }
+            Ok(SystemResponse::KillBuffer(name)) => {
+                let trimmed = name.trim();
+                let target = if trimmed.is_empty() { None } else { Some(trimmed) };
+                if let Err(err) = self.kill_buffer_by_name(target) {
+                    self.show_error_message(err);
+                }
+                Ok(())
+            }
+            Ok(SystemResponse::ListBuffers) => {
+                self.show_buffer_list();
                 Ok(())
             }
             Ok(SystemResponse::Quit) => {
@@ -597,19 +1545,66 @@ impl App {
     }
 
     fn navigate(&mut self, action: NavigationAction) {
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
         match self.editor.navigate(action) {
-            Ok(true) => {}
+            Ok(true) => {
+                self.ensure_cursor_visible();
+            }
             Ok(false) => self.show_info_message("これ以上移動できません"),
             Err(err) => self.show_error_message(err.into()),
         }
     }
 
+    fn split_window(&mut self, orientation: SplitOrientation) {
+        self.window_manager.split_focused(orientation);
+        self.ensure_cursor_visible();
+    }
+
+    fn delete_other_windows(&mut self) {
+        match self.window_manager.delete_others() {
+            Ok(()) => {
+                self.ensure_cursor_visible();
+            }
+            Err(err) => {
+                self.show_error_message(AltreError::Application(err.to_string()));
+            }
+        }
+    }
+
+    fn delete_current_window(&mut self) {
+        match self.window_manager.delete_focused() {
+            Ok(()) => {
+                self.ensure_cursor_visible();
+            }
+            Err(err) => {
+                self.show_error_message(AltreError::Application(err.to_string()));
+            }
+        }
+    }
+
+    fn focus_next_window(&mut self) {
+        self.window_manager.focus_next();
+        self.ensure_cursor_visible();
+    }
+
     fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
         let search_ui = self.search.ui_state();
-        let highlights = self.search.highlights();
+        let search_highlights = self.search.highlights();
+        let selection_highlights = self.selection_highlights();
+        let mut combined_highlights = Vec::with_capacity(search_highlights.len() + selection_highlights.len());
+        combined_highlights.extend_from_slice(search_highlights);
+        combined_highlights.extend(selection_highlights.into_iter());
 
         self.renderer
-            .render(terminal, &self.editor, &self.minibuffer, search_ui, highlights)
+            .render(
+                terminal,
+                &self.editor,
+                &mut self.window_manager,
+                &self.minibuffer,
+                search_ui,
+                &combined_highlights,
+            )
             .map_err(|err| Self::terminal_error("render", err))
     }
 
@@ -716,5 +1711,27 @@ impl App {
 impl Default for App {
     fn default() -> Self {
         Self::new().expect("アプリケーションの初期化に失敗しました")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kill_line_removes_text_without_messages() {
+        let mut app = App::new().expect("app init");
+        app.insert_str("hello\nworld").unwrap();
+        app.move_cursor_to_start().unwrap();
+
+        app.handle_action(Action::KillLine).unwrap();
+
+        assert_eq!(app.editor.to_string(), "world");
+        let viewport = app
+            .window_manager
+            .focused_viewport()
+            .expect("focused viewport");
+        assert_eq!(viewport.top_line, 0);
+        assert_eq!(viewport.scroll_x, 0);
     }
 }

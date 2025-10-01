@@ -3,9 +3,10 @@
 //! 60fps描画、差分更新、画面更新最適化を実現
 
 use crate::ui::{
-    layout::{LayoutManager, AreaType},
-    theme::{ThemeManager, ComponentType},
+    layout::{AreaType, LayoutManager},
     text_area::TextAreaRenderer,
+    theme::{ComponentType, ThemeManager},
+    WindowManager,
 };
 use crate::buffer::TextEditor;
 use crate::minibuffer::MinibufferSystem;
@@ -182,6 +183,7 @@ impl AdvancedRenderer {
         &mut self,
         terminal: &mut Terminal<B>,
         editor: &TextEditor,
+        windows: &mut WindowManager,
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
@@ -207,7 +209,16 @@ impl AdvancedRenderer {
             let diffs = self.calculate_diffs(editor, minibuffer, &areas);
 
             // レンダリング実行
-            self.render_frame(frame, editor, minibuffer, search_ui, search_highlights, &areas, &diffs);
+            self.render_frame(
+                frame,
+                editor,
+                windows,
+                minibuffer,
+                search_ui,
+                search_highlights,
+                &areas,
+                &diffs,
+            );
         })?;
 
         // 統計更新
@@ -222,6 +233,7 @@ impl AdvancedRenderer {
         &mut self,
         frame: &mut Frame<'_>,
         editor: &TextEditor,
+        windows: &mut WindowManager,
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
@@ -234,16 +246,29 @@ impl AdvancedRenderer {
 
         // テキストエリア描画
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
-            let text_cursor_pos = self.text_area_renderer.render(
-                frame,
-                text_area,
-                editor,
-                theme,
-                if search_active { search_highlights } else { &[] },
-                minibuffer.is_active() || search_active,
-            );
-            if !minibuffer.is_active() && !search_active {
-                cursor_position = text_cursor_pos;
+            let focused_id = windows.focused_window();
+            let window_rects = windows.layout_rects(text_area);
+            for (window_id, area) in window_rects {
+                let is_focused = window_id == focused_id;
+                if let Some(viewport) = windows.viewport_mut(window_id) {
+                    let text_cursor_pos = self.text_area_renderer.render(
+                        frame,
+                        area,
+                        editor,
+                        viewport,
+                        theme,
+                        if search_active {
+                            search_highlights
+                        } else {
+                            &[]
+                        },
+                        (minibuffer.is_active() || search_active) && is_focused,
+                    );
+
+                    if is_focused && !minibuffer.is_active() && !search_active {
+                        cursor_position = text_cursor_pos;
+                    }
+                }
             }
         }
 

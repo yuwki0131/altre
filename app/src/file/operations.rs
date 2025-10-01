@@ -191,6 +191,7 @@ impl Default for FileSaver {
 }
 
 /// ファイルバッファ管理
+#[derive(Clone)]
 pub struct FileBuffer {
     /// ファイルパス
     pub path: Option<PathBuf>,

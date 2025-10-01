@@ -481,6 +481,37 @@ impl App {
                 self.scroll_right();
                 Ok(())
             }
+            Command::WriteFile => {
+                // C-x C-w 実行時は常にファイルパスを確認
+                if let Some(buffer) = self.command_processor.current_buffer() {
+                    if let Some(ref path) = buffer.path {
+                        let suggested = path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("untitled")
+                            .to_string();
+                        self.start_save_as_prompt(&suggested)?;
+                    } else {
+                        self.start_save_as_prompt("untitled")?;
+                    }
+                } else {
+                    self.start_save_as_prompt("untitled")?;
+                }
+                Ok(())
+            }
+
+            Command::SaveAllBuffers => {
+                // 現在は単一バッファのみ対応
+                let result = self.command_processor.execute(Command::SaveBuffer);
+                if result.success {
+                    if let Some(msg) = result.message {
+                        self.show_info_message(msg);
+                    }
+                } else if let Some(msg) = result.message {
+                    self.show_error_message(AltreError::Application(msg));
+                }
+                Ok(())
+            }
+
             Command::SaveBuffer => {
                 match self.command_processor.current_buffer() {
                     Some(buffer) => {

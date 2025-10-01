@@ -246,6 +246,8 @@ impl MinibufferSystem {
             }
         } else if command == "save-buffer" {
             Ok(SystemResponse::FileOperation(FileOperation::Save))
+        } else if command == "save-some-buffers" {
+            Ok(SystemResponse::FileOperation(FileOperation::Save))
         } else if command == "write-file" || command == "save-buffer-as" {
             self.minibuffer.start_write_file(None);
             Ok(SystemResponse::Continue)

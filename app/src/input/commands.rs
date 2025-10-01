@@ -123,6 +123,8 @@ pub enum Command {
     // ファイル操作
     FindFile,
     SaveBuffer,
+    WriteFile,        // C-x C-w (別名保存)
+    SaveAllBuffers,   // C-x s (全バッファ保存)
 
     // アプリケーション制御
     SaveBuffersKillTerminal,
@@ -169,6 +171,8 @@ impl Command {
             "scroll-right" => Command::ScrollRight,
             "find-file" => Command::FindFile,
             "save-buffer" => Command::SaveBuffer,
+            "write-file" => Command::WriteFile,
+            "save-some-buffers" => Command::SaveAllBuffers,
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
             "quit" => Command::Quit,
             "execute-command" => Command::ExecuteCommand,
@@ -212,6 +216,8 @@ impl Command {
             Command::InsertNewline => "改行を挿入",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
+            Command::WriteFile => "別名でファイルを保存",
+            Command::SaveAllBuffers => "すべてのバッファを保存",
             Command::SaveBuffersKillTerminal => "保存して終了",
             Command::Quit => "終了",
             Command::ExecuteCommand => "コマンドを実行",
@@ -383,6 +389,8 @@ impl CommandProcessor {
             }
             Command::FindFile => self.execute_find_file(),
             Command::SaveBuffer => self.execute_save_buffer(),
+            Command::WriteFile => self.execute_write_file(),
+            Command::SaveAllBuffers => self.execute_save_all_buffers(),
             Command::SaveBuffersKillTerminal => self.execute_quit(),
             Command::Quit => self.execute_quit(),
             Command::ExecuteCommand => self.execute_execute_command(),
@@ -588,6 +596,24 @@ impl CommandProcessor {
         } else {
             CommandResult::error("保存するバッファがありません".to_string())
         }
+    }
+
+    /// write-file コマンド実行（C-x C-w相当）
+    fn execute_write_file(&mut self) -> CommandResult {
+        CommandResult::error("write-file はミニバッファ経由で実行してください".to_string())
+    }
+
+    /// save-some-buffers コマンド実行（C-x s相当）
+    fn execute_save_all_buffers(&mut self) -> CommandResult {
+        // 現在は単一バッファのみ対応、将来的に複数バッファ対応時に拡張
+        if let Some(ref buffer) = self.current_buffer {
+            if buffer.path.is_some() {
+                return self.execute_save_buffer();
+            } else {
+                return CommandResult::success_with_message("保存すべき変更がありません".to_string());
+            }
+        }
+        CommandResult::error("保存するバッファがありません".to_string())
     }
 
     pub fn save_buffer_as(&mut self, path_input: String) -> CommandResult {

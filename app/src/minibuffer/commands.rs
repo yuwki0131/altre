@@ -152,11 +152,27 @@ impl CommandProcessor {
         });
 
         self.register_command(CommandDefinition {
-            name: "save-buffer-as".to_string(),
-            description: "名前を付けてバッファを保存".to_string(),
+            name: "write-file".to_string(),
+            description: "別名でファイルを保存".to_string(),
             can_execute: |ctx| ctx.current_buffer_id.is_some(),
             keybinding: Some("C-x C-w".to_string()),
             args_description: Some("filename".to_string()),
+        });
+
+        self.register_command(CommandDefinition {
+            name: "save-buffer-as".to_string(),
+            description: "名前を付けてバッファを保存".to_string(),
+            can_execute: |ctx| ctx.current_buffer_id.is_some(),
+            keybinding: None,
+            args_description: Some("filename".to_string()),
+        });
+
+        self.register_command(CommandDefinition {
+            name: "save-some-buffers".to_string(),
+            description: "すべてのバッファを保存".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x s".to_string()),
+            args_description: None,
         });
 
         // バッファ操作コマンド
@@ -320,6 +336,22 @@ impl CommandProcessor {
                     Ok(CommandResult::FileOperation(FileOperationType::Save))
                 } else {
                     Ok(CommandResult::Error("No file associated with buffer".to_string()))
+                }
+            }
+            "write-file" => {
+                if args.is_empty() {
+                    Ok(CommandResult::Error("No filename specified".to_string()))
+                } else {
+                    let path = PathBuf::from(args[0]);
+                    Ok(CommandResult::FileOperation(FileOperationType::SaveAs { path }))
+                }
+            }
+            "save-some-buffers" => {
+                // 現在は単一バッファのみ対応
+                if context.current_file.is_some() {
+                    Ok(CommandResult::FileOperation(FileOperationType::Save))
+                } else {
+                    Ok(CommandResult::Success("No buffers need saving".to_string()))
                 }
             }
             "save-buffer-as" => {

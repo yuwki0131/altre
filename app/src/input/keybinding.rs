@@ -99,6 +99,13 @@ impl Key {
         }
     }
 
+    pub fn ctrl_w() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('w'),
+        }
+    }
+
     pub fn ctrl_a() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -208,13 +215,6 @@ impl Key {
         Self {
             modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
             code: KeyCode::Char('y'),
-        }
-    }
-
-    pub fn ctrl_w() -> Self {
-        Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
-            code: KeyCode::Char('w'),
         }
     }
 
@@ -369,6 +369,8 @@ pub enum Action {
     /// ファイル操作
     FileOpen,
     FileSave,
+    WriteFile,         // C-x C-w
+    SaveAllBuffers,    // C-x s
     /// アプリケーション制御
     Quit,
     /// コマンド実行
@@ -414,6 +416,8 @@ impl Action {
             Action::KeyboardQuit => Some(Command::KeyboardQuit),
             Action::FileOpen => Some(Command::FindFile),
             Action::FileSave => Some(Command::SaveBuffer),
+            Action::WriteFile => Some(Command::WriteFile),
+            Action::SaveAllBuffers => Some(Command::SaveAllBuffers),
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
             Action::EvalExpression => Some(Command::EvalExpression),
@@ -642,6 +646,14 @@ impl ModernKeyMap {
         // ファイル操作（C-xプレフィックス）
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
         cx_prefix.insert(Key::ctrl_s(), Action::FileSave);
+        cx_prefix.insert(Key::ctrl_w(), Action::WriteFile);
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('s'),
+            },
+            Action::SaveAllBuffers,
+        );
         cx_prefix.insert(Key::ctrl_c(), Action::Quit);
         cx_prefix.insert(Key::ctrl_x(), Action::ExchangePointAndMark);
         cx_prefix.insert(Key::shift_less(), Action::ScrollHorizontalLeft);
@@ -957,6 +969,24 @@ impl KeyMap {
                 KeyCombination::ctrl(CrosstermKeyCode::Char('s')),
             ]),
             KeyBinding::Command("save-buffer".to_string()),
+        );
+
+        // C-x C-w (write-file)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::ctrl(CrosstermKeyCode::Char('w')),
+            ]),
+            KeyBinding::Command("write-file".to_string()),
+        );
+
+        // C-x s (save-some-buffers)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('s')),
+            ]),
+            KeyBinding::Command("save-some-buffers".to_string()),
         );
 
         // C-x C-c (save-buffers-kill-terminal)

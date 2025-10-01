@@ -1,5 +1,9 @@
 # altre
 
+<p align="center">
+  <img src="logo/altre-logo-readme.png" alt="altre logo" width="200" />
+</p>
+
 Rustとratatuiで構築された現代的なEmacs風テキストエディタ
 
 ## プロジェクト概要

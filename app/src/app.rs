@@ -7,7 +7,7 @@ use crate::error::{AltreError, Result, UiError};
 use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
-use crate::ui::{AdvancedRenderer, ViewportState};
+use crate::ui::{AdvancedRenderer, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{SearchController, SearchDirection, SearchHighlight};
 use crate::editor::KillRing;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -60,8 +60,8 @@ pub struct App {
     kill_context: KillContext,
     /// 直近のヤンク範囲
     last_yank_range: Option<(usize, usize)>,
-    /// 現在のビューポート状態
-    viewport: ViewportState,
+    /// ウィンドウ管理
+    window_manager: WindowManager,
     /// `C-l` の再配置サイクル
     recenter_step: u8,
 }
@@ -97,7 +97,7 @@ impl App {
             kill_ring: KillRing::new(),
             kill_context: KillContext::None,
             last_yank_range: None,
-            viewport: ViewportState::new(),
+            window_manager: WindowManager::new(),
             recenter_step: 0,
         })
     }
@@ -187,6 +187,20 @@ impl App {
     /// カーソル位置を取得
     pub fn get_cursor_position(&self) -> &CursorPosition {
         self.editor.cursor()
+    }
+
+    fn current_viewport_mut(&mut self) -> &mut ViewportState {
+        self
+            .window_manager
+            .focused_viewport_mut()
+            .expect("フォーカスウィンドウが存在しません")
+    }
+
+    fn current_viewport(&self) -> &ViewportState {
+        self
+            .window_manager
+            .focused_viewport()
+            .expect("フォーカスウィンドウが存在しません")
     }
 
     fn event_loop<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
@@ -479,6 +493,26 @@ impl App {
             }
             Command::ScrollRight => {
                 self.scroll_right();
+                Ok(())
+            }
+            Command::SplitWindowBelow => {
+                self.split_window(SplitOrientation::Horizontal);
+                Ok(())
+            }
+            Command::SplitWindowRight => {
+                self.split_window(SplitOrientation::Vertical);
+                Ok(())
+            }
+            Command::DeleteOtherWindows => {
+                self.delete_other_windows();
+                Ok(())
+            }
+            Command::DeleteWindow => {
+                self.delete_current_window();
+                Ok(())
+            }
+            Command::OtherWindow => {
+                self.focus_next_window();
                 Ok(())
             }
             Command::WriteFile => {
@@ -859,26 +893,30 @@ impl App {
 
     fn ensure_cursor_visible(&mut self) {
         let (total_lines, max_columns) = self.buffer_metrics();
-        self.viewport.clamp_vertical(total_lines);
-
-        let height = self.viewport.height.max(1);
         let cursor_line = self.editor.cursor().line;
-        if cursor_line < self.viewport.top_line {
-            self.viewport.top_line = cursor_line;
-        } else if cursor_line >= self.viewport.top_line + height {
-            self.viewport.top_line = cursor_line + 1 - height;
-        }
-
-        self.viewport.clamp_vertical(total_lines);
-
         let cursor_column = self.editor.cursor().column;
-        if cursor_column < self.viewport.scroll_x {
-            self.viewport.scroll_x = cursor_column;
-        } else if cursor_column >= self.viewport.scroll_x + self.viewport.width {
-            self.viewport.scroll_x = cursor_column + 1 - self.viewport.width;
-        }
 
-        self.viewport.clamp_horizontal(max_columns);
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.clamp_vertical(total_lines);
+
+            let height = viewport.height.max(1);
+            if cursor_line < viewport.top_line {
+                viewport.top_line = cursor_line;
+            } else if cursor_line >= viewport.top_line + height {
+                viewport.top_line = cursor_line + 1 - height;
+            }
+
+            viewport.clamp_vertical(total_lines);
+
+            if cursor_column < viewport.scroll_x {
+                viewport.scroll_x = cursor_column;
+            } else if cursor_column >= viewport.scroll_x + viewport.width {
+                viewport.scroll_x = cursor_column + 1 - viewport.width;
+            }
+
+            viewport.clamp_horizontal(max_columns);
+        }
     }
 
     fn move_cursor_vertical(&mut self, delta: isize) {
@@ -919,13 +957,16 @@ impl App {
 
     fn scroll_page_down(&mut self) {
         let (total_lines, _) = self.buffer_metrics();
-        let height = self.viewport.height.max(1);
+        let height = self.current_viewport().height.max(1);
         let step = height.saturating_sub(1).max(1);
-        let old_top = self.viewport.top_line;
+        let old_top = self.current_viewport().top_line;
         let max_top = total_lines.saturating_sub(height);
         let new_top = (old_top + step).min(max_top);
         let delta = new_top.saturating_sub(old_top);
-        self.viewport.top_line = new_top;
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = new_top;
+        }
         if delta > 0 {
             self.move_cursor_vertical(delta as isize);
         }
@@ -935,12 +976,15 @@ impl App {
     }
 
     fn scroll_page_up(&mut self) {
-        let height = self.viewport.height.max(1);
+        let height = self.current_viewport().height.max(1);
         let step = height.saturating_sub(1).max(1);
-        let old_top = self.viewport.top_line;
+        let old_top = self.current_viewport().top_line;
         let new_top = old_top.saturating_sub(step);
         let delta = old_top.saturating_sub(new_top);
-        self.viewport.top_line = new_top;
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = new_top;
+        }
         if delta > 0 {
             self.move_cursor_vertical(-(delta as isize));
         }
@@ -951,7 +995,7 @@ impl App {
 
     fn recenter_view(&mut self) {
         let (total_lines, _) = self.buffer_metrics();
-        let height = self.viewport.height.max(1);
+        let height = self.current_viewport().height.max(1);
         let cursor_line = self.editor.cursor().line;
         let max_top = total_lines.saturating_sub(height);
 
@@ -961,19 +1005,25 @@ impl App {
             _ => cursor_line.saturating_add(1).saturating_sub(height),
         };
 
-        self.viewport.top_line = desired_top.min(max_top);
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.top_line = desired_top.min(max_top);
+        }
         self.recenter_step = (self.recenter_step + 1) % 3;
         self.reset_kill_context();
         self.ensure_cursor_visible();
     }
 
     fn horizontal_scroll_step(&self) -> usize {
-        (self.viewport.width / 2).max(1)
+        (self.current_viewport().width / 2).max(1)
     }
 
     fn scroll_left(&mut self) {
         let step = self.horizontal_scroll_step();
-        self.viewport.scroll_x = self.viewport.scroll_x.saturating_add(step);
+        {
+            let viewport = self.current_viewport_mut();
+            viewport.scroll_x = viewport.scroll_x.saturating_add(step);
+        }
         self.move_cursor_horizontal(step as isize);
         self.reset_recenter_cycle();
         self.reset_kill_context();
@@ -982,9 +1032,13 @@ impl App {
 
     fn scroll_right(&mut self) {
         let step = self.horizontal_scroll_step();
-        if self.viewport.scroll_x > 0 {
-            let delta = self.viewport.scroll_x.min(step);
-            self.viewport.scroll_x -= delta;
+        let current_scroll = self.current_viewport().scroll_x;
+        if current_scroll > 0 {
+            let delta = current_scroll.min(step);
+            {
+                let viewport = self.current_viewport_mut();
+                viewport.scroll_x -= delta;
+            }
             self.move_cursor_horizontal(-(delta as isize));
         }
         self.reset_recenter_cycle();
@@ -1082,7 +1136,9 @@ impl App {
                             // エディタの内容を同期（TODO: より良い統合方法を検討）
                             let editor_content = self.command_processor.editor().to_string();
                             self.editor = crate::buffer::TextEditor::from_str(&editor_content);
-                            self.viewport = ViewportState::new();
+                            if let Some(viewport) = self.window_manager.focused_viewport_mut() {
+                                *viewport = ViewportState::new();
+                            }
                             self.recenter_step = 0;
                             self.ensure_cursor_visible();
                             debug_log!(self, "File opened successfully, editor synchronized");
@@ -1146,6 +1202,38 @@ impl App {
         }
     }
 
+    fn split_window(&mut self, orientation: SplitOrientation) {
+        self.window_manager.split_focused(orientation);
+        self.ensure_cursor_visible();
+    }
+
+    fn delete_other_windows(&mut self) {
+        match self.window_manager.delete_others() {
+            Ok(()) => {
+                self.ensure_cursor_visible();
+            }
+            Err(err) => {
+                self.show_error_message(AltreError::Application(err.to_string()));
+            }
+        }
+    }
+
+    fn delete_current_window(&mut self) {
+        match self.window_manager.delete_focused() {
+            Ok(()) => {
+                self.ensure_cursor_visible();
+            }
+            Err(err) => {
+                self.show_error_message(AltreError::Application(err.to_string()));
+            }
+        }
+    }
+
+    fn focus_next_window(&mut self) {
+        self.window_manager.focus_next();
+        self.ensure_cursor_visible();
+    }
+
     fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
         let search_ui = self.search.ui_state();
         let search_highlights = self.search.highlights();
@@ -1158,7 +1246,7 @@ impl App {
             .render(
                 terminal,
                 &self.editor,
-                &mut self.viewport,
+                &mut self.window_manager,
                 &self.minibuffer,
                 search_ui,
                 &combined_highlights,
@@ -1285,7 +1373,11 @@ mod tests {
         app.handle_action(Action::KillLine).unwrap();
 
         assert_eq!(app.editor.to_string(), "world");
-        assert_eq!(app.viewport.top_line, 0);
-        assert_eq!(app.viewport.scroll_x, 0);
+        let viewport = app
+            .window_manager
+            .focused_viewport()
+            .expect("focused viewport");
+        assert_eq!(viewport.top_line, 0);
+        assert_eq!(viewport.scroll_x, 0);
     }
 }

@@ -371,6 +371,12 @@ pub enum Action {
     FileSave,
     WriteFile,         // C-x C-w
     SaveAllBuffers,    // C-x s
+    /// ウィンドウ操作
+    SplitWindowHorizontally, // C-x 2
+    SplitWindowVertically,   // C-x 3
+    DeleteOtherWindows,      // C-x 1
+    DeleteWindow,            // C-x 0
+    FocusOtherWindow,        // C-x o
     /// アプリケーション制御
     Quit,
     /// コマンド実行
@@ -418,6 +424,11 @@ impl Action {
             Action::FileSave => Some(Command::SaveBuffer),
             Action::WriteFile => Some(Command::WriteFile),
             Action::SaveAllBuffers => Some(Command::SaveAllBuffers),
+            Action::SplitWindowHorizontally => Some(Command::SplitWindowBelow),
+            Action::SplitWindowVertically => Some(Command::SplitWindowRight),
+            Action::DeleteOtherWindows => Some(Command::DeleteOtherWindows),
+            Action::DeleteWindow => Some(Command::DeleteWindow),
+            Action::FocusOtherWindow => Some(Command::OtherWindow),
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
             Action::EvalExpression => Some(Command::EvalExpression),
@@ -653,6 +664,41 @@ impl ModernKeyMap {
                 code: KeyCode::Char('s'),
             },
             Action::SaveAllBuffers,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('2'),
+            },
+            Action::SplitWindowHorizontally,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('3'),
+            },
+            Action::SplitWindowVertically,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('1'),
+            },
+            Action::DeleteOtherWindows,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('0'),
+            },
+            Action::DeleteWindow,
+        );
+        cx_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('o'),
+            },
+            Action::FocusOtherWindow,
         );
         cx_prefix.insert(Key::ctrl_c(), Action::Quit);
         cx_prefix.insert(Key::ctrl_x(), Action::ExchangePointAndMark);
@@ -987,6 +1033,51 @@ impl KeyMap {
                 KeyCombination::plain(CrosstermKeyCode::Char('s')),
             ]),
             KeyBinding::Command("save-some-buffers".to_string()),
+        );
+
+        // C-x 2 (split-window-below)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('2')),
+            ]),
+            KeyBinding::Command("split-window-below".to_string()),
+        );
+
+        // C-x 3 (split-window-right)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('3')),
+            ]),
+            KeyBinding::Command("split-window-right".to_string()),
+        );
+
+        // C-x 1 (delete-other-windows)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('1')),
+            ]),
+            KeyBinding::Command("delete-other-windows".to_string()),
+        );
+
+        // C-x 0 (delete-window)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('0')),
+            ]),
+            KeyBinding::Command("delete-window".to_string()),
+        );
+
+        // C-x o (other-window)
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::ctrl(CrosstermKeyCode::Char('x')),
+                KeyCombination::plain(CrosstermKeyCode::Char('o')),
+            ]),
+            KeyBinding::Command("other-window".to_string()),
         );
 
         // C-x C-c (save-buffers-kill-terminal)

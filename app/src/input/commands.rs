@@ -126,6 +126,13 @@ pub enum Command {
     WriteFile,        // C-x C-w (別名保存)
     SaveAllBuffers,   // C-x s (全バッファ保存)
 
+    // ウィンドウ操作
+    SplitWindowBelow,   // C-x 2
+    SplitWindowRight,   // C-x 3
+    DeleteOtherWindows, // C-x 1
+    DeleteWindow,       // C-x 0
+    OtherWindow,        // C-x o
+
     // アプリケーション制御
     SaveBuffersKillTerminal,
     Quit,
@@ -173,6 +180,11 @@ impl Command {
             "save-buffer" => Command::SaveBuffer,
             "write-file" => Command::WriteFile,
             "save-some-buffers" => Command::SaveAllBuffers,
+            "split-window-below" => Command::SplitWindowBelow,
+            "split-window-right" => Command::SplitWindowRight,
+            "delete-other-windows" => Command::DeleteOtherWindows,
+            "delete-window" => Command::DeleteWindow,
+            "other-window" => Command::OtherWindow,
             "save-buffers-kill-terminal" => Command::SaveBuffersKillTerminal,
             "quit" => Command::Quit,
             "execute-command" => Command::ExecuteCommand,
@@ -218,6 +230,11 @@ impl Command {
             Command::SaveBuffer => "バッファを保存",
             Command::WriteFile => "別名でファイルを保存",
             Command::SaveAllBuffers => "すべてのバッファを保存",
+            Command::SplitWindowBelow => "ウィンドウを上下に分割",
+            Command::SplitWindowRight => "ウィンドウを左右に分割",
+            Command::DeleteOtherWindows => "現在のウィンドウのみ表示",
+            Command::DeleteWindow => "現在のウィンドウを閉じる",
+            Command::OtherWindow => "次のウィンドウに移動",
             Command::SaveBuffersKillTerminal => "保存して終了",
             Command::Quit => "終了",
             Command::ExecuteCommand => "コマンドを実行",
@@ -380,6 +397,11 @@ impl CommandProcessor {
             | Command::Recenter
             | Command::ScrollLeft
             | Command::ScrollRight
+            | Command::SplitWindowBelow
+            | Command::SplitWindowRight
+            | Command::DeleteOtherWindows
+            | Command::DeleteWindow
+            | Command::OtherWindow
             | Command::SetMark
             | Command::KillRegion
             | Command::CopyRegion

@@ -8,6 +8,7 @@ pub mod minibuffer;
 pub mod viewport;
 pub mod theme;
 pub mod renderer;
+pub mod window_manager;
 
 // 公開API
 pub use layout::{LayoutManager, AppLayout, AreaType};
@@ -16,3 +17,4 @@ pub use minibuffer::MinibufferRenderer;
 pub use viewport::{ViewportManager, ViewportState};
 pub use theme::{ThemeManager, Theme, ComponentType, ThemeType};
 pub use renderer::{AdvancedRenderer, FrameRateStats, RenderStats};
+pub use window_manager::{WindowManager, WindowId, SplitOrientation, WindowError};

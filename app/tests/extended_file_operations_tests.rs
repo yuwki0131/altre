@@ -2,7 +2,6 @@
 
 use altre::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use altre::input::commands::{Command, CommandProcessor};
-use altre::buffer::EditOperations;
 
 #[test]
 fn test_write_file_keybinding() {

@@ -175,6 +175,46 @@ impl CommandProcessor {
             args_description: None,
         });
 
+        self.register_command(CommandDefinition {
+            name: "split-window-below".to_string(),
+            description: "ウィンドウを上下に分割".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x 2".to_string()),
+            args_description: None,
+        });
+
+        self.register_command(CommandDefinition {
+            name: "split-window-right".to_string(),
+            description: "ウィンドウを左右に分割".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x 3".to_string()),
+            args_description: None,
+        });
+
+        self.register_command(CommandDefinition {
+            name: "delete-other-windows".to_string(),
+            description: "現在のウィンドウのみ表示".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x 1".to_string()),
+            args_description: None,
+        });
+
+        self.register_command(CommandDefinition {
+            name: "delete-window".to_string(),
+            description: "現在のウィンドウを閉じる".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x 0".to_string()),
+            args_description: None,
+        });
+
+        self.register_command(CommandDefinition {
+            name: "other-window".to_string(),
+            description: "次のウィンドウに移動".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-x o".to_string()),
+            args_description: None,
+        });
+
         // バッファ操作コマンド
         self.register_command(CommandDefinition {
             name: "switch-to-buffer".to_string(),

@@ -1,7 +1,7 @@
 # altre FAQ（よくある質問）
 
 ## Q1. altre をインストールするには？
-A. Rust 環境を用意し、リポジトリをクローン後 `cargo build --release` を実行してください。実行は `cargo run` で行えます。
+A. Rust 1.78 以降を用意し、リポジトリをクローン後に `cd app && cargo build --release` を実行してください。実行は同じディレクトリで `cargo run --offline` を利用します。
 
 ## Q2. Emacs のように複数バッファを開けますか？
 A. 現状は簡易的な複数バッファ切り替えが実装されています（`C-x b` / `C-x k`）。表示内容やレイアウトは共有しているため、より高度な管理は今後の課題です。
@@ -22,7 +22,7 @@ A. `ratatui` 経由で描画しているため、端末テーマに依存しま�
 A. altre 独自の拡張言語です。詳細は `docs/design/alisp_language_spec.md` を参照し、`M-:` で簡単な式を評価できます。
 
 ## Q8. Undo / Redo はできますか？
-A. MVP 版では未実装です。最新の進捗は `tasks/` ディレクトリと `CHANGES.md` をご確認ください。
+A. MVP 版では未実装です。最新の進捗は `tasks/` ディレクトリと `CHANGELOG.md` をご確認ください。
 
 ## Q9. Windows で使えますか？
 A. 公式サポート外です。WSL2 上の Linux 環境では動作しますが、動作保証はしていません。

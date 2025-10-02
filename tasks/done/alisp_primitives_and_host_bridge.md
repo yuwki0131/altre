@@ -22,4 +22,4 @@
 
 ## 参考
 - QA.md:Q1, Q6, Q7
-- A_LISP_FIRST_DRAFT.md
+- docs/adr/0004-alisp-first-draft.md

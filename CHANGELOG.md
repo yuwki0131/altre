@@ -4,20 +4,24 @@
 
 ## [0.1.0]（ドラフト）
 ### 追加
-- Emacs ライクな TUI エディタの MVP 機能セット（複数バッファ切り替え、基本編集、ファイル操作）
-- ギャップバッファベースの `TextEditor` とナビゲーション API
-- ミニバッファによる `find-file` / `save-buffer` / `write-file` / `switch-to-buffer` フロー
-- `CommandProcessor` と `AdvancedRenderer` の統合、ミニバッファの補完 UI
-- 利用メモ（ユーザーガイド、トラブルシューティング、設計ドキュメント）の初版
+- Rust + ratatui による TUI エディタ MVP（複数バッファ、ミニバッファ、ファイル操作、基本編集）
+- ギャップバッファ実装とナビゲーション API（`app/src/buffer/`）
+- `CommandProcessor` を中心としたキーバインド処理とコマンド分配（`app/src/input/`）
+- `AdvancedRenderer` によるレイアウト分割とミニバッファ統合描画（`app/src/ui/renderer.rs`）
+- ファイル操作のアトミックセーブと LF 正規化処理（`app/src/file/operations.rs`）
+- インクリメンタル検索エンジンとハイライト描画（`app/src/search/`）
+- ベンチマーク／性能監視基盤（`app/src/performance/` と `app/benches/`）
 
-### 修正
-- 未保存バッファ保存時の導線調整
-- 設計資料 (`docs/design/*`) と実装の差異を都度同期
+### 改善
+- 未保存バッファの保存導線とエラーハンドリングメッセージを調整
+- 設計資料（`docs/design/*`）と実装の差異を逐次同期
+- テストハーネスを `cargo test --offline` で再現可能な構成へ整理
 
 ### 既知の制限（2025-09 時点）
-- Undo/Redo 未実装
-- GUI 版は構想段階
-- Windows ネイティブ対応は検証中
+- Undo/Redo や高度な編集機能は未実装
+- alisp ランタイムは構想段階（評価器の雛形のみ）
+- GUI 版（Tauri）は未着手
+- Windows ネイティブ端末、raw mode 非対応環境での検証は限定的
 
 ---
-より細かなメモは `tasks/` ディレクトリと各タスクの Markdown を参照してください。
+より細かなメモは `tasks/` ディレクトリ内の各タスク Markdown を参照してください。

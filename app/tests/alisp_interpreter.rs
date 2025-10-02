@@ -60,3 +60,23 @@ fn minibuffer_eval_formats_output() {
     assert_eq!(outcome.output, "=> 3");
     assert!(!outcome.is_error);
 }
+
+#[test]
+fn recursive_function_fibonacci() {
+    let mut interp = Interpreter::new();
+    // フィボナッチ数列の定義（再帰関数）
+    interp.eval("(define (fib n) (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2)))))").unwrap();
+    // fib(10) = 55 を検証
+    let result = interp.eval("(fib 10)").unwrap();
+    assert_eq!(result.display, "55");
+}
+
+#[test]
+fn recursive_function_factorial() {
+    let mut interp = Interpreter::new();
+    // 階乗の定義（再帰関数）
+    interp.eval("(define (fact n) (if (<= n 1) 1 (* n (fact (- n 1)))))").unwrap();
+    // fact(5) = 120 を検証
+    let result = interp.eval("(fact 5)").unwrap();
+    assert_eq!(result.display, "120");
+}

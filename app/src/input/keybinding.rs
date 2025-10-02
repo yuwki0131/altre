@@ -694,6 +694,27 @@ impl ModernKeyMap {
             },
             Action::Undo,
         );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('\\'),
+            },
+            Action::Redo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: true },
+                code: KeyCode::Char('?'),
+            },
+            Action::Redo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('4'),
+            },
+            Action::Redo,
+        );
 
         // ファイル操作（C-xプレフィックス）
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
@@ -1059,6 +1080,21 @@ impl KeyMap {
             KeyBinding::Command("redo".to_string()),
         );
         self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('\\'))),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::new(
+                CrosstermKeyCode::Char('?'),
+                CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
+            )),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('4'))),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
             LegacyKeySequence::single(KeyCombination::new(
                 CrosstermKeyCode::Char('_'),
                 CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
@@ -1068,6 +1104,13 @@ impl KeyMap {
         self.bind_global(
             LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('7'))),
             KeyBinding::Command("undo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::new(
+                CrosstermKeyCode::Char('?'),
+                CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
+            )),
+            KeyBinding::Command("redo".to_string()),
         );
 
         // ファイル操作プレフィックス

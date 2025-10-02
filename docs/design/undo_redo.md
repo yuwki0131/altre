@@ -18,7 +18,7 @@
 - `app/src/input/commands.rs` : `CommandProcessor` が編集コマンドを実行。
 - `app/src/app.rs` : `App` が `CommandProcessor` と `TextEditor` を統合し、複数バッファを管理。
 
-Undo/Redo はバッファ (`OpenBuffer`) ごとに管理する必要があるため、`App` / `CommandProcessor` 層で履歴管理を保持する。
+Undo/Redo はバッファ (`OpenBuffer`) ごとに管理する必要があるため、`App` が `HistoryManager` を保持し、各 `OpenBuffer` に `HistoryStack` を保存する。
 
 ## 4. データモデル
 ### 4.1 HistoryEntry
@@ -67,9 +67,9 @@ struct HistoryStack {
 - 新しい編集が発生したら `redo.clear()`。
 
 ## 5. 履歴の記録タイミング
-### 5.1 CommandProcessor でのフック
-- `CommandProcessor::execute` 内で各編集コマンドの実行前後を把握できる。
-- 編集成功後に `HistoryRecorder` に対して「操作完了」を通知する。
+### 5.1 App でのフック
+- `App::execute_command` 内で各編集コマンドの実行前後を把握できる。
+- 編集開始時に `HistoryManager::begin_command` を呼び出し、終了時に `end_command` でコミットする。
 - `HistoryRecorder` はコマンド種別を参照し、AtomicEdit の集合を `HistoryEntry` にまとめる。
 
 ### 5.2 ChangeNotifier の活用
@@ -81,14 +81,14 @@ struct HistoryStack {
 - `HistoryRecorder` は ChangeEvent::Insert を受け取るたびに連続性を判断し、単語+スペースごとに `operations` を統合する。
 - 実装戦略:
   - Insert のたびに `buffer::editor::ChangeEvent::Insert` を受信。
-  - 直前エントリが同じカーソル進行方向で、前回からの差分が単語境界と一致する場合は同一エントリに追記。
+    - 直前エントリが同じカーソル進行方向で、前回からの差分が単語境界と一致する場合は同一エントリに追記。
   - スペース文字を含む単語の境界判定は簡易的に「英数字/アンダースコアの連続 vs 非英数字」＋スペース扱いで分割。
 - Backspace (`safe_delete_backward`) についても同様に単語+スペース単位でまとめる。Delete (前方) は単体操作とする。
 
 ## 6. Undo/Redo 実行フロー
 1. `App` のコマンド処理で `Command::Undo` / `Command::Redo` を追加。
-2. キーマップに `C-/` → Undo、`C-.` → Redo を登録。
-3. `CommandProcessor` に `undo()`, `redo()` メソッドを追加し、カレントバッファの `HistoryStack` を操作。
+2. キーマップに `C-/` → Undo、`C-.` → Redo を登録（レイアウト差異に備えて `C-7` / `C-_` も許容）。
+3. `App` が保持する `HistoryManager` を通じて Undo/Redo を実行し、現在の `TextEditor` に変更を適用。
 4. `HistoryStack::apply_undo` / `apply_redo` は以下を行う:
    - `TextEditor` に対して逆操作を適用（Delete/Insert の逆呼び出し）。
    - 操作中は ChangeNotifier による履歴記録を一時的に無効化し、再帰的な記録を防ぐ。
@@ -104,16 +104,13 @@ app/src/editor/history/
 
 - `HistoryRecorder` が ChangeListener を実装し、ChangeEvent を受信。
 - `HistoryStack` が undo/redo のスタック制御と適用ロジックを持つ。
-- `CommandProcessor` はバッファ切替時に対応する `HistoryStack` をロードし、実行後に履歴を更新する。
+- `App` が `HistoryManager` を保持し、バッファ切替時に `HistoryStack` をロードして履歴を更新する。
 
 ## 8. API 追加/変更まとめ
 - `Command` enum に `Undo`, `Redo` を追加。
-- `Action` enum (`app/src/input/keybinding.rs`) にも対応アクションを追加し、`C-/`, `C-.` を割り当て。
-- `CommandProcessor` に以下を実装:
-  - `fn record_history_scope<F>(&mut self, command_kind: CommandKind, f: F)` で編集処理を包み、成功時に `HistoryRecorder` のコミットを呼び出す。
-  - `fn undo(&mut self) -> CommandResult` / `fn redo(&mut self) -> CommandResult`。
-- `App` にバッファ切替時の履歴同期 (`HistoryStack` の参照) を追加。
-- `TextEditor` (`app/src/editor/text_editor.rs`) に `add_change_listener` API を追加し、`HistoryRecorder` を登録できるようにする。
+- `Action` enum (`app/src/input/keybinding.rs`) にも対応アクションを追加し、`C-/`, `C-.`（レイアウトによっては `C-7` / `C-_` / `C-?` / `C-\\` / `C-4` も許容）を割り当て。
+- `App` に `HistoryManager` フィールドを追加し、バッファ切替時に `HistoryStack` を同期。
+- `App` の編集系コマンドは `history.begin_command` / `end_command` でラップし、`HistoryRecorder` が `ChangeEvent` を受け取れるよう `TextEditor::add_change_listener` を利用。
 
 ## 9. 想定テスト
 - 単純な挿入/削除の Undo/Redo。

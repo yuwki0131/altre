@@ -2,12 +2,12 @@
 
 ## 1. 概要
 - 本書は alisp 初期実装 (v0) の言語仕様を定義する。
-- 仕様は QA.md (Q1〜Q7) の回答と A_LISP_FIRST_DRAFT.md をもとに整理した。
+- 仕様は QA.md (Q1〜Q7) の回答と docs/adr/0004-alisp-first-draft.md をもとに整理した。
 - 実装対象はミニバッファからの即時評価を想定した最小構成であり、将来拡張項目は制限事項として明記する。
 
 ## 2. 参照資料
 - QA.md: Q1, Q2, Q4, Q5, Q6, Q7
-- A_LISP_FIRST_DRAFT.md
+- docs/adr/0004-alisp-first-draft.md
 - docs/design/minibuffer.md (ミニバッファ UX 基準) ※将来復元予定
 
 ## 3. 言語の基本方針

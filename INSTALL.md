@@ -1,44 +1,44 @@
 # altre インストールガイド
 
 ## 動作確認済み環境
-- Linux (x86_64) — Ubuntu 22.04 / Arch Linux
-- macOS 14 (Apple Silicon) — 開発者テスト
-- Windows 11 (WSL2) — raw mode 対応端末で動作
+- Linux (x86_64): NixOS / Ubuntu 22.04 / Arch Linux
+- macOS 14 (Apple Silicon): 開発者ローカルでの動作確認
+- Windows 11 (WSL2): raw mode 対応端末で最小限の確認
 
-## 1. ソースからのビルド（開発者向けメモ）
+## 1. 取得とビルド
 ### 依存パッケージ
-- Rust 1.74 以上 (`rustup` 推奨)
-- C コンパイラ (clang または gcc)
-- UTF-8 対応ターミナル
+- Rust 1.78 以上（`rustup` 推奨）
+- C コンパイラ（clang または gcc）
+- UTF-8 表示に対応した端末
 
-### 手順
+### ソース取得とビルド
 ```bash
-git clone <このリポジトリのローカルURL>
+git clone <このリポジトリのURL>
 cd altre/app
-cargo build --release
+cargo build --release --offline   # ネットワークが使える場合は --offline を省略可
 ```
-- 成功すると `app/target/release/altre` が生成されます。
+生成物は `app/target/release/altre` に出力されます。
 
-### テスト
+### テストとドキュメント
 ```bash
-cargo test
-cargo doc --no-deps
+cargo test --offline
+cargo doc --no-deps --offline
 ```
 
-## 2. 初回起動
+## 2. 実行
 ```bash
-cargo run --release
+cd altre/app
+cargo run --release --offline
 ```
-- raw mode を利用するため、失敗した場合は `manuals/troubleshooting.md` を参照
+raw mode を利用するため、端末や仮想環境によっては実行に失敗することがあります。その場合は `manuals/troubleshooting.md` を参照してください。
 
-## 3. 設定ファイル
-- MVP 版にはユーザー設定ファイルはありません。将来 `~/.altre.d/` 配下に追加予定です。
+## 3. 設定
+MVP 版にはユーザー設定ファイルはありません。将来的に `~/.altre.d/` 配下へ設定ファイルを配置する予定です。
 
 ## 4. よくある問題
-- Alt キーが Meta として認識されない → `Esc x` のように Esc をプレフィックスとして使用
-- 画面描画が崩れる → 端末サイズを固定するか、`cargo run --release` を利用
+- Alt キーが Meta として認識されない: `Esc` をプレフィックスとして使用（例: `Esc x`）
+- 描画が乱れる: 端末サイズを固定するか `cargo run --release --offline` を使用
+- raw mode が拒否される: 別の端末エミュレータを使用するか TUI 実行を避けてテスト/ビルドのみ行う
 
 ## 5. アップデート
-- バイナリ配布や公式リリース手順は未整備です。必要に応じてローカル環境でビルドを行ってください。
-
-疑問点やトラブルは、自分用メモである `manuals/faq.md` や `manuals/troubleshooting.md` を参照してください。
+公式バイナリ配布は未整備です。更新が必要な場合はローカルで再ビルドしてください。詳細な運用メモは `manuals/` 配下を参照します。

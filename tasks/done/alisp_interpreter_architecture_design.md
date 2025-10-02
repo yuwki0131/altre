@@ -2,7 +2,7 @@
 
 ## 背景
 - QA.md:Q1〜Q7 で初期機能・評価経路・GC実装方針が確定。
-- A_LISP_FIRST_DRAFT.md ではホスト統合の概念が示されているが、初期リリース向けの具体的な処理系設計が未整備。
+- docs/adr/0004-alisp-first-draft.md ではホスト統合の概念が示されているが、初期リリース向けの具体的な処理系設計が未整備。
 - runtime 構成（値表現、環境、評価器、GC、プリミティブ境界）を定義しないと実装タスクを進められない。
 
 ## ゴール
@@ -21,5 +21,5 @@
 
 ## 参考
 - QA.md:Q1, Q2, Q5, Q6, Q7
-- A_LISP_FIRST_DRAFT.md
+- docs/adr/0004-alisp-first-draft.md
 - docs/architecture/mvp_architecture.md

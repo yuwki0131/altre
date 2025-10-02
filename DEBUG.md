@@ -1,49 +1,38 @@
 # デバッグモード
 
 ## 概要
-altreエディタはオプションのデバッグモードを提供しています。デバッグモードでは、ファイル操作などの内部動作に関する詳細なログが出力されます。
+altre エディタではデバッグ向けの詳細ログを環境変数で有効化できます。ファイル操作やミニバッファ経由のコマンド実行など、開発時に把握したい情報を標準エラー出力へ表示します。
 
-## 使用方法
-
-### デバッグモードを有効にする
+## デバッグモードの有効化
 ```bash
-# 環境変数を設定してデバッグモードで実行
-ALTRE_DEBUG=1 cargo run
+cd altre/app
+ALTRE_DEBUG=1 cargo run --offline
+```
+または、環境変数を先に設定してから `cargo run` / `cargo test` を実行します。
 
-# または
+```bash
+cd altre/app
 export ALTRE_DEBUG=1
-cargo run
+cargo run --offline
 ```
 
-### 通常モード（デバッグ出力なし）
+## 通常モード（デバッグ出力なし）
 ```bash
-# 環境変数なしで実行
-cargo run
+cd altre/app
+cargo run --offline
 ```
 
-## デバッグ出力の内容
-
-### ファイル操作
-- ファイルのオープン処理
-- ファイル保存処理（パス、内容サイズ、アトミック保存の詳細）
-- ファイル存在確認
-- エラー詳細
-
-### 出力例
+## 出力内容の例
 ```
 DEBUG: Opening file: /path/to/file.txt
 DEBUG: File opened successfully, editor synchronized
-DEBUG: Saving to path: /path/to/file.txt
-DEBUG: Content length: 123 chars
 DEBUG FileSaver: save_file called with path: /path/to/file.txt
 DEBUG FileSaver: using atomic save
 DEBUG FileSaver: atomic_save: temp_path: /path/to/.file.txt_12345
 DEBUG FileSaver: atomic_save: rename completed successfully
-DEBUG: FileSaver reported success
-DEBUG: File exists after save
 ```
 
-## 実装詳細
-- 環境変数 `ALTRE_DEBUG` の存在でデバッグモードを判定
-- `debug_log!` マクロによる条件付きログ出力
-- ファイル操作専用の `file_debug_log!` マクロ
+## 実装メモ
+- `ALTRE_DEBUG` の有無でデバッグモードを判定
+- `debug_log!`（`app/src/app.rs`）と `file_debug_log!`（`app/src/file/operations.rs`）で条件付きログを出力
+- ファイル操作、ミニバッファコマンド、イベント処理の要所でログを仕込み済み

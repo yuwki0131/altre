@@ -3,7 +3,7 @@
 ## 1. 概要
 - 本書は alisp 初期実装 (v0) の処理系アーキテクチャを定義する。
 - 仕様書 `docs/design/alisp_language_spec.md` を満たす評価系と、Rust ベースの Altre 本体との統合方法を記述する。
-- 参照資料: QA.md (Q1〜Q7), A_LISP_FIRST_DRAFT.md, docs/architecture/mvp_architecture.md (全体構成)。
+- 参照資料: QA.md (Q1〜Q7), docs/adr/0004-alisp-first-draft.md, docs/architecture/mvp_architecture.md (全体構成)。
 
 ## 2. 設計方針
 1. **最小構成**: ミニバッファからの即時評価のみを対象に、必須コンポーネントだけを構築する。

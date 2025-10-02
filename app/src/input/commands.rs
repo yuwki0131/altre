@@ -109,6 +109,8 @@ pub enum Command {
     Yank,
     YankPop,
     KeyboardQuit,
+    Undo,
+    Redo,
     SetMark,
     KillRegion,
     CopyRegion,
@@ -171,6 +173,8 @@ impl Command {
             "yank" => Command::Yank,
             "yank-pop" => Command::YankPop,
             "keyboard-quit" => Command::KeyboardQuit,
+            "undo" => Command::Undo,
+            "redo" => Command::Redo,
             "set-mark-command" => Command::SetMark,
             "kill-region" => Command::KillRegion,
             "copy-region-as-kill" => Command::CopyRegion,
@@ -223,6 +227,8 @@ impl Command {
             Command::Yank => "キルリングから貼り付け",
             Command::YankPop => "直前のヤンクを置き換え",
             Command::KeyboardQuit => "操作をキャンセル",
+            Command::Undo => "直前の操作を取り消し",
+            Command::Redo => "取り消した操作をやり直し",
             Command::SetMark => "マークを設定",
             Command::KillRegion => "リージョンを削除",
             Command::CopyRegion => "リージョンをコピー",
@@ -446,6 +452,7 @@ impl CommandProcessor {
             Command::MoveLineEnd => self.navigate(NavigationAction::MoveLineEnd),
             Command::MoveBufferStart => self.navigate(NavigationAction::MoveBufferStart),
             Command::MoveBufferEnd => self.navigate(NavigationAction::MoveBufferEnd),
+            Command::Undo | Command::Redo => CommandResult::error("このコマンドはアプリ側で処理します".to_string()),
             Command::Unknown(cmd) => CommandResult::error(format!("不明なコマンド: {}", cmd)),
         }
     }
@@ -589,11 +596,7 @@ impl CommandProcessor {
         // ファイルを開く
         match self.file_manager.open_file(expanded_path.clone()) {
             Ok(buffer) => {
-                // エディタにファイル内容を設定
-                self.editor = TextEditor::from_str(&buffer.content);
-
-                // バッファを保存
-                self.current_buffer = Some(buffer);
+                self.set_current_buffer(buffer);
 
                 CommandResult::success_with_message(
                     format!("ファイルを開きました: {}", expanded_path.display())
@@ -603,8 +606,7 @@ impl CommandProcessor {
                 // 新規ファイルの場合
                 match self.file_manager.create_new_file_buffer(expanded_path.clone()) {
                     Ok(buffer) => {
-                        self.editor = TextEditor::from_str(&buffer.content);
-                        self.current_buffer = Some(buffer);
+                        self.set_current_buffer(buffer);
 
                         CommandResult::success_with_message(
                             format!("新規ファイルを作成しました: {}", expanded_path.display())
@@ -673,7 +675,7 @@ impl CommandProcessor {
         if let Some(ref mut buffer) = self.current_buffer {
             buffer.content = self.editor.to_string();
 
-            match self.file_manager.save_buffer_as(buffer, expanded_path.clone()) {
+        match self.file_manager.save_buffer_as(buffer, expanded_path.clone()) {
                 Ok(_) => CommandResult::success_with_message(
                     format!("保存しました: {}", expanded_path.display())
                 ),

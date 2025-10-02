@@ -9,7 +9,7 @@ use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{SearchController, SearchDirection, SearchHighlight};
-use crate::editor::KillRing;
+use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
@@ -34,6 +34,7 @@ struct OpenBuffer {
     id: usize,
     file: FileBuffer,
     cursor: CursorPosition,
+    history: HistoryStack,
 }
 
 impl OpenBuffer {
@@ -42,6 +43,7 @@ impl OpenBuffer {
             id,
             cursor: CursorPosition::new(),
             file,
+            history: HistoryStack::new(),
         }
     }
 
@@ -100,6 +102,8 @@ pub struct App {
     next_buffer_id: usize,
     /// `C-l` の再配置サイクル
     recenter_step: u8,
+    /// Undo/Redo 管理
+    history: HistoryManager,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,7 +142,9 @@ impl App {
             last_buffer_id: None,
             next_buffer_id: 0,
             recenter_step: 0,
+            history: HistoryManager::new(),
         };
+        app.history.bind_editor(&mut app.editor);
 
         app.initialize_default_buffer()?;
 
@@ -275,6 +281,7 @@ impl App {
             if let Some(buffer) = self.buffers.get_mut(index) {
                 buffer.file.content = self.editor.to_string();
                 buffer.cursor = *self.editor.cursor();
+                buffer.history = self.history.stack().clone();
             }
         }
     }
@@ -291,12 +298,13 @@ impl App {
         let index = self.find_buffer_index(id)
             .ok_or_else(|| AltreError::Application(format!("バッファID {} が見つかりません", id)))?;
 
-        let (content, cursor, file_clone) = {
+        let (content, cursor, file_clone, history_clone) = {
             let buffer = &self.buffers[index];
             (
                 buffer.file.content.clone(),
                 buffer.cursor,
                 buffer.file.clone(),
+                buffer.history.clone(),
             )
         };
 
@@ -309,6 +317,7 @@ impl App {
         self.current_buffer_id = Some(id);
         self.editor = TextEditor::from_str(&content);
         self.editor.set_cursor(cursor);
+        self.history.replace_stack(history_clone, &mut self.editor);
         self.command_processor.set_current_buffer(file_clone);
         self.command_processor.sync_editor_content(&self.editor.to_string());
 
@@ -691,36 +700,52 @@ impl App {
                 Ok(())
             }
             Command::InsertChar(ch) => {
-                if let Err(err) = self.editor.insert_char(ch) {
+                self.begin_history(HistoryCommandKind::InsertChar);
+                let result = self.editor.insert_char(ch);
+                let success = result.is_ok();
+                if let Err(err) = result {
                     self.show_error_message(err);
                 }
+                self.end_history(success);
                 self.reset_kill_context();
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
                 Ok(())
             }
             Command::DeleteBackwardChar => {
-                if let Err(err) = self.editor.delete_backward() {
+                self.begin_history(HistoryCommandKind::DeleteBackward);
+                let result = self.editor.delete_backward();
+                let success = result.is_ok();
+                if let Err(err) = result {
                     self.show_error_message(err);
                 }
+                self.end_history(success);
                 self.reset_kill_context();
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
                 Ok(())
             }
             Command::DeleteChar => {
-                if let Err(err) = self.editor.delete_forward() {
+                self.begin_history(HistoryCommandKind::Other);
+                let result = self.editor.delete_forward();
+                let success = result.is_ok();
+                if let Err(err) = result {
                     self.show_error_message(err);
                 }
+                self.end_history(success);
                 self.reset_kill_context();
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
                 Ok(())
             }
             Command::InsertNewline => {
-                if let Err(err) = self.editor.insert_newline() {
+                self.begin_history(HistoryCommandKind::Other);
+                let result = self.editor.insert_newline();
+                let success = result.is_ok();
+                if let Err(err) = result {
                     self.show_error_message(err);
                 }
+                self.end_history(success);
                 self.reset_kill_context();
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
@@ -748,6 +773,18 @@ impl App {
             }
             Command::KeyboardQuit => {
                 self.keyboard_quit();
+                Ok(())
+            }
+            Command::Undo => {
+                if let Err(err) = self.undo_edit() {
+                    self.show_error_message(err);
+                }
+                Ok(())
+            }
+            Command::Redo => {
+                if let Err(err) = self.redo_edit() {
+                    self.show_error_message(err);
+                }
                 Ok(())
             }
             Command::SetMark => {
@@ -976,7 +1013,10 @@ impl App {
     }
 
     fn kill_word_forward(&mut self) {
-        match self.editor.delete_word_forward() {
+        self.begin_history(HistoryCommandKind::Other);
+        let result = self.editor.delete_word_forward();
+        let success = result.is_ok();
+        match result {
             Ok(text) => {
                 self.record_kill(text, KillMerge::Append);
                 self.reset_recenter_cycle();
@@ -984,10 +1024,14 @@ impl App {
             }
             Err(err) => self.show_error_message(err),
         }
+        self.end_history(success);
     }
 
     fn kill_word_backward(&mut self) {
-        match self.editor.delete_word_backward() {
+        self.begin_history(HistoryCommandKind::Other);
+        let result = self.editor.delete_word_backward();
+        let success = result.is_ok();
+        match result {
             Ok(text) => {
                 self.record_kill(text, KillMerge::Prepend);
                 self.reset_recenter_cycle();
@@ -995,10 +1039,14 @@ impl App {
             }
             Err(err) => self.show_error_message(err),
         }
+        self.end_history(success);
     }
 
     fn kill_line_forward(&mut self) {
-        match self.editor.kill_line_forward() {
+        self.begin_history(HistoryCommandKind::Other);
+        let result = self.editor.kill_line_forward();
+        let success = result.is_ok();
+        match result {
             Ok(text) => {
                 self.record_kill(text, KillMerge::Append);
                 self.reset_recenter_cycle();
@@ -1006,6 +1054,7 @@ impl App {
             }
             Err(err) => self.show_error_message(err),
         }
+        self.end_history(success);
     }
 
     fn set_mark_command(&mut self) {
@@ -1015,22 +1064,33 @@ impl App {
     }
 
     fn kill_region(&mut self) -> Result<()> {
-        if let Some((start, end)) = self.editor.selection_range() {
-            let text = self.editor.delete_range_span(start, end)?;
-            if text.is_empty() {
-                self.show_info_message("選択範囲が空です");
-            } else {
-                self.record_kill(text, KillMerge::Append);
-                self.kill_context = KillContext::Kill;
-                self.last_yank_range = None;
+        self.begin_history(HistoryCommandKind::Other);
+        let result = if let Some((start, end)) = self.editor.selection_range() {
+            match self.editor.delete_range_span(start, end) {
+                Ok(text) => {
+                    if text.is_empty() {
+                        self.show_info_message("選択範囲が空です");
+                    } else {
+                        self.record_kill(text, KillMerge::Append);
+                        self.kill_context = KillContext::Kill;
+                        self.last_yank_range = None;
+                    }
+                    self.editor.clear_mark();
+                    self.reset_recenter_cycle();
+                    self.ensure_cursor_visible();
+                    Ok(())
+                }
+                Err(err) => {
+                    self.show_error_message(err.clone());
+                    Err(err)
+                }
             }
-            self.editor.clear_mark();
-            self.reset_recenter_cycle();
-            self.ensure_cursor_visible();
         } else {
             self.show_info_message("リージョンが選択されていません");
-        }
-        Ok(())
+            Ok(())
+        };
+        self.end_history(result.is_ok());
+        result
     }
 
     fn copy_region(&mut self) -> Result<()> {
@@ -1081,16 +1141,19 @@ impl App {
         let start = self.editor.cursor().char_pos;
         let len = text.chars().count();
 
+        self.begin_history(HistoryCommandKind::Other);
         match self.editor.insert_str(&text) {
             Ok(_) => {
                 self.kill_context = KillContext::Yank;
                 self.last_yank_range = Some((start, len));
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
+                self.end_history(true);
             }
             Err(err) => {
                 self.reset_kill_context();
                 self.show_error_message(err);
+                self.end_history(false);
             }
         }
     }
@@ -1114,9 +1177,11 @@ impl App {
             return;
         }
 
+        self.begin_history(HistoryCommandKind::Other);
         if let Err(err) = self.editor.delete_range(start, start + previous_len) {
             self.reset_kill_context();
             self.show_error_message(err);
+            self.end_history(false);
             return;
         }
 
@@ -1130,6 +1195,7 @@ impl App {
         if let Err(err) = self.editor.insert_str(&next_text) {
             self.reset_kill_context();
             self.show_error_message(err);
+            self.end_history(false);
             return;
         }
 
@@ -1137,6 +1203,41 @@ impl App {
         self.last_yank_range = Some((start, new_len));
         self.reset_recenter_cycle();
         self.ensure_cursor_visible();
+        self.end_history(true);
+    }
+
+    fn undo_edit(&mut self) -> Result<()> {
+        match self.history.undo(&mut self.editor) {
+            Ok(true) => {
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+                self.persist_current_buffer_state();
+                Ok(())
+            }
+            Ok(false) => {
+                self.show_info_message("取り消す操作はありません");
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    fn redo_edit(&mut self) -> Result<()> {
+        match self.history.redo(&mut self.editor) {
+            Ok(true) => {
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.ensure_cursor_visible();
+                self.persist_current_buffer_state();
+                Ok(())
+            }
+            Ok(false) => {
+                self.show_info_message("やり直す操作はありません");
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
     }
 
     fn keyboard_quit(&mut self) {
@@ -1153,6 +1254,14 @@ impl App {
     fn reset_kill_context(&mut self) {
         self.kill_context = KillContext::None;
         self.last_yank_range = None;
+    }
+
+    fn begin_history(&mut self, kind: HistoryCommandKind) {
+        self.history.begin_command(kind, &self.editor);
+    }
+
+    fn end_history(&mut self, success: bool) {
+        self.history.end_command(&self.editor, success);
     }
 
     fn reset_recenter_cycle(&mut self) {
@@ -1467,7 +1576,9 @@ impl App {
                         self.persist_current_buffer_state();
                         if let Some(index) = self.current_buffer_index() {
                             if let Some(current) = self.buffers.get(index) {
-                                self.command_processor.set_current_buffer(current.file.clone());
+                                self.command_processor.set_current_buffer(
+                                    current.file.clone(),
+                                );
                             }
                             self.command_processor.sync_editor_content(&self.editor.to_string());
                             let result = self.command_processor.save_buffer_as(path.clone());
@@ -1476,6 +1587,7 @@ impl App {
                                     if let Some(buffer) = self.buffers.get_mut(index) {
                                         buffer.file = updated;
                                         buffer.cursor = *self.editor.cursor();
+                                        buffer.history = self.history.stack().clone();
                                     }
                                 }
                                 if let Some(msg) = result.message {

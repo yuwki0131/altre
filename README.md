@@ -81,7 +81,7 @@ cargo run --offline
 - `docs/adr/`: アーキテクチャ決定記録（例: `0004-alisp-first-draft.md`）
 - `docs/design/`: 設計資料と仕様書
 - `manuals/`: ユーザーガイド・キーバインド一覧・トラブルシューティング
-- `QA.md`: 仕様に関する Q&A と決定事項
+- `docs/adr-qa/`: 仕様に関する Q&A と決定事項（例: `docs/adr-qa/init_QA.md`）
 - `TASK_MANAGEMENT.md`: タスク運用ルール
 
 ## ライセンス

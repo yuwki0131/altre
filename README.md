@@ -4,22 +4,23 @@
   <img src="logo/altre-logo-readme.png" alt="altre logo" width="200" />
 </p>
 
-Rust と ratatui で構築された Emacs 風テキストエディタです。
+Emacs風テキストエディタ実装
 
 ## 概要
-altre は Emacs の操作モデルを参考に Rust でゼロから実装しているテキストエディタです。ミニバッファと独自 Lisp 方言（alisp）による拡張性を備え、ターミナル上で高速に動作する編集体験を目指しています。
+* altre は Emacs の操作モデルを参考にRustでゼロから実装しているテキストエディタ
+* 独自の拡張言語としてLisp方言（altre lisp）を採用し、ターミナル上で高速に動作する編集体験を目指す
 
-## 主な特徴
+## 主な現在の実装状況
 - Emacs 互換のバッファ / ポイント / マークとキルリングを実装し、リージョン編集や単語移動をサポート
-- ratatui + crossterm による TUI レイアウトと複数ウィンドウ表示（`C-x 2/3/1/0/o`）
-- ミニバッファからのコマンド実行 (`M-x`)、ファイル操作 (`C-x C-f`/`C-x C-s`/`C-x C-w`) と補完
-- `C-s` / `C-r` によるインクリメンタル検索と検索中のワード追加 (`C-w`)、`Enter` で確定、`C-g` でキャンセル
+- ratatui + crossterm による TUI レイアウトと複数ウィンドウ表示
+- ミニバッファからのコマンド実行 (`M-x`)
+- ファイル操作
+- インクリメンタル検索
 - 低レイテンシ重視のギャップバッファとパフォーマンス監視（`app/src/performance/`）
 
 ## 現在のステータス
 - 開発フェーズ: MVP コア機能に加え、バッファ・ウィンドウ管理と検索機能を統合済み
 - 対応プラットフォーム: ターミナル向け TUI（ratatui）。将来的に GUI (Tauri) 拡張を計画
-- 開発体制: 個人プロジェクトのため外部からの Issue / PR の受付は想定していません
 
 ## セットアップ
 ### 前提条件
@@ -27,6 +28,7 @@ altre は Emacs の操作モデルを参考に Rust でゼロから実装して�
 - 色表示と raw mode に対応した端末
 
 ### ビルド・テスト
+
 ```bash
 cd app
 cargo build --offline
@@ -34,11 +36,14 @@ cargo test --offline
 ```
 
 ### 実行
+
 ```bash
 cd app
 cargo run --offline
 ```
-raw mode が利用できない環境では TUI が正しく起動しない場合があります。その場合は `manuals/troubleshooting.md` を参照してください。
+
+* raw mode が利用できない環境では TUI が正しく起動しない場合あり
+* トラブルシューティングは`manuals/troubleshooting.md` を参照
 
 ## 基本操作
 - 文字入力・Backspace/Delete/Enter/Tab による基本編集、`C-d` で前方削除、`C-k` で行キル
@@ -72,7 +77,7 @@ raw mode が利用できない環境では TUI が正しく起動しない場合
 ```
 
 ## ドキュメント
-- `AGENTS.md`: 開発ガイドラインとノウハウ
+- `AGENTS.md`: 開発ガイドラインとノウハウ(codex読み込み用)
 - `docs/adr/`: アーキテクチャ決定記録（例: `0004-alisp-first-draft.md`）
 - `docs/design/`: 設計資料と仕様書
 - `manuals/`: ユーザーガイド・キーバインド一覧・トラブルシューティング
@@ -80,4 +85,4 @@ raw mode が利用できない環境では TUI が正しく起動しない場合
 - `TASK_MANAGEMENT.md`: タスク運用ルール
 
 ## ライセンス
-未定（決定次第更新します）。
+未定

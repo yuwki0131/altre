@@ -148,7 +148,15 @@ impl Interpreter {
                     }
                 }
                 let body: Vec<Expr> = tail[1..].to_vec();
+                
+                // 再帰関数をサポートするため、まず関数名を仮の値で環境に定義する
+                // これにより、クロージャが関数名を含む環境をキャプチャできる
+                define_symbol(&mut self.runtime, env, fn_name, Value::Unit);
+                
+                // 今度は関数名が定義された環境でクロージャを作成
                 let closure = make_closure(&mut self.runtime, params, body, env);
+                
+                // 実際のクロージャで関数名の束縛を更新
                 define_symbol(&mut self.runtime, env, fn_name, Value::Function(Function::Lambda(closure)));
                 Ok(Value::Unit)
             }
@@ -271,7 +279,10 @@ impl Interpreter {
         for arg in &list[1..] {
             args.push(self.eval_expr(arg, env)?);
         }
-        maybe_collect(&mut self.runtime, &args, &[env, self.global_env]);
+        // GC実行時には callee も保護する必要がある（関数値がクロージャの場合、環境を参照している）
+        let mut roots = args.clone();
+        roots.push(callee.clone());
+        maybe_collect(&mut self.runtime, &roots, &[env, self.global_env]);
         match callee {
             Value::Function(Function::Builtin(func)) => func(&mut self.runtime, env, &args),
             Value::Function(Function::Lambda(handle)) => {
@@ -295,6 +306,7 @@ impl Interpreter {
             ));
         }
         let bindings = closure.params.iter().cloned().zip(args.iter().cloned()).collect();
+        // クロージャの環境を保護しながら新しい環境を作成
         let new_env = extend_env(&mut self.runtime, closure.env, bindings);
         let mut last = Value::Unit;
         for expr in &closure.body {

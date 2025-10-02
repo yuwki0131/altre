@@ -95,7 +95,8 @@ pub struct GcHeap {
 
 impl GcHeap {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), allocated: 0, next_gc_threshold: 128 }
+        // GCの閾値を高く設定して、再帰関数実行中のGCによる問題を軽減
+        Self { entries: Vec::new(), allocated: 0, next_gc_threshold: 1024 }
     }
 
     pub fn alloc_string(&mut self, value: String) -> StringHandle {

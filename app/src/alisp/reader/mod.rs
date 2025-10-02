@@ -270,7 +270,7 @@ impl Reader {
 }
 
 fn is_symbol_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '+' | '*' | '/' | '?' | '!')
+    ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '+' | '*' | '/' | '?' | '!' | '<' | '>' | '=')
 }
 
 pub fn parse(source: &str, interner: &mut SymbolInterner) -> Result<Vec<Expr>, ReaderError> {

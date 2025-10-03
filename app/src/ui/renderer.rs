@@ -279,12 +279,14 @@ impl AdvancedRenderer {
 
         // ミニバッファ描画
         if let Some(&minibuffer_area) = areas.get(&AreaType::Minibuffer) {
-            if let Some(search) = search_ui {
-                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, Some(search));
-                cursor_position = minibuffer_cursor_pos;
-            } else if minibuffer.is_active() {
-                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, None);
-                cursor_position = minibuffer_cursor_pos;
+            let minibuffer_cursor_pos = if let Some(search) = search_ui {
+                self.render_minibuffer(frame, minibuffer_area, minibuffer, Some(search))
+            } else {
+                self.render_minibuffer(frame, minibuffer_area, minibuffer, None)
+            };
+
+            if let Some(position) = minibuffer_cursor_pos {
+                cursor_position = Some(position);
             }
         }
 
@@ -303,6 +305,7 @@ impl AdvancedRenderer {
         search_ui: Option<&SearchUiState>,
     ) -> Option<(u16, u16)> {
         let state = minibuffer.minibuffer_state();
+        frame.render_widget(Clear, area);
         if let Some(search) = search_ui {
             let (line, cursor) = Self::search_line(area, search);
             let paragraph = Paragraph::new(line).style(Style::default());

@@ -42,7 +42,7 @@ Altre エディタMVPにおけるratatuiベースのTUIレイアウト設計。�
 
 #### 1. ミニバッファエリア（上部、1行ベース）
 - **位置**: 画面最上部（QA Q7の回答）
-- **高さ**: 基本は1行。補完候補が存在する場合は候補数に応じて下方向に追加行を確保し、最大10行まで拡張（ボーダー表示時は+2行）。
+- **高さ**: 常時1行分を確保。補完候補が存在する場合は候補数に応じて下方向に追加入力行を確保し、最大10行まで拡張（ボーダー表示時は+2行）。
 - **表示モード**:
   - `Inactive`: 非表示
   - `FindFile`: "Find file: " + 入力 + 補完
@@ -61,11 +61,12 @@ Altre エディタMVPにおけるratatuiベースのTUIレイアウト設計。�
 
 #### 3. モードライン（下部、1行）
 - **位置**: 画面最下部
-- **内容**:
-  - ファイル名
-  - 保存状態（変更有無）
-  - カーソル位置（行:列）
-  - エンコーディング情報
+- **内容例**:
+  - 変更フラグ（`*` で未保存を表現）
+  - アクティブバッファのフルパス（未保存の場合は `[未保存]` プレフィックス）
+  - カーソル位置（`Ln`, `Col`）
+  - バッファ全体の行数
+  - 描画 FPS（デバッグ用途）
 
 ### 最小サイズ対応（60x15）
 
@@ -151,23 +152,28 @@ impl<'a> Widget for EditorWidget<'a> {
 ### 3. ModeLineWidget
 ```rust
 pub struct ModeLineWidget<'a> {
-    file_info: &'a FileInfo,
-    cursor_info: &'a CursorInfo,
+    file_label: &'a str,
+    is_modified: bool,
+    cursor_line: usize,
+    cursor_column: usize,
+    total_lines: usize,
+    fps: f64,
     style: &'a ModeLineStyle,
 }
 
 impl<'a> Widget for ModeLineWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let content = format!(
-            "{} [{}] {}:{} {}",
-            self.file_info.name,
-            if self.file_info.modified { "Modified" } else { "Saved" },
-            self.cursor_info.line,
-            self.cursor_info.column,
-            self.file_info.encoding
+        let status_text = format!(
+            " {} {}  Ln {}, Col {}  {} lines  FPS: {:.1}",
+            if self.is_modified { "*" } else { " " },
+            self.file_label,
+            self.cursor_line + 1,
+            self.cursor_column + 1,
+            self.total_lines,
+            self.fps,
         );
 
-        Paragraph::new(content)
+        Paragraph::new(status_text)
             .style(self.style.base_style)
             .render(area, buf);
     }
@@ -190,6 +196,7 @@ pub struct ColorScheme {
     pub line_number_current: Color,
     pub mode_line_bg: Color,
     pub mode_line_fg: Color,
+    pub window_divider: Color,
 
     // ミニバッファ色
     pub minibuffer_prompt: Color,
@@ -218,9 +225,10 @@ impl Default for ColorScheme {
 
             // UI要素色
             line_number: Color::DarkGray,
-            line_number_current: Color::White,
+            line_number_current: Color::Yellow,
             mode_line_bg: Color::DarkGray,
             mode_line_fg: Color::White,
+            window_divider: Color::Gray,
 
             // ミニバッファ色
             minibuffer_prompt: Color::Cyan,
@@ -240,6 +248,10 @@ impl Default for ColorScheme {
     }
 }
 ```
+
+### 選択範囲ハイライト
+- `HighlightKind::Selection` を導入し、マークされた範囲を `ComponentType::Selection` のスタイルで描画する。
+- 検索結果 (`HighlightKind::Search`) とは配色を分け、同一行でも両者が識別できるようにする。
 
 ## 日本語文字幅対応（基本レベル）
 

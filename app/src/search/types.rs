@@ -55,6 +55,14 @@ impl SearchMatch {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HighlightKind {
+    /// 検索によるハイライト
+    Search,
+    /// マークによる選択ハイライト
+    Selection,
+}
+
 /// UI描画用のハイライト情報
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchHighlight {
@@ -66,6 +74,8 @@ pub struct SearchHighlight {
     pub end_column: usize,
     /// 現在のマッチであるか
     pub is_current: bool,
+    /// ハイライトの種類
+    pub kind: HighlightKind,
 }
 
 /// ミニバッファに表示する検索UI状態

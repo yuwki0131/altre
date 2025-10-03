@@ -157,11 +157,16 @@ impl LayoutManager {
 
         // レイアウト順序：ミニバッファ（上部）→テキストエリア→ステータスライン
 
-        // ミニバッファ（上部、アクティブな場合のみ）
-        if minibuffer_active {
-            constraints.push(Constraint::Length(1));
-            area_order.push(AreaType::Minibuffer);
-        }
+        // ミニバッファは常時1行分を確保してレイアウトの揺れを防ぐ
+        let minibuffer_height = if minibuffer_active {
+            1
+        } else {
+            1
+        };
+        constraints.push(Constraint::Length(minibuffer_height));
+        area_order.push(AreaType::Minibuffer);
+
+        // TODO: 補完候補表示などで行数拡張が必要になった場合は上記高さを調整する
 
         // メインのテキストエリア（中央）
         constraints.push(Constraint::Min(1));

@@ -14,10 +14,10 @@ use crate::search::{SearchHighlight, SearchStatus, SearchUiState};
 use ratatui::{
     backend::Backend,
     layout::Rect,
-    Frame, Terminal,
-    widgets::{Block, Borders, Paragraph, Clear},
     style::{Color, Style},
     text::{Line, Span},
+    widgets::{Block, Borders, Clear, Paragraph},
+    Frame, Terminal,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -116,6 +116,14 @@ impl ScreenCache {
     }
 }
 
+/// モードライン表示に必要な情報
+pub struct StatusLineInfo<'a> {
+    /// 表示するファイルラベル（パスを含む）
+    pub file_label: &'a str,
+    /// バッファが変更されているか
+    pub is_modified: bool,
+}
+
 /// 高性能レンダラー
 pub struct AdvancedRenderer {
     /// レイアウトマネージャー
@@ -178,6 +186,16 @@ impl AdvancedRenderer {
         }
     }
 
+    /// 行番号表示の切り替え（将来的に alisp から制御する想定）
+    pub fn set_line_numbers_visible(&mut self, visible: bool) {
+        self.text_area_renderer.set_show_line_numbers(visible);
+    }
+
+    /// 行番号表示状態を取得
+    pub fn line_numbers_visible(&self) -> bool {
+        self.text_area_renderer.show_line_numbers()
+    }
+
     /// メイン描画処理
     pub fn render<B: Backend>(
         &mut self,
@@ -187,6 +205,7 @@ impl AdvancedRenderer {
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
+        status_info: StatusLineInfo<'_>,
     ) -> io::Result<()> {
         let frame_start = Instant::now();
 
@@ -218,6 +237,7 @@ impl AdvancedRenderer {
                 search_highlights,
                 &areas,
                 &diffs,
+                status_info,
             );
         })?;
 
@@ -239,6 +259,7 @@ impl AdvancedRenderer {
         search_highlights: &[SearchHighlight],
         areas: &HashMap<AreaType, Rect>,
         _diffs: &[AreaDiff],
+        status_info: StatusLineInfo<'_>,
     ) {
         let theme = self.theme_manager.current_theme();
         let mut cursor_position: Option<(u16, u16)> = None;
@@ -247,7 +268,18 @@ impl AdvancedRenderer {
         // テキストエリア描画
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
             let focused_id = windows.focused_window();
-            let window_rects = windows.layout_rects(text_area);
+            let (window_rects, divider_rects) = windows.layout_rects_with_dividers(text_area);
+
+            if !divider_rects.is_empty() {
+                let divider_style = theme.style(&ComponentType::WindowDivider);
+                for divider in divider_rects {
+                    frame.render_widget(Clear, divider);
+                    let widget = Paragraph::new(Line::from(""))
+                        .style(divider_style);
+                    frame.render_widget(widget, divider);
+                }
+            }
+
             for (window_id, area) in window_rects {
                 let is_focused = window_id == focused_id;
                 if let Some(viewport) = windows.viewport_mut(window_id) {
@@ -257,11 +289,7 @@ impl AdvancedRenderer {
                         editor,
                         viewport,
                         theme,
-                        if search_active {
-                            search_highlights
-                        } else {
-                            &[]
-                        },
+                        search_highlights,
                         (minibuffer.is_active() || search_active) && is_focused,
                     );
 
@@ -274,17 +302,19 @@ impl AdvancedRenderer {
 
         // ステータスライン描画
         if let Some(&status_area) = areas.get(&AreaType::StatusLine) {
-            self.render_status_line(frame, status_area, editor, theme);
+            self.render_status_line(frame, status_area, editor, theme, &status_info);
         }
 
         // ミニバッファ描画
         if let Some(&minibuffer_area) = areas.get(&AreaType::Minibuffer) {
-            if let Some(search) = search_ui {
-                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, Some(search));
-                cursor_position = minibuffer_cursor_pos;
-            } else if minibuffer.is_active() {
-                let minibuffer_cursor_pos = self.render_minibuffer(frame, minibuffer_area, minibuffer, None);
-                cursor_position = minibuffer_cursor_pos;
+            let minibuffer_cursor_pos = if let Some(search) = search_ui {
+                self.render_minibuffer(frame, minibuffer_area, minibuffer, Some(search))
+            } else {
+                self.render_minibuffer(frame, minibuffer_area, minibuffer, None)
+            };
+
+            if let Some(position) = minibuffer_cursor_pos {
+                cursor_position = Some(position);
             }
         }
 
@@ -303,6 +333,7 @@ impl AdvancedRenderer {
         search_ui: Option<&SearchUiState>,
     ) -> Option<(u16, u16)> {
         let state = minibuffer.minibuffer_state();
+        frame.render_widget(Clear, area);
         if let Some(search) = search_ui {
             let (line, cursor) = Self::search_line(area, search);
             let paragraph = Paragraph::new(line).style(Style::default());
@@ -394,15 +425,20 @@ impl AdvancedRenderer {
         area: Rect,
         editor: &TextEditor,
         theme: &crate::ui::theme::Theme,
+        status_info: &StatusLineInfo<'_>,
     ) {
         let cursor = editor.cursor();
-        let line_count = 10; // 簡単な実装用の固定値
-        let is_modified = false;
+        let content_snapshot = editor.to_string();
+        let line_count = if content_snapshot.is_empty() {
+            1
+        } else {
+            content_snapshot.lines().count()
+        };
 
         let status_text = format!(
-            " {}{}  Line: {}, Col: {}  Total: {} lines  {}",
-            if is_modified { "*" } else { " " },
-            "untitled",
+            " {} {}  Ln {}, Col {}  {} lines  {}",
+            if status_info.is_modified { "*" } else { " " },
+            status_info.file_label,
             cursor.line + 1,
             cursor.column + 1,
             line_count,

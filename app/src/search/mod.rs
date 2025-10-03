@@ -11,7 +11,7 @@ use matcher::{LiteralMatcher, StringMatcher};
 use state::SearchState;
 use types::SearchMatch;
 
-pub use types::{SearchDirection, SearchHighlight, SearchStatus, SearchUiState};
+pub use types::{HighlightKind, SearchDirection, SearchHighlight, SearchStatus, SearchUiState};
 
 /// 検索制御インターフェース
 #[derive(Debug)]
@@ -303,6 +303,7 @@ impl<M: StringMatcher> SearchController<M> {
                 start_column: m.column,
                 end_column: m.column + span_len,
                 is_current: Some(idx) == self.state.current_index,
+                kind: HighlightKind::Search,
             });
         }
     }

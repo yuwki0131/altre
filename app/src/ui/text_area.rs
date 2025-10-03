@@ -12,7 +12,7 @@ use ratatui::{
     Frame,
 };
 use crate::buffer::TextEditor;
-use crate::search::SearchHighlight;
+use crate::search::{HighlightKind, SearchHighlight};
 use crate::ui::theme::{Theme, ComponentType};
 
 /// テキストエリア描画器
@@ -48,8 +48,15 @@ impl TextArea {
     }
 
     /// テキストを描画
-    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, content: &str, highlights: &[SearchHighlight]) {
-        let lines = self.prepare_lines(content, highlights);
+    pub fn render(
+        &self,
+        frame: &mut Frame<'_>,
+        area: Rect,
+        content: &str,
+        highlights: &[SearchHighlight],
+        theme: &Theme,
+    ) {
+        let lines = self.prepare_lines(content, highlights, theme);
 
         let mut paragraph = Paragraph::new(lines);
 
@@ -68,7 +75,12 @@ impl TextArea {
     }
 
     /// テキストコンテンツを行に分割（カーソルは別途描画）
-    pub fn prepare_lines(&self, content: &str, highlights: &[SearchHighlight]) -> Vec<Line<'static>> {
+    pub fn prepare_lines(
+        &self,
+        content: &str,
+        highlights: &[SearchHighlight],
+        theme: &Theme,
+    ) -> Vec<Line<'static>> {
         let text_lines: Vec<&str> = content.lines().collect();
         let mut lines = Vec::new();
 
@@ -87,7 +99,7 @@ impl TextArea {
 
         for (idx, &line_text) in text_lines.iter().enumerate() {
             if let Some(highlights) = grouped.get(&idx) {
-                lines.push(build_highlighted_line(line_text, highlights));
+                lines.push(build_highlighted_line(line_text, highlights, theme));
             } else {
                 lines.push(Line::from(line_text.to_string()));
             }
@@ -171,7 +183,6 @@ impl TextArea {
 #[derive(Debug)]
 pub struct TextAreaRenderer {
     /// 行番号表示
-    #[allow(dead_code)]
     show_line_numbers: bool,
 }
 
@@ -181,6 +192,16 @@ impl TextAreaRenderer {
         Self {
             show_line_numbers: true,
         }
+    }
+
+    /// 行番号表示を切り替える（将来的に alisp から制御する想定）
+    pub fn set_show_line_numbers(&mut self, show: bool) {
+        self.show_line_numbers = show;
+    }
+
+    /// 行番号表示状態を取得
+    pub fn show_line_numbers(&self) -> bool {
+        self.show_line_numbers
     }
 
     /// テキストエリアを描画
@@ -200,7 +221,7 @@ impl TextAreaRenderer {
         let mut text_area = TextArea::new();
         text_area.set_cursor(cursor_pos.line, cursor_pos.column);
 
-        let all_lines = text_area.prepare_lines(&content, highlights);
+        let all_lines = text_area.prepare_lines(&content, highlights, theme);
 
         let total_lines = if content.is_empty() {
             1
@@ -208,13 +229,60 @@ impl TextAreaRenderer {
             all_lines.len().max(1)
         };
 
+        let mut line_number_area: Option<Rect> = None;
+        let mut line_number_lines: Vec<Line<'static>> = Vec::new();
+        let mut text_area_rect = area;
+
+        if self.show_line_numbers {
+            let digits = digit_count(total_lines.max(1));
+            let reserved_width = (digits as u16).saturating_add(1);
+
+            if area.width > reserved_width {
+                let text_width = area.width.saturating_sub(reserved_width);
+                if text_width > 0 {
+                    let number_rect = Rect {
+                        x: area.x,
+                        y: area.y,
+                        width: reserved_width,
+                        height: area.height,
+                    };
+                    let text_rect = Rect {
+                        x: area.x + reserved_width,
+                        y: area.y,
+                        width: text_width,
+                        height: area.height,
+                    };
+
+                    let number_style = theme.style(&ComponentType::LineNumber);
+                    let current_style = theme.style(&ComponentType::LineNumberActive);
+
+                    line_number_lines.reserve(total_lines);
+                    for (idx, _) in all_lines.iter().enumerate() {
+                        let style = if idx == cursor_pos.line {
+                            current_style
+                        } else {
+                            number_style
+                        };
+                        let label = format!("{:>width$} ", idx + 1, width = digits);
+                        line_number_lines.push(Line::styled(label, style));
+                    }
+
+                    line_number_area = Some(number_rect);
+                    text_area_rect = text_rect;
+                }
+            }
+        }
+
         let max_line_columns = content
             .lines()
             .map(|line| line.chars().count())
             .max()
             .unwrap_or(0);
 
-        viewport.update_dimensions(area.height as usize, area.width as usize);
+        viewport.update_dimensions(
+            text_area_rect.height as usize,
+            text_area_rect.width.max(1) as usize,
+        );
 
         if minibuffer_active {
             viewport.top_line = cursor_pos.line.saturating_sub(viewport.height / 2);
@@ -231,13 +299,29 @@ impl TextAreaRenderer {
             .scroll((scroll_y, scroll_x));
 
         frame.render_widget(Clear, area);
-        frame.render_widget(paragraph, area);
 
-        text_area.calculate_cursor_screen_position(area, viewport.top_line, viewport.scroll_x)
+        if let Some(number_rect) = line_number_area {
+            let line_numbers = Paragraph::new(line_number_lines)
+                .style(theme.style(&ComponentType::LineNumber))
+                .scroll((scroll_y, 0));
+            frame.render_widget(line_numbers, number_rect);
+        }
+
+        frame.render_widget(paragraph, text_area_rect);
+
+        text_area.calculate_cursor_screen_position(
+            text_area_rect,
+            viewport.top_line,
+            viewport.scroll_x,
+        )
     }
 }
 
-fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> Line<'static> {
+fn build_highlighted_line(
+    line_text: &str,
+    highlights: &[&SearchHighlight],
+    theme: &Theme,
+) -> Line<'static> {
     if highlights.is_empty() {
         return Line::from(line_text.to_string());
     }
@@ -260,15 +344,20 @@ fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> L
 
         if end > start {
             let segment = substring_by_char(line_text, start, end);
-            let style = if highlight.is_current {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-                    .fg(Color::White)
-                    .bg(Color::Rgb(0, 80, 80))
+            let style = match highlight.kind {
+                HighlightKind::Selection => theme.style(&ComponentType::Selection),
+                HighlightKind::Search => {
+                    if highlight.is_current {
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                            .fg(Color::White)
+                            .bg(Color::Rgb(0, 80, 80))
+                    }
+                }
             };
             spans.push(Span::styled(segment, style));
         }
@@ -289,6 +378,19 @@ fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> L
 
 fn substring_by_char(text: &str, start: usize, end: usize) -> String {
     text.chars().skip(start).take(end.saturating_sub(start)).collect()
+}
+
+fn digit_count(mut value: usize) -> usize {
+    if value == 0 {
+        return 1;
+    }
+
+    let mut count = 0;
+    while value > 0 {
+        count += 1;
+        value /= 10;
+    }
+    count
 }
 
 impl Default for TextAreaRenderer {

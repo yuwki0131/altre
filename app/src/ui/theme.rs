@@ -24,6 +24,8 @@ pub enum ComponentType {
     TextArea,
     /// 行番号
     LineNumber,
+    /// 現在行の行番号
+    LineNumberActive,
     /// カーソル
     Cursor,
     /// 選択範囲
@@ -44,6 +46,8 @@ pub enum ComponentType {
     Completion,
     /// 選択された補完候補
     CompletionSelected,
+    /// ウィンドウ間の区切り
+    WindowDivider,
     /// シンタックスハイライト - キーワード
     SyntaxKeyword,
     /// シンタックスハイライト - 文字列
@@ -209,6 +213,8 @@ impl Theme {
             ColorScheme::new(Color::Black, Color::White));
         self.set_color(ComponentType::LineNumber,
             ColorScheme::new(Color::DarkGray, Color::Gray));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Blue, Color::LightYellow));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::White, Color::Blue));
         self.set_color(ComponentType::Selection,
@@ -229,6 +235,8 @@ impl Theme {
             ColorScheme::new(Color::Black, Color::Gray));
         self.set_color(ComponentType::CompletionSelected,
             ColorScheme::new(Color::White, Color::Blue).with_modifier(Modifier::BOLD));
+        self.set_color(ComponentType::WindowDivider,
+            ColorScheme::new(Color::Gray, Color::Gray));
 
         // シンタックスハイライト
         self.set_color(ComponentType::SyntaxKeyword,
@@ -248,7 +256,9 @@ impl Theme {
         self.set_color(ComponentType::TextArea,
             ColorScheme::new(Color::White, Color::Black));
         self.set_color(ComponentType::LineNumber,
-            ColorScheme::new(Color::Gray, Color::Black));
+            ColorScheme::new(Color::Gray, Color::DarkGray));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::Gray));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::Black, Color::White));
         self.set_color(ComponentType::Selection,
@@ -269,6 +279,8 @@ impl Theme {
             ColorScheme::new(Color::White, Color::DarkGray));
         self.set_color(ComponentType::CompletionSelected,
             ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
+        self.set_color(ComponentType::WindowDivider,
+            ColorScheme::new(Color::Black, Color::DarkGray));
 
         // シンタックスハイライト
         self.set_color(ComponentType::SyntaxKeyword,
@@ -289,6 +301,8 @@ impl Theme {
             ColorScheme::new(Color::White, Color::Black));
         self.set_color(ComponentType::LineNumber,
             ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
         self.set_color(ComponentType::Selection,
@@ -309,6 +323,8 @@ impl Theme {
             ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
         self.set_color(ComponentType::CompletionSelected,
             ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
+        self.set_color(ComponentType::WindowDivider,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
 
         // シンタックスハイライト - ハイコントラストでは色分けを最小限に
         self.set_color(ComponentType::SyntaxKeyword,

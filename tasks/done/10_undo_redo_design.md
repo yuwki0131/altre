@@ -41,11 +41,11 @@
 - [x] 履歴モデルと記録単位の決定
 - [x] 主要編集コマンドと Undo/Redo の連携方式が明文化されている
 - [x] 既存コンポーネントとの責務分担が整理されている
-- [x] QA.md に不明点が記載され、回答方針が決まっている
+- [x] `docs/adr-qa/undo_redo_QA.md` に不明点が記載され、回答方針が決まっている
 
 ## 進捗メモ
 - `docs/design/undo_redo.md` を追加し、線形スタック方式（Undo/Redo）と履歴エントリ/AtomicEdit の構造、カーソル復元手順、`CommandProcessor`・`TextEditor`・`App` との連携方法を整理。
-- QA.md に線形履歴など未確定だった論点を追記し、すべて回答済み。
+- `docs/adr-qa/undo_redo_QA.md` に線形履歴など未確定だった論点を追記し、すべて回答済み。
 
 ## 見積もり
 **期間**: 2 日

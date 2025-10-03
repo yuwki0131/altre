@@ -247,7 +247,18 @@ impl AdvancedRenderer {
         // テキストエリア描画
         if let Some(&text_area) = areas.get(&AreaType::TextArea) {
             let focused_id = windows.focused_window();
-            let window_rects = windows.layout_rects(text_area);
+            let (window_rects, divider_rects) = windows.layout_rects_with_dividers(text_area);
+
+            if !divider_rects.is_empty() {
+                let divider_style = theme.style(&ComponentType::WindowDivider);
+                for divider in divider_rects {
+                    frame.render_widget(Clear, divider);
+                    let widget = Paragraph::new(Line::from(""))
+                        .style(divider_style);
+                    frame.render_widget(widget, divider);
+                }
+            }
+
             for (window_id, area) in window_rects {
                 let is_focused = window_id == focused_id;
                 if let Some(viewport) = windows.viewport_mut(window_id) {

@@ -101,19 +101,88 @@ impl LayoutNode {
                 first,
                 second,
             } => {
-                let constraints = [Constraint::Percentage(50), Constraint::Percentage(50)];
-                let chunks = Layout::default()
-                    .direction(match orientation {
-                        SplitOrientation::Horizontal => Direction::Vertical,
-                        SplitOrientation::Vertical => Direction::Horizontal,
-                    })
-                    .constraints(constraints)
-                    .split(area);
-
-                first.layout(chunks[0], result);
-                second.layout(chunks[1], result);
+                let (first_area, _, second_area) = LayoutNode::split_area(area, *orientation);
+                first.layout(first_area, result);
+                second.layout(second_area, result);
             }
         }
+    }
+
+    fn layout_with_dividers(
+        &self,
+        area: Rect,
+        result: &mut Vec<(WindowId, Rect)>,
+        dividers: &mut Vec<Rect>,
+    ) {
+        match self {
+            LayoutNode::Leaf(id) => result.push((*id, area)),
+            LayoutNode::Split {
+                orientation,
+                first,
+                second,
+            } => {
+                let (first_area, divider_area, second_area) =
+                    LayoutNode::split_area(area, *orientation);
+
+                if let Some(divider) = divider_area {
+                    dividers.push(divider);
+                }
+
+                first.layout_with_dividers(first_area, result, dividers);
+                second.layout_with_dividers(second_area, result, dividers);
+            }
+        }
+    }
+
+    fn split_area(area: Rect, orientation: SplitOrientation) -> (Rect, Option<Rect>, Rect) {
+        match orientation {
+            SplitOrientation::Horizontal => {
+                LayoutNode::split_area_with_direction(area, Direction::Vertical, area.height)
+            }
+            SplitOrientation::Vertical => {
+                LayoutNode::split_area_with_direction(area, Direction::Horizontal, area.width)
+            }
+        }
+    }
+
+    fn split_area_with_direction(
+        area: Rect,
+        direction: Direction,
+        dimension: u16,
+    ) -> (Rect, Option<Rect>, Rect) {
+        if dimension < 3 {
+            let chunks = Layout::default()
+                .direction(direction)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(area);
+            return (chunks[0], None, chunks[1]);
+        }
+
+        let divider_thickness: u16 = 1;
+        let remainder = dimension - divider_thickness;
+
+        let mut first = remainder / 2;
+        if first == 0 {
+            first = 1;
+        }
+        let mut second = remainder - first;
+        if second == 0 {
+            second = 1;
+            if remainder > 1 {
+                first = remainder - second;
+            }
+        }
+
+        let chunks = Layout::default()
+            .direction(direction)
+            .constraints([
+                Constraint::Length(first),
+                Constraint::Length(divider_thickness),
+                Constraint::Length(second),
+            ])
+            .split(area);
+
+        (chunks[0], Some(chunks[1]), chunks[2])
     }
 }
 
@@ -283,6 +352,18 @@ impl WindowManager {
         let mut rects = Vec::new();
         self.layout.layout(area, &mut rects);
         rects
+    }
+
+    /// ウィンドウ矩形と区切り線の領域を取得
+    pub fn layout_rects_with_dividers(
+        &self,
+        area: Rect,
+    ) -> (Vec<(WindowId, Rect)>, Vec<Rect>) {
+        let mut rects = Vec::new();
+        let mut dividers = Vec::new();
+        self.layout
+            .layout_with_dividers(area, &mut rects, &mut dividers);
+        (rects, dividers)
     }
 }
 

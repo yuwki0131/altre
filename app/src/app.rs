@@ -8,7 +8,7 @@ use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
-use crate::search::{SearchController, SearchDirection, SearchHighlight};
+use crate::search::{HighlightKind, SearchController, SearchDirection, SearchHighlight};
 use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -1309,6 +1309,7 @@ impl App {
                     start_column: s,
                     end_column: e,
                     is_current: false,
+                    kind: HighlightKind::Selection,
                 });
             }
         };

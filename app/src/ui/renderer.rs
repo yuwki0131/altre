@@ -289,11 +289,7 @@ impl AdvancedRenderer {
                         editor,
                         viewport,
                         theme,
-                        if search_active {
-                            search_highlights
-                        } else {
-                            &[]
-                        },
+                        search_highlights,
                         (minibuffer.is_active() || search_active) && is_focused,
                     );
 

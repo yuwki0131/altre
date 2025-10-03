@@ -12,7 +12,7 @@ use ratatui::{
     Frame,
 };
 use crate::buffer::TextEditor;
-use crate::search::SearchHighlight;
+use crate::search::{HighlightKind, SearchHighlight};
 use crate::ui::theme::{Theme, ComponentType};
 
 /// テキストエリア描画器
@@ -48,8 +48,15 @@ impl TextArea {
     }
 
     /// テキストを描画
-    pub fn render(&self, frame: &mut Frame<'_>, area: Rect, content: &str, highlights: &[SearchHighlight]) {
-        let lines = self.prepare_lines(content, highlights);
+    pub fn render(
+        &self,
+        frame: &mut Frame<'_>,
+        area: Rect,
+        content: &str,
+        highlights: &[SearchHighlight],
+        theme: &Theme,
+    ) {
+        let lines = self.prepare_lines(content, highlights, theme);
 
         let mut paragraph = Paragraph::new(lines);
 
@@ -68,7 +75,12 @@ impl TextArea {
     }
 
     /// テキストコンテンツを行に分割（カーソルは別途描画）
-    pub fn prepare_lines(&self, content: &str, highlights: &[SearchHighlight]) -> Vec<Line<'static>> {
+    pub fn prepare_lines(
+        &self,
+        content: &str,
+        highlights: &[SearchHighlight],
+        theme: &Theme,
+    ) -> Vec<Line<'static>> {
         let text_lines: Vec<&str> = content.lines().collect();
         let mut lines = Vec::new();
 
@@ -87,7 +99,7 @@ impl TextArea {
 
         for (idx, &line_text) in text_lines.iter().enumerate() {
             if let Some(highlights) = grouped.get(&idx) {
-                lines.push(build_highlighted_line(line_text, highlights));
+                lines.push(build_highlighted_line(line_text, highlights, theme));
             } else {
                 lines.push(Line::from(line_text.to_string()));
             }
@@ -209,7 +221,7 @@ impl TextAreaRenderer {
         let mut text_area = TextArea::new();
         text_area.set_cursor(cursor_pos.line, cursor_pos.column);
 
-        let all_lines = text_area.prepare_lines(&content, highlights);
+        let all_lines = text_area.prepare_lines(&content, highlights, theme);
 
         let total_lines = if content.is_empty() {
             1
@@ -305,7 +317,11 @@ impl TextAreaRenderer {
     }
 }
 
-fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> Line<'static> {
+fn build_highlighted_line(
+    line_text: &str,
+    highlights: &[&SearchHighlight],
+    theme: &Theme,
+) -> Line<'static> {
     if highlights.is_empty() {
         return Line::from(line_text.to_string());
     }
@@ -328,15 +344,20 @@ fn build_highlighted_line(line_text: &str, highlights: &[&SearchHighlight]) -> L
 
         if end > start {
             let segment = substring_by_char(line_text, start, end);
-            let style = if highlight.is_current {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-                    .fg(Color::White)
-                    .bg(Color::Rgb(0, 80, 80))
+            let style = match highlight.kind {
+                HighlightKind::Selection => theme.style(&ComponentType::Selection),
+                HighlightKind::Search => {
+                    if highlight.is_current {
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                            .fg(Color::White)
+                            .bg(Color::Rgb(0, 80, 80))
+                    }
+                }
             };
             spans.push(Span::styled(segment, style));
         }

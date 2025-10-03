@@ -178,6 +178,16 @@ impl AdvancedRenderer {
         }
     }
 
+    /// 行番号表示の切り替え（将来的に alisp から制御する想定）
+    pub fn set_line_numbers_visible(&mut self, visible: bool) {
+        self.text_area_renderer.set_show_line_numbers(visible);
+    }
+
+    /// 行番号表示状態を取得
+    pub fn line_numbers_visible(&self) -> bool {
+        self.text_area_renderer.show_line_numbers()
+    }
+
     /// メイン描画処理
     pub fn render<B: Backend>(
         &mut self,

@@ -24,6 +24,8 @@ pub enum ComponentType {
     TextArea,
     /// 行番号
     LineNumber,
+    /// 現在行の行番号
+    LineNumberActive,
     /// カーソル
     Cursor,
     /// 選択範囲
@@ -211,6 +213,8 @@ impl Theme {
             ColorScheme::new(Color::Black, Color::White));
         self.set_color(ComponentType::LineNumber,
             ColorScheme::new(Color::DarkGray, Color::Gray));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Blue, Color::LightYellow));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::White, Color::Blue));
         self.set_color(ComponentType::Selection,
@@ -252,7 +256,9 @@ impl Theme {
         self.set_color(ComponentType::TextArea,
             ColorScheme::new(Color::White, Color::Black));
         self.set_color(ComponentType::LineNumber,
-            ColorScheme::new(Color::Gray, Color::Black));
+            ColorScheme::new(Color::Gray, Color::DarkGray));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::Gray));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::Black, Color::White));
         self.set_color(ComponentType::Selection,
@@ -295,6 +301,8 @@ impl Theme {
             ColorScheme::new(Color::White, Color::Black));
         self.set_color(ComponentType::LineNumber,
             ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
+        self.set_color(ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
         self.set_color(ComponentType::Cursor,
             ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
         self.set_color(ComponentType::Selection,

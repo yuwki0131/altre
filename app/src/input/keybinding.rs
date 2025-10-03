@@ -366,6 +366,10 @@ pub enum Action {
     YankPop,
     /// キーボードキャンセル
     KeyboardQuit,
+    /// Undo
+    Undo,
+    /// Redo
+    Redo,
     /// ファイル操作
     FileOpen,
     FileSave,
@@ -424,6 +428,8 @@ impl Action {
             Action::Yank => Some(Command::Yank),
             Action::YankPop => Some(Command::YankPop),
             Action::KeyboardQuit => Some(Command::KeyboardQuit),
+            Action::Undo => Some(Command::Undo),
+            Action::Redo => Some(Command::Redo),
             Action::FileOpen => Some(Command::FindFile),
             Action::FileSave => Some(Command::SaveBuffer),
             Action::WriteFile => Some(Command::WriteFile),
@@ -660,6 +666,55 @@ impl ModernKeyMap {
         single.insert(Key::alt_y(), Action::YankPop);
         single.insert(Key::ctrl_g(), Action::KeyboardQuit);
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('/'),
+            },
+            Action::Undo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('.'),
+            },
+            Action::Redo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: true },
+                code: KeyCode::Char('_'),
+            },
+            Action::Undo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('7'),
+            },
+            Action::Undo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('\\'),
+            },
+            Action::Redo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: true },
+                code: KeyCode::Char('?'),
+            },
+            Action::Redo,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('4'),
+            },
+            Action::Redo,
+        );
 
         // ファイル操作（C-xプレフィックス）
         cx_prefix.insert(Key::ctrl_f(), Action::FileOpen);
@@ -1013,6 +1068,49 @@ impl KeyMap {
         self.bind_global(
             LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('d'))),
             KeyBinding::Command("delete-char".to_string()),
+        );
+
+        // Undo / Redo
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('/'))),
+            KeyBinding::Command("undo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('.'))),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('\\'))),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::new(
+                CrosstermKeyCode::Char('?'),
+                CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
+            )),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('4'))),
+            KeyBinding::Command("redo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::new(
+                CrosstermKeyCode::Char('_'),
+                CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
+            )),
+            KeyBinding::Command("undo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::ctrl(CrosstermKeyCode::Char('7'))),
+            KeyBinding::Command("undo".to_string()),
+        );
+        self.bind_global(
+            LegacyKeySequence::single(KeyCombination::new(
+                CrosstermKeyCode::Char('?'),
+                CrosstermModifiers::CONTROL | CrosstermModifiers::SHIFT,
+            )),
+            KeyBinding::Command("redo".to_string()),
         );
 
         // ファイル操作プレフィックス

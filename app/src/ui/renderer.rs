@@ -14,10 +14,10 @@ use crate::search::{SearchHighlight, SearchStatus, SearchUiState};
 use ratatui::{
     backend::Backend,
     layout::Rect,
-    Frame, Terminal,
-    widgets::{Block, Borders, Paragraph, Clear},
     style::{Color, Style},
     text::{Line, Span},
+    widgets::{Block, Borders, Clear, Paragraph},
+    Frame, Terminal,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -116,6 +116,14 @@ impl ScreenCache {
     }
 }
 
+/// モードライン表示に必要な情報
+pub struct StatusLineInfo<'a> {
+    /// 表示するファイルラベル（パスを含む）
+    pub file_label: &'a str,
+    /// バッファが変更されているか
+    pub is_modified: bool,
+}
+
 /// 高性能レンダラー
 pub struct AdvancedRenderer {
     /// レイアウトマネージャー
@@ -197,6 +205,7 @@ impl AdvancedRenderer {
         minibuffer: &MinibufferSystem,
         search_ui: Option<&SearchUiState>,
         search_highlights: &[SearchHighlight],
+        status_info: StatusLineInfo<'_>,
     ) -> io::Result<()> {
         let frame_start = Instant::now();
 
@@ -228,6 +237,7 @@ impl AdvancedRenderer {
                 search_highlights,
                 &areas,
                 &diffs,
+                status_info,
             );
         })?;
 
@@ -249,6 +259,7 @@ impl AdvancedRenderer {
         search_highlights: &[SearchHighlight],
         areas: &HashMap<AreaType, Rect>,
         _diffs: &[AreaDiff],
+        status_info: StatusLineInfo<'_>,
     ) {
         let theme = self.theme_manager.current_theme();
         let mut cursor_position: Option<(u16, u16)> = None;
@@ -295,7 +306,7 @@ impl AdvancedRenderer {
 
         // ステータスライン描画
         if let Some(&status_area) = areas.get(&AreaType::StatusLine) {
-            self.render_status_line(frame, status_area, editor, theme);
+            self.render_status_line(frame, status_area, editor, theme, &status_info);
         }
 
         // ミニバッファ描画
@@ -418,15 +429,20 @@ impl AdvancedRenderer {
         area: Rect,
         editor: &TextEditor,
         theme: &crate::ui::theme::Theme,
+        status_info: &StatusLineInfo<'_>,
     ) {
         let cursor = editor.cursor();
-        let line_count = 10; // 簡単な実装用の固定値
-        let is_modified = false;
+        let content_snapshot = editor.to_string();
+        let line_count = if content_snapshot.is_empty() {
+            1
+        } else {
+            content_snapshot.lines().count()
+        };
 
         let status_text = format!(
-            " {}{}  Line: {}, Col: {}  Total: {} lines  {}",
-            if is_modified { "*" } else { " " },
-            "untitled",
+            " {} {}  Ln {}, Col {}  {} lines  {}",
+            if status_info.is_modified { "*" } else { " " },
+            status_info.file_label,
             cursor.line + 1,
             cursor.column + 1,
             line_count,

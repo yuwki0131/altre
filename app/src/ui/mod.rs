@@ -16,5 +16,5 @@ pub use text_area::{TextArea, TextAreaRenderer};
 pub use minibuffer::MinibufferRenderer;
 pub use viewport::{ViewportManager, ViewportState};
 pub use theme::{ThemeManager, Theme, ComponentType, ThemeType};
-pub use renderer::{AdvancedRenderer, FrameRateStats, RenderStats};
+pub use renderer::{AdvancedRenderer, FrameRateStats, RenderStats, StatusLineInfo};
 pub use window_manager::{WindowManager, WindowId, SplitOrientation, WindowError};

@@ -7,7 +7,7 @@ use crate::error::{AltreError, Result, UiError, FileError};
 use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
-use crate::ui::{AdvancedRenderer, WindowManager, SplitOrientation, ViewportState};
+use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{SearchController, SearchDirection, SearchHighlight};
 use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
@@ -1708,6 +1708,24 @@ impl App {
         combined_highlights.extend_from_slice(search_highlights);
         combined_highlights.extend(selection_highlights.into_iter());
 
+        let (file_label_buf, is_modified) = if let Some(buffer) = self.current_buffer() {
+            let label = if let Some(path) = buffer.path() {
+                path.display().to_string()
+            } else if buffer.name().trim().is_empty() {
+                "[未保存] *scratch*".to_string()
+            } else {
+                format!("[未保存] {}", buffer.name())
+            };
+            (label, buffer.is_modified())
+        } else {
+            ("[バッファなし]".to_string(), false)
+        };
+
+        let status_info = StatusLineInfo {
+            file_label: file_label_buf.as_str(),
+            is_modified,
+        };
+
         self.renderer
             .render(
                 terminal,
@@ -1716,6 +1734,7 @@ impl App {
                 &self.minibuffer,
                 search_ui,
                 &combined_highlights,
+                status_info,
             )
             .map_err(|err| Self::terminal_error("render", err))
     }

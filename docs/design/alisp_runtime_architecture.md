@@ -13,7 +13,7 @@
 
 ## 3. モジュール構成
 ```
-app/src/alisp/
+src/alisp/
 ├── mod.rs                 // エントリーポイント
 ├── reader/                // 字句解析・構文解析
 ├── ast.rs                 // AST 定義
@@ -28,7 +28,7 @@ app/src/alisp/
     ├── minibuffer.rs      // ミニバッファ連携
     └── error.rs           // エラー型と変換
 ```
-- テスト: `app/tests/alisp/` に統合テスト、各モジュールに単体テストを配置。
+- テスト: `tests/alisp/` に統合テスト、各モジュールに単体テストを配置。
 
 ## 4. 処理パイプライン
 1. **入力**: ミニバッファから UTF-8 文字列として alisp コードを取得。
@@ -138,8 +138,8 @@ pub struct Env {
 - Reader: 正常系／異常系の単体テスト。括弧不一致、未知トークン等。
 - Evaluator: 代表的な式の評価、エラー伝播をテーブルテスト化。
 - GC: ストレステスト (大量オブジェクト生成→GC→再利用) を実施。
-- 統合: `alisp-eval-expression` を通じた end-to-end テストを `app/tests/alisp/` に配置。
-- ベンチマーク (任意): 数値演算、GC トリガ頻度の計測を `app/benches/` に追加検討。
+- 統合: `alisp-eval-expression` を通じた end-to-end テストを `tests/alisp/` に配置。
+- ベンチマーク (任意): 数値演算、GC トリガ頻度の計測を `benches/` に追加検討。
 
 ## 14. 拡張ポイント
 - リスト導入時: `Value::List(ConsHandle)` を追加し、Reader からの構築を許可。GC ルートも更新。

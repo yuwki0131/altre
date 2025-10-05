@@ -6,7 +6,7 @@ altre は Rust と ratatui で実装された Emacs 風テキストエディタ�
 ## 1. 動作環境と準備
 - **対応 OS**: Linux / macOS（端末上での動作を想定）
 - **依存関係**: Rust 1.78 以降、`cargo`、UTF-8 対応ターミナル、真のカラー表示が可能な端末
-- **初回ビルド**: ルートディレクトリから `cd app && cargo build --release`
+- **初回ビルド**: ルートディレクトリで `cargo build --release`
 - **起動前チェック**:
   - 端末のフォントが等幅である
   - ロケールが UTF-8（`locale` コマンドで確認）
@@ -15,7 +15,6 @@ altre は Rust と ratatui で実装された Emacs 風テキストエディタ�
 ## 2. アプリケーションの起動と終了
 ### 起動
 ```bash
-cd app
 cargo run --offline
 ```
 - 初回起動時はワークスペースのカレントディレクトリがバッファ名 "*scratch*" として開かれます。

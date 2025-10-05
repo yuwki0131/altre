@@ -30,7 +30,7 @@
    - テストケースの最小化と失敗時の診断ログ
 
 ## 成果物
-- `tests/gap_buffer_prop.rs`（または `app/tests/` 配下）のプロパティテスト実装
+- `tests/gap_buffer_prop.rs`（または `tests/` 配下）のプロパティテスト実装
 - `proptest` ストラテジーと共通ヘルパーモジュール
 - ドキュメント化された不変条件チェックリスト
 - テスト実行ガイド（README 追記または docs/
@@ -65,7 +65,7 @@
 - 失敗時の再現のために `PROPTEST_CASE_SEED` をログ出力
 
 ## 備考
-- `app/src/buffer/gap_buffer.rs` 内の `prop_random_operations_preserve_invariants` などで不変条件を網羅。
+- `src/buffer/gap_buffer.rs` 内の `prop_random_operations_preserve_invariants` などで不変条件を網羅。
 - 生成戦略は `operation_strategy` / `small_unicode_string` に集約し、テスト数は `cases: 256` に固定。
 - 失敗時は `prop_assert!` の詳細メッセージと `PROPTEST_CASE_SEED` 環境変数で再現可能。
-- 公開APIベースの回帰テストは `app/tests/gap_buffer_prop.rs` に配置。
+- 公開APIベースの回帰テストは `tests/gap_buffer_prop.rs` に配置。

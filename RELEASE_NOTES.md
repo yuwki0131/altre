@@ -22,6 +22,6 @@
 - ライセンス方針、配布チャネルの確定
 
 ## 作業メモ
-- ビルド・テスト手順は `INSTALL.md` を参照（`app/` ディレクトリで `cargo` を実行）
+- ビルド・テスト手順は `INSTALL.md` を参照（リポジトリルートで `cargo` を実行）
 - バイナリ配布は未実施。利用時はローカルで `cargo build --release --offline` を実行
 - 進捗・TODO は `tasks/` ディレクトリの Markdown に記録

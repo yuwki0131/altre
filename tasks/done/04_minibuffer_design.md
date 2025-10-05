@@ -36,7 +36,7 @@ MVPで実装するミニバッファシステムの設計を行う。
 
 ## 成果物
 - `docs/design/minibuffer.md` - 設計仕様書
-- `app/src/minibuffer/mod.rs` - インターフェース定義
+- `src/minibuffer/mod.rs` - インターフェース定義
 - 補完アルゴリズムの仕様
 
 ## QA要確認事項

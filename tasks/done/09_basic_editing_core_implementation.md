@@ -38,10 +38,10 @@
    - 変更イベントの配信
 
 ## 成果物
-- `app/src/editor/text_editor.rs` - メインエディタ
-- `app/src/editor/edit_operations.rs` - 編集操作
-- `app/src/editor/change_notifier.rs` - 変更通知
-- `app/src/editor/input_buffer.rs` - 入力バッファ
+- `src/editor/text_editor.rs` - メインエディタ
+- `src/editor/edit_operations.rs` - 編集操作
+- `src/editor/change_notifier.rs` - 変更通知
+- `src/editor/input_buffer.rs` - 入力バッファ
 - 包括的なテストスイート
 
 ## 前提条件

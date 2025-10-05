@@ -30,8 +30,8 @@
    - 使用例の追加
 
 ## 成果物
-- `app/src/buffer/gap_buffer.rs` - 完全実装
-- `app/src/buffer/mod.rs` - モジュール定義
+- `src/buffer/gap_buffer.rs` - 完全実装
+- `src/buffer/mod.rs` - モジュール定義
 - プロパティテストの実装
 - ベンチマークテスト
 
@@ -54,7 +54,7 @@
 - 文字境界キャッシュと行開始位置キャッシュを実装し、操作後は無効化するよう更新
 - 削除/置換処理をバイト範囲操作へ置き換え、ギャップ拡張戦略を定数化
 - `line_start_positions` など補助 API を追加し、単体テストと proptest を拡充
-- `app/benches/gap_buffer.rs` にベンチマークを作成し、性能計測の足掛かりを用意
+- `benches/gap_buffer.rs` にベンチマークを作成し、性能計測の足掛かりを用意
 - `cargo test --offline` は依存取得制限により未実行（`aho-corasick` 取得不可）
 
 ## 見積もり

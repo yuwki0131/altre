@@ -5,7 +5,7 @@
 - `C-x 2` / `C-x 3` / `C-x 1` / `C-x 0` / `C-x o` を `ModernKeyMap`・レガシーキーマップ双方に実装。
 - `AdvancedRenderer` を拡張し、メインエリアをウィンドウ単位で分割描画。フォーカス中ウィンドウのみがカーソル制御とスクロール補正を受けるよう調整。
 - ミニバッファコマンド群にウィンドウ関連コマンドを登録し、補完と `M-x` からの実行に対応。
-- `WindowManager` のユニットテストおよび `app/tests/window_management_tests.rs` を追加。
+- `WindowManager` のユニットテストおよび `tests/window_management_tests.rs` を追加。
 - キーバインドリファレンスとユーザーガイドを更新し、ウィンドウ操作の手順と制限事項を追記。
 - `docs/design/tui_layout.md` に初期実装の要点と今後の拡張方針を記録。
 

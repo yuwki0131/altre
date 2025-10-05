@@ -50,7 +50,7 @@ MVPで実装するナビゲーション機能（矢印キー、Emacs風移動）
 
 ## 成果物
 - `docs/design/navigation.md` - ナビゲーション設計書
-- `app/src/buffer/navigation.rs` - ナビゲーション操作設計
+- `src/buffer/navigation.rs` - ナビゲーション操作設計
 - 位置計算アルゴリズム仕様
 - パフォーマンステスト仕様
 

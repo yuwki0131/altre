@@ -39,10 +39,10 @@
    - キーボードフォーカス管理
 
 ## 成果物
-- `app/src/minibuffer/system.rs` - メインシステム
-- `app/src/minibuffer/completion.rs` - 補完機能
-- `app/src/minibuffer/commands.rs` - コマンド処理
-- `app/src/minibuffer/ui.rs` - UI統合
+- `src/minibuffer/system.rs` - メインシステム
+- `src/minibuffer/completion.rs` - 補完機能
+- `src/minibuffer/commands.rs` - コマンド処理
+- `src/minibuffer/ui.rs` - UI統合
 - テストとドキュメント
 
 ## 前提条件

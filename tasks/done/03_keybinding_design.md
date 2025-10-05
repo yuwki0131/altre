@@ -35,7 +35,7 @@ MVPで実装するキーバインドシステムの設計を行う。
 
 ## 成果物
 - `docs/design/keybinding.md` - 設計仕様書
-- `app/src/input/keybinding.rs` - インターフェース定義
+- `src/input/keybinding.rs` - インターフェース定義
 - キーバインド定義ファイル仕様
 
 ## QA要確認事項
@@ -44,13 +44,13 @@ MVPで実装するキーバインドシステムの設計を行う。
 - 不正キー入力時の動作（「無視」の詳細仕様）
 
 ## 完了条件
-- [x] キーバインド表現方法の確定（`docs/design/keybinding.md:12` と `app/src/input/keybinding.rs:1` にて定義済み）
+- [x] キーバインド表現方法の確定（`docs/design/keybinding.md:12` と `src/input/keybinding.rs:1` にて定義済み）
 - [x] MVP対象キーの完全リスト化（`manuals/keybinding_reference.md:1` に一覧化）
 - [x] 処理フロー設計の完成（`docs/design/keybinding.md:163` に入力→コマンドフローを記載）
-- [x] エラーケース処理方針の策定（`app/src/input/event_handler.rs:1` で未定義キーの扱いを実装）
+- [x] エラーケース処理方針の策定（`src/input/event_handler.rs:1` で未定義キーの扱いを実装）
 
 ## ステータス
-- `app/tests/keybinding_integration_tests.rs:1` で主要フローを検証済み。現状の課題はカスタムキーマップのホットリロード（将来フェーズ）。
+- `tests/keybinding_integration_tests.rs:1` で主要フローを検証済み。現状の課題はカスタムキーマップのホットリロード（将来フェーズ）。
 
 ## 見積もり
 **期間**: 2-3日

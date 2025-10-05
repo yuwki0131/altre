@@ -45,10 +45,10 @@
    - メモリリークテスト
 
 ## 成果物
-- `app/src/main.rs`
-- `app/src/app.rs`
-- `app/src/event.rs`
-- `app/tests/integration_tests.rs`
+- `src/main.rs`
+- `src/app.rs`
+- `src/event.rs`
+- `tests/integration_tests.rs`
 
 ## 前提条件
 - 全ての個別実装タスクの完了

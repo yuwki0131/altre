@@ -874,8 +874,8 @@ impl PerformanceTimer {
 - テストヘルパーライブラリ
 
 ## 完了条件
-- [x] 単体テスト実装完了（`app/src/search/replace.rs:420` 付近のユニットテスト）
-- [x] 統合テスト実装完了（`app/tests/search_replace_workflow.rs:1`）
+- [x] 単体テスト実装完了（`src/search/replace.rs:420` 付近のユニットテスト）
+- [x] 統合テスト実装完了（`tests/search_replace_workflow.rs:1`）
 - [x] プロパティテスト実装完了（既存の `gap_buffer_prop.rs` に加え検索置換はシナリオテストでカバー）
 - [x] パフォーマンステスト実装完了（クエリ置換はナビゲーション性能への影響を既存 `navigation_performance.rs` で確認）
 - [x] エッジケーステスト実装完了（キャンセル／正規表現キャプチャなどのケースを追加）
@@ -888,9 +888,9 @@ impl PerformanceTimer {
 - 2025-02-05: `manuals/mvp_validation_checklist.md` に検索・置換の自動試験結果を反映。
 
 ## ステータス
-- 現状 `app/tests/` に検索・置換専用のディレクトリは未作成で、本タスク記載のテスト構造は未着手。
-- プロパティテストはギャップバッファ向け (`app/tests/gap_buffer_prop.rs:1`) のみで、検索・置換の不変条件は未定義。
-- パフォーマンス測定は `app/benches/performance.rs:1` に汎用メトリクスがあるものの、検索・置換の個別指標は未設定。
+- 現状 `tests/` に検索・置換専用のディレクトリは未作成で、本タスク記載のテスト構造は未着手。
+- プロパティテストはギャップバッファ向け (`tests/gap_buffer_prop.rs:1`) のみで、検索・置換の不変条件は未定義。
+- パフォーマンス測定は `benches/performance.rs:1` に汎用メトリクスがあるものの、検索・置換の個別指標は未設定。
 
 ## 次アクション
 1. `tests/search_replace/` ディレクトリを新設し、単体・統合・プロパティ・性能テストの雛形を追加。

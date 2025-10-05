@@ -35,7 +35,7 @@ MVP全体で一貫したエラーハンドリング戦略を設計する。
 
 ## 成果物
 - `docs/design/error_handling.md` - エラーハンドリング設計書
-- `app/src/error.rs` - エラー型定義
+- `src/error.rs` - エラー型定義
 - エラーメッセージ日本語辞書
 
 ## QA確認事項
@@ -45,12 +45,12 @@ MVP全体で一貫したエラーハンドリング戦略を設計する。
 
 ## 完了条件
 - [x] エラー分類と処理方針の策定（`docs/design/error_handling.md:12` に分類と対応を記載）
-- [x] カスタムエラー型の設計完成（`app/src/error.rs:1` に `AltreError` を定義）
+- [x] カスタムエラー型の設計完成（`src/error.rs:1` に `AltreError` を定義）
 - [x] エラーメッセージの日本語化方針決定（`docs/design/error_handling.md:339` に日本語辞書方針を記載）
 - [x] ログ出力仕様の確定（`DEBUG.md:1` にデバッグモード手順を記載）
 
 ## ステータス
-- ミニバッファ表示は `app/src/minibuffer/system.rs:1` の `display_error` で統合済み。log 機能の拡張は将来タスク（構成ファイル対応）にて検討予定。
+- ミニバッファ表示は `src/minibuffer/system.rs:1` の `display_error` で統合済み。log 機能の拡張は将来タスク（構成ファイル対応）にて検討予定。
 
 ## 見積もり
 **期間**: 2日

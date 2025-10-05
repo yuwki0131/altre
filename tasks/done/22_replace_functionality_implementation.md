@@ -41,7 +41,7 @@ search/
 
 ### 置換エンジン実装
 ```rust
-// app/src/search/replace.rs
+// src/search/replace.rs
 
 use crate::error::Result;
 use crate::buffer::TextEditor;
@@ -364,7 +364,7 @@ pub enum ReplaceResult {
 
 ### 置換状態管理
 ```rust
-// app/src/search/replace_state.rs
+// src/search/replace_state.rs
 
 /// 置換状態
 #[derive(Debug, Clone)]
@@ -497,7 +497,7 @@ impl ReplaceHistory {
 
 ### 置換コマンド実装
 ```rust
-// app/src/search/replace_commands.rs
+// src/search/replace_commands.rs
 
 use crate::input::commands::{Command, CommandResult};
 use super::{ReplaceEngine, ReplaceResult};
@@ -698,7 +698,7 @@ impl ReplaceCommandProcessor {
 
 ### 単体テスト
 ```rust
-// app/src/search/replace_tests.rs
+// src/search/replace_tests.rs
 
 #[cfg(test)]
 mod tests {
@@ -793,25 +793,25 @@ mod tests {
 - 包括的テストスイート
 
 ## 完了条件
-- [x] 置換エンジン実装完了（`app/src/search/replace.rs:1`）
-- [x] 基本置換操作（`M-%`）動作確認（`app/src/app.rs:632` でキー処理）
-- [x] 置換制御キー（y/n/!/q/C-g）動作確認（`app/src/app.rs:689` 付近）
+- [x] 置換エンジン実装完了（`src/search/replace.rs:1`）
+- [x] 基本置換操作（`M-%`）動作確認（`src/app.rs:632` でキー処理）
+- [x] 置換制御キー（y/n/!/q/C-g）動作確認（`src/app.rs:689` 付近）
 - [x] アンドゥ機能動作確認（`QueryReplaceController::cancel` で復元）
 - [x] 一括置換機能動作確認（`accept_all` 実装）
-- [x] 単体・統合テスト実装完了（`app/src/search/replace.rs:420` / `app/tests/search_replace_workflow.rs:1`）
-- [x] ミニバッファ連携による TUI 動作確認（`app/src/minibuffer/system.rs:232` / `app/src/app.rs:1189`）
+- [x] 単体・統合テスト実装完了（`src/search/replace.rs:420` / `tests/search_replace_workflow.rs:1`）
+- [x] ミニバッファ連携による TUI 動作確認（`src/minibuffer/system.rs:232` / `src/app.rs:1189`）
 
 ## 実施ログ
 - 2025-02-05: `QueryReplaceController` を実装し、リテラル／正規表現両対応の候補生成を追加。
-- 2025-02-05: `app/src/app.rs` に置換用キー処理を実装し、ミニバッファから `query-replace` / `query-replace-regexp` を起動可能にした。
+- 2025-02-05: `src/app.rs` に置換用キー処理を実装し、ミニバッファから `query-replace` / `query-replace-regexp` を起動可能にした。
 - 2025-02-05: `search_replace_workflow.rs` を追加し、操作フローを統合テストで検証。
 
 ## ステータス
-- `app/src/search/` には現状 `matcher.rs` など検索専用モジュールのみで置換エンジンが未実装（2025-02-05 時点）。
-- ミニバッファからの置換コマンドも未登録であり、`app/src/input/commands.rs:1` に対応するコマンド定義が存在しない。
+- `src/search/` には現状 `matcher.rs` など検索専用モジュールのみで置換エンジンが未実装（2025-02-05 時点）。
+- ミニバッファからの置換コマンドも未登録であり、`src/input/commands.rs:1` に対応するコマンド定義が存在しない。
 - テストスケルトンも作成されていないため、実装着手前にモジュール分割と API の再調整が必要。
 
 ## 次アクション
-1. `app/src/search/` 配下に `replace.rs` など予定モジュールを追加し、`ReplaceEngine` と状態管理を実装。
-2. `app/src/input/commands.rs` および `app/src/minibuffer/system.rs` に置換コマンドを統合し、キーシーケンス `M-%` を登録。
-3. `app/tests/` へ置換機能の単体・統合テストを追加し、Undo/Redo 連携を検証。
+1. `src/search/` 配下に `replace.rs` など予定モジュールを追加し、`ReplaceEngine` と状態管理を実装。
+2. `src/input/commands.rs` および `src/minibuffer/system.rs` に置換コマンドを統合し、キーシーケンス `M-%` を登録。
+3. `tests/` へ置換機能の単体・統合テストを追加し、Undo/Redo 連携を検証。

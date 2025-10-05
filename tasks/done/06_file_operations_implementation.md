@@ -46,10 +46,10 @@
    - 各種エラー状況の処理確認
 
 ## 成果物
-- `app/src/file/mod.rs`
-- `app/src/file/io.rs`
-- `app/src/file/path.rs`
-- `app/tests/file_tests.rs`
+- `src/file/mod.rs`
+- `src/file/io.rs`
+- `src/file/path.rs`
+- `tests/file_tests.rs`
 
 ## 前提条件
 - 05_minibuffer_implementation.md の完了

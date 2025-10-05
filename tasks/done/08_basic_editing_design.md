@@ -43,7 +43,7 @@ MVPで実装する基本編集機能（テキスト入力、削除、改行）�
 
 ## 成果物
 - `docs/design/basic_editing.md` - 基本編集設計書
-- `app/src/buffer/editor.rs` - エディタ操作インターフェース設計
+- `src/buffer/editor.rs` - エディタ操作インターフェース設計
 - UTF-8安全な編集操作の仕様書
 - パフォーマンステスト仕様
 

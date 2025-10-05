@@ -59,7 +59,7 @@
 - タイマ精度・システム負荷の影響を最小化する環境設定
 
 ## 備考
-- `app/tests/navigation_performance.rs` に `NavigationPerformanceTestHarness` を実装し、中央値・平均・最大を記録して遅延を判定。
+- `tests/navigation_performance.rs` に `NavigationPerformanceTestHarness` を実装し、中央値・平均・最大を記録して遅延を判定。
 - QA目標を基準にしつつ、実測ベースでバッファ全体移動は4ms、タブ幅計算は0.5msに1.2倍の許容を設定し、単発スパイクは 0.5 加算した上限で検知。
 - 長行／超長行／大規模ファイル／タブ変換シナリオを `cargo test --offline` で継続的に確認。
 - `cargo bench navigation_bench --offline` を実行し、既存Criterionベンチがビルド・実行可能であることも確認。

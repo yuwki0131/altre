@@ -28,7 +28,7 @@
    - 回帰テスト（既存コマンドへの影響確認）
 
 ## 成果物
-- `app/src/buffer` / `app/src/editor` / `app/src/input` への実装コード
+- `src/buffer` / `src/editor` / `src/input` への実装コード
 - 必要に応じた `docs/design/undo_redo.md` の更新
 - 新規または更新されたテストコード
 
@@ -46,9 +46,9 @@
 - 10_undo_redo_design.md（設計タスク）
 
 ## 進捗メモ
-- `app/src/editor/history/` に履歴スタックとレコーダーを実装し、線形 Undo/Redo を管理。
+- `src/editor/history/` に履歴スタックとレコーダーを実装し、線形 Undo/Redo を管理。
 - `App` に履歴管理を統合し、編集コマンド実行時にヒストリーを記録。`C-/` / `C-.`（環境によっては `C-7` / `C-_`）のキーバインドを追加。
 - バッファごとに履歴を保持できるよう `App` / `OpenBuffer` を拡張し、バッファ切替や保存時に履歴を同期。
 - `docs/adr-qa/undo_redo_QA.md` の論点を全て解消し、Undo/Redo 仕様（線形履歴、バッファ単位管理など）を明文化。
 - `docs/design/undo_redo.md` を追加して履歴モデルと適用フローを文書化。
-- `cargo test`（`app/`）で既存テストを実行し、全テストが成功。
+- ルートディレクトリで `cargo test` を実行し、全テストが成功。

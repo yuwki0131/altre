@@ -5,7 +5,7 @@
 - evaluator やプリミティブが利用する値表現とヒープ管理を整備しないと実行基盤が成立しない。
 
 ## ゴール
-- 設計で決定した GC 方式を `app/src/alisp/runtime` に実装し、値表現（数値/文字列/シンボル/クロージャ等）を定義。
+- 設計で決定した GC 方式を `src/alisp/runtime` に実装し、値表現（数値/文字列/シンボル/クロージャ等）を定義。
 - ルート集合（環境・スタックなど）を管理し、GC をトリガする API を用意。
 - 単体テストまたはストレステストでメモリリークしないことを確認。
 
@@ -16,8 +16,8 @@
 - [x] 必要に応じてベンチマーク/診断用フックを検討し、設計書へフィードバック。
 
 ## 成果物
-- `app/src/alisp/runtime/mod.rs`
-- `app/tests/alisp_interpreter.rs`（評価時に GC 経路を通過する結合テスト）
+- `src/alisp/runtime/mod.rs`
+- `tests/alisp_interpreter.rs`（評価時に GC 経路を通過する結合テスト）
 
 ## 参考
 - QA.md:Q5

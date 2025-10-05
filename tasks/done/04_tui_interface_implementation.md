@@ -43,11 +43,11 @@ ratatuiを使用したターミナルユーザーインターフェースを実�
    - ミニバッファ操作の動作確認
 
 ## 成果物
-- `app/src/ui/mod.rs`
-- `app/src/ui/layout.rs`
-- `app/src/ui/text_area.rs`
-- `app/src/ui/minibuffer.rs`
-- `app/tests/ui_tests.rs`
+- `src/ui/mod.rs`
+- `src/ui/layout.rs`
+- `src/ui/text_area.rs`
+- `src/ui/minibuffer.rs`
+- `tests/ui_tests.rs`
 
 ## 前提条件
 - 05_tui_layout_design.md の完了

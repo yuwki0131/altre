@@ -16,7 +16,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -224,6 +224,11 @@ impl AdvancedRenderer {
                 true, // ステータスライン表示
             );
 
+            debug_assert!(
+                areas.contains_key(&AreaType::Minibuffer),
+                "minibuffer area missing from layout"
+            );
+
             // 差分更新の判定
             let diffs = self.calculate_diffs(editor, minibuffer, &areas);
 
@@ -334,35 +339,75 @@ impl AdvancedRenderer {
     ) -> Option<(u16, u16)> {
         let state = minibuffer.minibuffer_state();
         frame.render_widget(Clear, area);
+
         if let Some(search) = search_ui {
             let (line, cursor) = Self::search_line(area, search);
             let paragraph = Paragraph::new(line).style(Style::default());
             frame.render_widget(paragraph, area);
-            cursor
-        } else {
-            let (content, cursor_pos) = match &state.mode {
-                crate::minibuffer::MinibufferMode::FindFile
-                | crate::minibuffer::MinibufferMode::ExecuteCommand
-                | crate::minibuffer::MinibufferMode::EvalExpression
-                | crate::minibuffer::MinibufferMode::WriteFile => {
-                    let line = Self::line_without_cursor(&state.prompt, &state.input);
-                    let cursor_x = area.x + state.prompt.chars().count() as u16 + state.cursor_pos as u16;
-                    (line, Some((cursor_x, area.y)))
-                }
-                crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
-                    (Line::from(message.clone()).style(Style::default().fg(Color::Red)), None)
-                }
-                crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
-                    (Line::from(message.clone()).style(Style::default().fg(Color::Green)), None)
-                }
-                _ => (Line::from(""), None),
-            };
-
-            let paragraph = Paragraph::new(content).style(Style::default().fg(Color::Cyan));
-            frame.render_widget(paragraph, area);
-
-            cursor_pos
+            return cursor;
         }
+
+        let prompt_style = Style::default().fg(Color::Cyan);
+        let input_style = Style::default().fg(Color::White);
+        let info_style = Style::default().fg(Color::Green);
+        let error_style = Style::default().fg(Color::Red);
+
+        let mut lines: Vec<Line<'static>> = Vec::new();
+        let mut cursor_pos: Option<(u16, u16)> = None;
+
+        match &state.mode {
+            crate::minibuffer::MinibufferMode::FindFile
+            | crate::minibuffer::MinibufferMode::ExecuteCommand
+            | crate::minibuffer::MinibufferMode::EvalExpression
+            | crate::minibuffer::MinibufferMode::WriteFile
+            | crate::minibuffer::MinibufferMode::SwitchBuffer
+            | crate::minibuffer::MinibufferMode::KillBuffer
+            | crate::minibuffer::MinibufferMode::QueryReplacePattern
+            | crate::minibuffer::MinibufferMode::QueryReplaceReplacement => {
+                lines.push(Line::from(vec![
+                    Span::styled(state.prompt.clone(), prompt_style),
+                    Span::styled(state.input.clone(), input_style),
+                ]));
+
+                let cursor_col = state.prompt.chars().count() + state.cursor_pos;
+                let cursor_x = area.x + cursor_col as u16;
+                cursor_pos = Some((cursor_x, area.y));
+            }
+            crate::minibuffer::MinibufferMode::ErrorDisplay { message, .. } => {
+                lines.push(Line::from(Span::styled(message.clone(), error_style)));
+            }
+            crate::minibuffer::MinibufferMode::InfoDisplay { message, .. } => {
+                lines.push(Line::from(Span::styled(message.clone(), info_style)));
+            }
+            crate::minibuffer::MinibufferMode::SaveConfirmation => {
+                lines.push(Line::from(vec![
+                    Span::styled(state.prompt.clone(), prompt_style),
+                    Span::styled(state.input.clone(), input_style),
+                ]));
+                let cursor_col = state.prompt.chars().count() + state.cursor_pos;
+                let cursor_x = area.x + cursor_col as u16;
+                cursor_pos = Some((cursor_x, area.y));
+            }
+            crate::minibuffer::MinibufferMode::Inactive => {
+                // Inactive でもステータスメッセージを優先的に表示
+            }
+        }
+
+        if lines.is_empty() {
+            if let Some(status) = &state.status_message {
+                lines.push(Line::from(Span::styled(status.clone(), info_style)));
+            }
+        }
+
+        if lines.is_empty() {
+            return None;
+        }
+
+        let paragraph = Paragraph::new(lines)
+            .wrap(Wrap { trim: true });
+        frame.render_widget(paragraph, area);
+
+        cursor_pos
     }
 
     fn search_line(area: Rect, search: &SearchUiState) -> (Line<'static>, Option<(u16, u16)>) {
@@ -408,14 +453,6 @@ impl AdvancedRenderer {
         let cursor_pos = Some((cursor_x, area.y));
 
         (Line::from(spans), cursor_pos)
-    }
-
-    /// ミニバッファ用のカーソルなし行作成
-    fn line_without_cursor(prompt: &str, input: &str) -> Line<'static> {
-        let mut spans: Vec<Span<'static>> = Vec::new();
-        spans.push(Span::styled(prompt.to_string(), Style::default().fg(Color::Cyan)));
-        spans.push(Span::raw(input.to_string()));
-        Line::from(spans)
     }
 
     /// ステータスライン描画

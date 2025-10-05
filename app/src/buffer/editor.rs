@@ -867,6 +867,16 @@ impl TextEditor {
         <Self as EditOperations>::delete_range(self, start, end)
     }
 
+    /// 範囲を置換し、元のテキストを返す
+    pub fn replace_range_span(&mut self, start: usize, end: usize, replacement: &str) -> Result<String> {
+        let deleted = <Self as EditOperations>::delete_range(self, start, end)?;
+        self.move_cursor_to_char(start)?;
+        if !replacement.is_empty() {
+            <Self as EditOperations>::insert_str(self, replacement)?;
+        }
+        Ok(deleted)
+    }
+
     /// カーソルとマークを入れ替える
     pub fn swap_cursor_and_mark(&mut self) -> Result<()> {
         let mark = match self.mark {

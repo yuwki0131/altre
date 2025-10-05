@@ -103,6 +103,8 @@ pub enum SystemResponse {
     KillBuffer(String),
     /// バッファ一覧表示
     ListBuffers,
+    /// クエリ置換開始
+    QueryReplace { pattern: String, replacement: String, is_regex: bool },
     /// システム終了要求
     Quit,
     /// 何もしない
@@ -221,6 +223,7 @@ impl MinibufferSystem {
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
             MinibufferResult::Cancel => {
                 self.minibuffer.deactivate();
                 Ok(SystemResponse::Continue)
@@ -240,6 +243,7 @@ impl MinibufferSystem {
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
             MinibufferResult::Invalid => Ok(SystemResponse::None),
         }
@@ -272,6 +276,12 @@ impl MinibufferSystem {
             Ok(SystemResponse::KillBuffer(String::new()))
         } else if command == "list-buffers" {
             Ok(SystemResponse::ListBuffers)
+        } else if command == "query-replace" {
+            self.minibuffer.start_query_replace(false, None);
+            Ok(SystemResponse::Continue)
+        } else if command == "query-replace-regexp" {
+            self.minibuffer.start_query_replace(true, None);
+            Ok(SystemResponse::Continue)
         } else if let Some(expr) = command.strip_prefix("eval-expression ") {
             self.handle_eval_expression(expr.to_string())
         } else if command == "eval-expression" {
@@ -375,6 +385,22 @@ impl MinibufferSystem {
     pub fn show_info(&mut self, message: impl Into<String>) -> Result<SystemResponse> {
         self.minibuffer.show_info(message.into());
         Ok(SystemResponse::Continue)
+    }
+
+    /// 情報メッセージを任意の時間表示
+    pub fn show_info_with_duration(
+        &mut self,
+        message: impl Into<String>,
+        duration: Option<Duration>,
+    ) -> Result<SystemResponse> {
+        self.minibuffer
+            .show_info_with_duration(message.into(), duration);
+        Ok(SystemResponse::Continue)
+    }
+
+    /// ステータスメッセージを設定
+    pub fn set_status_message(&mut self, message: Option<String>) {
+        self.minibuffer.set_status_message(message);
     }
 
     /// ミニバッファを非アクティブ化

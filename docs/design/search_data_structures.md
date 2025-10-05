@@ -47,7 +47,7 @@ pub struct SearchMatch {
 | NaiveMatcher | パターン長 < 8、テキスト長 < 4KB | MVPで実装 |
 | TwoWayMatcher | デフォルト戦略（標準ライブラリ相当） | MVPで実装 |
 | BoyerMooreMatcher | パターン長 > 64、繰り返し検索時 | 将来実装 |
-| RegexMatcher | 正規表現検索 | 将来実装 |
+| RegexMatcher | 正規表現検索 | MVP (置換用) |
 
 ```rust
 pub enum SearchStrategy {
@@ -157,4 +157,3 @@ pub struct ReplaceHistoryEntry {
 - Unicode正規化（NFC/NFD）を用いた曖昧検索
 - 全角／半角同一視の実装
 - マルチバッファ検索のためのインデックス共有
-

@@ -3,6 +3,8 @@
 //! インクリメンタル検索の状態管理とUI連携を提供
 
 mod matcher;
+mod regex;
+mod replace;
 mod state;
 pub mod types;
 
@@ -12,6 +14,8 @@ use state::SearchState;
 use types::SearchMatch;
 
 pub use types::{HighlightKind, SearchDirection, SearchHighlight, SearchStatus, SearchUiState};
+pub use replace::{QueryReplaceController, ReplaceProgress, ReplaceStart, ReplaceSummary};
+pub use regex::RegexError;
 
 /// 検索制御インターフェース
 #[derive(Debug)]
@@ -59,6 +63,20 @@ impl<M: StringMatcher> SearchController<M> {
     /// ハイライト情報を取得
     pub fn highlights(&self) -> &[SearchHighlight] {
         &self.highlights
+    }
+
+    /// 現在入力中の検索語を取得
+    pub fn current_pattern(&self) -> Option<&str> {
+        if self.state.pattern.is_empty() {
+            None
+        } else {
+            Some(self.state.pattern.as_str())
+        }
+    }
+
+    /// 直近確定した検索語を取得
+    pub fn last_pattern(&self) -> Option<&str> {
+        self.last_pattern.as_deref()
     }
 
     /// 検索を開始

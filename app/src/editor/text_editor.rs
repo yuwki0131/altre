@@ -137,6 +137,16 @@ impl TextEditor {
         result
     }
 
+    /// 範囲を置換し、元のテキストを返す
+    pub fn replace_range(&mut self, start: usize, end: usize, replacement: &str) -> Result<String> {
+        self.flush_input_buffer()?;
+        let deleted = self.base_editor.delete_range(start, end)?;
+        if !replacement.is_empty() {
+            self.base_editor.insert_str(replacement)?;
+        }
+        Ok(deleted)
+    }
+
     /// ベースエディタへの参照を取得
     pub fn base_editor(&self) -> &BaseTextEditor {
         &self.base_editor

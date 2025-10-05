@@ -28,6 +28,7 @@ dependencies = [
  "log",
  "proptest",
  "ratatui",
+ "regex",
  "shellexpand",
  "tempfile",
  "thiserror 1.0.69",

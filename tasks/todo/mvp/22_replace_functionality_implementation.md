@@ -805,3 +805,13 @@ mod tests {
 ## 進捗記録
 - 作成日：2025-01-28
 - 状態：実装準備完了
+
+## ステータス
+- `app/src/search/` には現状 `matcher.rs` など検索専用モジュールのみで置換エンジンが未実装（2025-02-05 時点）。
+- ミニバッファからの置換コマンドも未登録であり、`app/src/input/commands.rs:1` に対応するコマンド定義が存在しない。
+- テストスケルトンも作成されていないため、実装着手前にモジュール分割と API の再調整が必要。
+
+## 次アクション
+1. `app/src/search/` 配下に `replace.rs` など予定モジュールを追加し、`ReplaceEngine` と状態管理を実装。
+2. `app/src/input/commands.rs` および `app/src/minibuffer/system.rs` に置換コマンドを統合し、キーシーケンス `M-%` を登録。
+3. `app/tests/` へ置換機能の単体・統合テストを追加し、Undo/Redo 連携を検証。

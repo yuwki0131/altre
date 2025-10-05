@@ -885,3 +885,13 @@ impl PerformanceTimer {
 ## 進捗記録
 - 作成日：2025-01-28
 - 状態：実装準備完了
+
+## ステータス
+- 現状 `app/tests/` に検索・置換専用のディレクトリは未作成で、本タスク記載のテスト構造は未着手。
+- プロパティテストはギャップバッファ向け (`app/tests/gap_buffer_prop.rs:1`) のみで、検索・置換の不変条件は未定義。
+- パフォーマンス測定は `app/benches/performance.rs:1` に汎用メトリクスがあるものの、検索・置換の個別指標は未設定。
+
+## 次アクション
+1. `tests/search_replace/` ディレクトリを新設し、単体・統合・プロパティ・性能テストの雛形を追加。
+2. `tasks/todo/mvp/22_replace_functionality_implementation.md` と連携し、実装進捗に合わせたテストケースを作成。
+3. 仕様確認のため `docs/design/search_replace_spec.md:1` と `docs/design/search_data_structures.md:1` を参照し、テスト観点を洗い出す。

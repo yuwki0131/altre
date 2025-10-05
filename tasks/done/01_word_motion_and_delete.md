@@ -14,8 +14,8 @@ Emacs 標準の単語単位移動・削除（`M-f` / `M-b` / `M-d` / `M-Backspac
 - ミニバッファ・ユーザーガイドのドキュメントを更新する。
 
 ## 成果物
-- `app/src/input/keybinding.rs` のバインド追加
-- `app/src/input/commands.rs`/`app/src/editor`/`app/src/buffer` のロジック実装
+- `src/input/keybinding.rs` のバインド追加
+- `src/input/commands.rs`/`src/editor`/`src/buffer` のロジック実装
 - 主要テスト（ユニット／統合テスト）の追加
 - `manuals/` や `docs/design/` の関連ドキュメント更新
 

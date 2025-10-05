@@ -32,7 +32,7 @@
    - ミニバッファ経由の統合テスト（テンポラリディレクトリ利用）
 
 ## 成果物
-- `app/src/file/{metadata,operations,path,io}.rs` の本実装
+- `src/file/{metadata,operations,path,io}.rs` の本実装
 - `tests/file_operations/` または相当する統合テスト
 - ミニバッファコマンドとの接続コード・メッセージ処理
 - QA要件に沿ったエラーハンドリングの確認レポート

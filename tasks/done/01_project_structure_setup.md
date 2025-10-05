@@ -12,7 +12,7 @@ MVPで必要なRustプロジェクトの基本構造とモジュール配置を�
 ## 実装対象
 1. **ディレクトリ構造の整備**
    ```
-   app/src/
+   src/
    ├── main.rs
    ├── lib.rs
    ├── buffer/          # テキストバッファ関連
@@ -48,7 +48,7 @@ MVPで必要なRustプロジェクトの基本構造とモジュール配置を�
    - VSCode settings（参考）
 
 ## 成果物
-- 完全に整備された `app/src/` ディレクトリ
+- 完全に整備された `src/` ディレクトリ
 - 最適化された `Cargo.toml`
 - 基本テストの実行確認
 - 開発環境設定ファイル
@@ -58,8 +58,8 @@ MVPで必要なRustプロジェクトの基本構造とモジュール配置を�
 - 既存のCargo.tomlと依存関係の確認
 
 ## 完了条件
-- [x] ディレクトリ構造の作成（`app/src/` 配下にモジュールを配置済み、`app/src/buffer/` などを整備）
-- [x] 各モジュールのスケルトン実装（`app/src/lib.rs:1` で再エクスポート、サブモジュール群を初期化）
+- [x] ディレクトリ構造の作成（`src/` 配下にモジュールを配置済み、`src/buffer/` などを整備）
+- [x] 各モジュールのスケルトン実装（`src/lib.rs:1` で再エクスポート、サブモジュール群を初期化）
 - [x] `cargo build` の成功（`DEBUG.md:20` にビルド手順を記録、直近の `cargo build --offline` 成功ログを確認）
 - [x] `cargo test` の成功（`tasks/done/15_minibuffer_test_suite.md` などテスト整備タスクで継続的に実施）
 - [x] `cargo clippy` の警告ゼロ（`tasks/done/13_code_integration_and_cleanup.md` の最終確認でクリア）

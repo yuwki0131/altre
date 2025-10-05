@@ -39,8 +39,8 @@ MVPで実装するファイル操作（オープン、保存、新規作成）�
 
 ## 成果物
 - `docs/design/file_operations.md` - ファイル操作設計書
-- `app/src/file/mod.rs` - ファイル操作インターフェース定義
-- `app/src/file/path_completion.rs` - パス補完システム
+- `src/file/mod.rs` - ファイル操作インターフェース定義
+- `src/file/path_completion.rs` - パス補完システム
 - エラー処理フロー図
 
 ## QA確認事項
@@ -62,7 +62,7 @@ MVPで実装するファイル操作（オープン、保存、新規作成）�
 
 ## 実装成果物
 - `docs/design/file_operations.md` - 詳細設計書（完成）
-- `app/src/file/metadata.rs` - ファイルメタデータ管理（新規作成）
+- `src/file/metadata.rs` - ファイルメタデータ管理（新規作成）
 - 既存のfile/operations.rs, completion.rs, io.rs, path.rsは設計仕様との整合性確認済み
 
 ## 追加実装タスク

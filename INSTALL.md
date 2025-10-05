@@ -14,10 +14,10 @@
 ### ソース取得とビルド
 ```bash
 git clone <このリポジトリのURL>
-cd altre/app
+cd altre
 cargo build --release --offline   # ネットワークが使える場合は --offline を省略可
 ```
-生成物は `app/target/release/altre` に出力されます。
+生成物は `target/release/altre` に出力されます。
 
 ### テストとドキュメント
 ```bash
@@ -27,7 +27,7 @@ cargo doc --no-deps --offline
 
 ## 2. 実行
 ```bash
-cd altre/app
+cd altre
 cargo run --release --offline
 ```
 raw mode を利用するため、端末や仮想環境によっては実行に失敗することがあります。その場合は `manuals/troubleshooting.md` を参照してください。

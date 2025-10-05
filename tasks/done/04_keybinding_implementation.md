@@ -31,8 +31,8 @@
    - パフォーマンステスト
 
 ## 成果物
-- `app/src/input/keybinding.rs` - 完全実装
-- `app/src/input/mod.rs` - モジュール統合
+- `src/input/keybinding.rs` - 完全実装
+- `src/input/mod.rs` - モジュール統合
 - 包括的なテストスイート
 - パフォーマンスベンチマーク
 
@@ -55,7 +55,7 @@
 - `ModernKeyMap` を拡張し、UTF-8安全なタブ入力や `C-x` プレフィックス／システムキーキャンセルを実装
 - `Action::to_command` を追加して `CommandProcessor` と橋渡しし、`Command::ExecuteCommand` を導入
 - `InputHandler` を ModernKeyMap ベースに書き換え、部分マッチ表示・リセット処理を更新
-- `app/src/input/mod.rs` の公開APIを刷新し、ベンチ用 `gap_buffer` など既存コードとの整合を確認
+- `src/input/mod.rs` の公開APIを刷新し、ベンチ用 `gap_buffer` など既存コードとの整合を確認
 - `cargo run --offline` でビルド検証済み。`cargo test` は依存取得制限 (`aho-corasick`) のため未実行
 
 ## 見積もり

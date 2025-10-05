@@ -5,7 +5,7 @@
 - QA.md:Q4, Q6 で初期対応するリテラル・特殊フォームが限定されており、軽量なリーダー実装が求められる。
 
 ## ゴール
-- `app/src/alisp/reader`（予定）にトークナイザとパーサを実装し、AST 構造体を定義する。
+- `src/alisp/reader`（予定）にトークナイザとパーサを実装し、AST 構造体を定義する。
 - 数値（整数/浮動小数）、シンボル、ブール、文字列、リスト構造（評価用の cons もしくは AST ノード）に対応。
 - 無効入力時に適切なエラーを返し、単体テストを整備。
 
@@ -16,9 +16,9 @@
 - [x] ドキュメント/コメントを QA 要件に合わせて日本語で記述。
 
 ## 成果物
-- `app/src/alisp/reader/mod.rs`
-- `app/src/alisp/ast.rs`
-- `app/tests/alisp_interpreter.rs`（リーダーの評価を含む結合テスト）
+- `src/alisp/reader/mod.rs`
+- `src/alisp/ast.rs`
+- `tests/alisp_interpreter.rs`（リーダーの評価を含む結合テスト）
 
 ## 参考
 - QA.md:Q4, Q6

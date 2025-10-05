@@ -5,20 +5,20 @@ altre エディタではデバッグ向けの詳細ログを環境変数で有�
 
 ## デバッグモードの有効化
 ```bash
-cd altre/app
+cd altre
 ALTRE_DEBUG=1 cargo run --offline
 ```
 または、環境変数を先に設定してから `cargo run` / `cargo test` を実行します。
 
 ```bash
-cd altre/app
+cd altre
 export ALTRE_DEBUG=1
 cargo run --offline
 ```
 
 ## 通常モード（デバッグ出力なし）
 ```bash
-cd altre/app
+cd altre
 cargo run --offline
 ```
 
@@ -34,5 +34,5 @@ DEBUG FileSaver: atomic_save: rename completed successfully
 
 ## 実装メモ
 - `ALTRE_DEBUG` の有無でデバッグモードを判定
-- `debug_log!`（`app/src/app.rs`）と `file_debug_log!`（`app/src/file/operations.rs`）で条件付きログを出力
+- `debug_log!`（`src/app.rs`）と `file_debug_log!`（`src/file/operations.rs`）で条件付きログを出力
 - ファイル操作、ミニバッファコマンド、イベント処理の要所でログを仕込み済み

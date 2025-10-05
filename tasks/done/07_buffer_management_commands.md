@@ -6,7 +6,7 @@
 - ミニバッファにバッファ切り替え用モードと削除用モードを新設し、候補補完と既定値（直前のバッファ/カレントバッファ）を提供。`SystemResponse` にバッファ操作用バリアントを追加し、アプリ側で実処理を実行。
 - `App::switch_buffer` / `kill_buffer` / `buffer_names` / `current_buffer_name` を公開し、テストや将来の UI から状態取得が可能に。既存のファイル保存処理を複数バッファ対応に合わせて再実装。
 - バッファ一覧表示（`C-x C-b`）ではミニバッファに簡易リストを表示。最後のバッファは削除できない／未保存バッファは削除拒否とし、エラーメッセージを表示。
-- 新規テスト `app/tests/buffer_management_tests.rs` でバッファ切り替え・削除・キーマップを検証。既存のキーバインド統合テストも更新。
+- 新規テスト `tests/buffer_management_tests.rs` でバッファ切り替え・削除・キーマップを検証。既存のキーバインド統合テストも更新。
 - マニュアル（`manuals/user_guide.md` / `manuals/keybinding_reference.md`）と `CommandCompletion` 初期コマンド群を更新し、新コマンドの説明を追記。
 
 ## 決定事項・メモ

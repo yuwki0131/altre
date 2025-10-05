@@ -5,7 +5,7 @@
 - QA.md ではテスト方針が明示されていないため、最低限の単体テスト/統合テスト計画を整備する必要がある。
 
 ## ゴール
-- alisp 向けテスト戦略を策定し、`app/tests/alisp/` などにテストスイートを追加。
+- alisp 向けテスト戦略を策定し、`tests/alisp/` などにテストスイートを追加。
 - parser/evaluator/primitives/GC/ミニバッファ統合について代表的なシナリオを自動化。
 - 回帰テスト実行手順を README または専用ドキュメントに追記。
 
@@ -16,7 +16,7 @@
 - [x] テスト実行手順を docs/design/alisp_runtime_architecture.md などへ反映。
 
 ## 成果物
-- `app/tests/alisp_interpreter.rs`
+- `tests/alisp_interpreter.rs`
 - `docs/design/alisp_runtime_architecture.md`（テスト戦略セクション更新）
 - `cargo test` 実行ログ（作業記録）
 

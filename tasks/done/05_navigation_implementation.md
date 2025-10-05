@@ -34,8 +34,8 @@
    - パフォーマンス制約違反の処理
 
 ## 成果物
-- `app/src/buffer/navigation.rs` - 完全実装
-- `app/src/ui/viewport.rs` - ビューポート管理
+- `src/buffer/navigation.rs` - 完全実装
+- `src/ui/viewport.rs` - ビューポート管理
 - 位置計算アルゴリズム
 - 包括的なテストスイート
 

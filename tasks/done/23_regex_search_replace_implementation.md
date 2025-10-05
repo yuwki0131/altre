@@ -44,7 +44,7 @@ search/
 
 ### 正規表現エンジン統合
 ```rust
-// app/src/search/regex.rs
+// src/search/regex.rs
 
 use regex::{Regex, RegexBuilder, Captures};
 use crate::error::{Result, AltreError, SearchError};
@@ -303,7 +303,7 @@ pub struct RegexSearchMatch {
 
 ### 正規表現置換実装
 ```rust
-// app/src/search/regex_replace.rs
+// src/search/regex_replace.rs
 
 use regex::{Regex, Captures};
 use crate::error::Result;
@@ -732,14 +732,14 @@ mod tests {
 - 置換テンプレートシステム
 
 ## 完了条件
-- [x] RegexSearchEngine実装完了（`app/src/search/regex.rs:1`）
-- [x] RegexReplaceEngine実装完了（`app/src/search/replace.rs:154` が `start_regex` 経由で利用）
+- [x] RegexSearchEngine実装完了（`src/search/regex.rs:1`）
+- [x] RegexReplaceEngine実装完了（`src/search/replace.rs:154` が `start_regex` 経由で利用）
 - [x] キャプチャグループ機能動作確認（`ReplacementTemplate` の `$1` 展開をテスト済み）
-- [x] 置換テンプレート機能動作確認（`app/tests/search_replace_workflow.rs:27`）
+- [x] 置換テンプレート機能動作確認（`tests/search_replace_workflow.rs:27`）
 - [x] 大文字小文字変換機能動作確認（ケースフォールディングは `start_regex` の `case_sensitive` 引数で制御）
 - [x] 正規表現キャッシュ機能動作確認（本対応では都度ビルドのためキャッシュは未実装、将来課題へ移管）
-- [x] 単体・統合テスト実装完了（`app/src/search/regex.rs:94` / `app/tests/search_replace_workflow.rs:25`）
-- [x] エラーハンドリング実装完了（`app/src/app.rs:716` で正規表現エラーをミニバッファに通知）
+- [x] 単体・統合テスト実装完了（`src/search/regex.rs:94` / `tests/search_replace_workflow.rs:25`）
+- [x] エラーハンドリング実装完了（`src/app.rs:716` で正規表現エラーをミニバッファに通知）
 
 ## 実施ログ
 - 2025-02-05: `regex` クレートを導入し、`ReplacementTemplate` で `$n` テンプレートを解釈。
@@ -747,11 +747,11 @@ mod tests {
 - 2025-02-05: ワークフローテスト `query_replace_regex_captures` でキャプチャ展開を検証。
 
 ## ステータス
-- `regex` クレートは `app/Cargo.toml:1` にまだ依存追加されていないため、正規表現 API の下地が未整備。
-- 現行の検索機能は `app/src/search/` のプレーンマッチのみで、キャプチャやテンプレート置換の入り口が存在しない。
+- `regex` クレートは `Cargo.toml:1` にまだ依存追加されていないため、正規表現 API の下地が未整備。
+- 現行の検索機能は `src/search/` のプレーンマッチのみで、キャプチャやテンプレート置換の入り口が存在しない。
 - エラー設計 (`docs/design/error_handling.md:21`) に検索系エラー区分がなく、regex 例外の取り扱いが未反映。導入前に補完が必要。
 
 ## 次アクション
-1. `regex` クレートと `regex-syntax` の依存を追加し、`app/src/search/regex.rs` などモジュールを作成。
-2. 既存検索インターフェース (`app/src/search/mod.rs`) に正規表現モードを統合し、UI 操作 (`C-M-s` など) を実装。
-3. `app/tests/` と `app/benches/` に正規表現モードのテスト・ベンチマークを追加し、パフォーマンス影響を検証。
+1. `regex` クレートと `regex-syntax` の依存を追加し、`src/search/regex.rs` などモジュールを作成。
+2. 既存検索インターフェース (`src/search/mod.rs`) に正規表現モードを統合し、UI 操作 (`C-M-s` など) を実装。
+3. `tests/` と `benches/` に正規表現モードのテスト・ベンチマークを追加し、パフォーマンス影響を検証。

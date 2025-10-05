@@ -114,8 +114,8 @@
 - 性能退化検出
 
 ### 2025-02-05 再検証まとめ
-- `cargo test --offline` を実行し、ナビゲーション性能テスト (`app/tests/navigation_performance.rs`) を含む全試験が成功。
-- `cargo bench --offline navigation_bench` を実施し、`app/benches/navigation_bench.rs` / `performance.rs` の指標に退行なし。
+- `cargo test --offline` を実行し、ナビゲーション性能テスト (`tests/navigation_performance.rs`) を含む全試験が成功。
+- `cargo bench --offline navigation_bench` を実施し、`benches/navigation_bench.rs` / `performance.rs` の指標に退行なし。
 - 詳細な試験ログおよびチェックリストは `manuals/mvp_validation_checklist.md` を参照。
 
 ### 統合テスト

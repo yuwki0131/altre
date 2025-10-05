@@ -43,10 +43,10 @@ MVPの基本テキスト編集機能（挿入、削除、移動）を実装す�
    - 複数操作の組み合わせテスト
 
 ## 成果物
-- `app/src/editor/mod.rs`
-- `app/src/editor/cursor.rs`
-- `app/src/editor/actions.rs`
-- `app/tests/editing_tests.rs`
+- `src/editor/mod.rs`
+- `src/editor/cursor.rs`
+- `src/editor/actions.rs`
+- `tests/editing_tests.rs`
 
 ## 前提条件
 - 02_gap_buffer_implementation.md の完了

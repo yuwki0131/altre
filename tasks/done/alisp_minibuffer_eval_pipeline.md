@@ -16,9 +16,9 @@
 - [x] 結合テストまたは E2E テストを追加し、回帰テスト手順を文書化。
 
 ## 成果物
-- `app/src/alisp/integration/minibuffer.rs`
-- `app/src/alisp/integration/error.rs`
-- `app/tests/alisp_interpreter.rs`
+- `src/alisp/integration/minibuffer.rs`
+- `src/alisp/integration/error.rs`
+- `tests/alisp_interpreter.rs`
 
 ## 参考
 - QA.md:Q1, Q6, Q7

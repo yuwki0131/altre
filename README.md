@@ -17,7 +17,7 @@ Emacs風テキストエディタ実装
 - ファイル操作
 - インクリメンタル検索
 - 線形 Undo / Redo (`C-/`, `C-.`)
-- 低レイテンシ重視のギャップバッファとパフォーマンス監視（`app/src/performance/`）
+- 低レイテンシ重視のギャップバッファとパフォーマンス監視（`src/performance/`）
 
 ## 現在のステータス
 - 開発フェーズ: MVP コア機能に加え、バッファ・ウィンドウ管理と検索機能を統合済み
@@ -31,7 +31,6 @@ Emacs風テキストエディタ実装
 ### ビルド・テスト
 
 ```bash
-cd app
 cargo build --offline
 cargo test --offline
 ```
@@ -39,7 +38,6 @@ cargo test --offline
 ### 実行
 
 ```bash
-cd app
 cargo run --offline
 ```
 
@@ -61,7 +59,11 @@ cargo run --offline
 ## リポジトリ構成
 ```
 .
-├── app/                  # Rust クレート本体
+├── benches/              # Criterion ベンチマーク
+├── src/                  # Rust クレート本体
+├── tests/                # 結合テスト・統合テスト
+├── Cargo.toml            # Cargo マニフェスト
+├── Cargo.lock            # 依存関係ロックファイル
 ├── docs/                 # 設計ドキュメント・ADR
 │   ├── adr/              # アーキテクチャ決定記録
 │   └── design/           # 詳細設計・仕様

@@ -31,7 +31,7 @@ MVPで使用するギャップバッファの詳細設計を行う。
 
 ## 成果物
 - `docs/design/gap_buffer.md` - 設計仕様書
-- `app/src/buffer/gap_buffer.rs` - インターフェース定義
+- `src/buffer/gap_buffer.rs` - インターフェース定義
 - プロパティベーステスト仕様
 
 ## QA要確認事項
@@ -41,13 +41,13 @@ MVPで使用するギャップバッファの詳細設計を行う。
 
 ## 完了条件
 - [x] ギャップバッファ仕様の文書化（`docs/design/gap_buffer.md:1` に仕様書を記載）
-- [x] 公開API の確定（`app/src/buffer/gap_buffer.rs:1` で `GapBuffer` API を定義）
-- [x] テスト戦略の策定（`docs/design/gap_buffer_property_tests.md:1` と `app/tests/gap_buffer_prop.rs:1` を整備）
+- [x] 公開API の確定（`src/buffer/gap_buffer.rs:1` で `GapBuffer` API を定義）
+- [x] テスト戦略の策定（`docs/design/gap_buffer_property_tests.md:1` と `tests/gap_buffer_prop.rs:1` を整備）
 - [x] パフォーマンス目標の設定（`docs/design/performance_tests_spec.md:1` に閾値を明記）
 
 ## ステータス
-- 既存実装は `app/src/buffer/operations.rs:1` まで連携済みであり、ギャップバッファ周辺の API は安定化。
-- ベンチマークは `app/benches/gap_buffer.rs:1` で運用中。次の改善はロープ実装検討タスクまで保留。
+- 既存実装は `src/buffer/operations.rs:1` まで連携済みであり、ギャップバッファ周辺の API は安定化。
+- ベンチマークは `benches/gap_buffer.rs:1` で運用中。次の改善はロープ実装検討タスクまで保留。
 
 ## 見積もり
 **期間**: 2-3日

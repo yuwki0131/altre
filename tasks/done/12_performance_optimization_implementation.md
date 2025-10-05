@@ -41,10 +41,10 @@ QA.mdの性能要件を満たすための包括的なパフォーマンス最適
    - 性能退化の自動検出
 
 ## 成果物
-- `app/src/performance/monitor.rs` - 性能監視
-- `app/src/performance/optimization.rs` - 最適化機能
-- `app/src/performance/profiling.rs` - プロファイリング
-- `app/benches/` - ベンチマークスイート
+- `src/performance/monitor.rs` - 性能監視
+- `src/performance/optimization.rs` - 最適化機能
+- `src/performance/profiling.rs` - プロファイリング
+- `benches/` - ベンチマークスイート
 - 性能測定レポート
 
 ## 前提条件

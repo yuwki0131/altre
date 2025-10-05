@@ -3,7 +3,7 @@
 本ドキュメントはソースコードの主要構造体・関数の概要を日本語で整理したものです。詳細なシグネチャは Rustdoc (`cargo doc --open`) で確認してください。
 
 ## 1. エントリポイント
-### `App` (`app/src/app.rs`)
+### `App` (`src/app.rs`)
 - **役割**: イベントループと全体状態の管理
 - **主要メソッド**
   - `App::new()` : アプリケーション状態を初期化
@@ -18,7 +18,7 @@ app.run()?;
 ```
 
 ## 2. 入力とコマンド
-### `Command` (`app/src/input/commands.rs`)
+### `Command` (`src/input/commands.rs`)
 - Emacs 風の編集／ファイル操作を列挙体で表現
 - `Command::execute` ではなく、`CommandProcessor` が実体を処理
 
@@ -31,7 +31,7 @@ app.run()?;
 - **エラー処理**: `CommandResult::error(message)` でメッセージを返す
 
 ## 3. バッファ管理
-### `TextEditor` (`app/src/buffer/editor.rs`)
+### `TextEditor` (`src/buffer/editor.rs`)
 - ギャップバッファを利用したテキスト編集
 - 主な API
   - `insert_char(char)`
@@ -39,12 +39,12 @@ app.run()?;
   - `navigate(NavigationAction)`
   - `to_string()` で現在内容を取得
 
-### `FileBuffer` (`app/src/file/operations.rs`)
+### `FileBuffer` (`src/file/operations.rs`)
 - ディスク上のファイルとエディタ内容を同期
 - 新設 `save_as(PathBuf)` は別名保存を実行し、`change_tracker` を更新
 
 ## 4. ミニバッファ
-### `MinibufferSystem` (`app/src/minibuffer/system.rs`)
+### `MinibufferSystem` (`src/minibuffer/system.rs`)
 - **機能**: キー入力→`SystemResponse` 変換、コマンド実行結果の橋渡し
 - **関数**
   - `handle_event(SystemEvent) -> Result<SystemResponse>`
@@ -62,7 +62,7 @@ app.run()?;
 - ファイル保存時は `NewFileHandler::handle_new_file` でディレクトリと権限を検証
 
 ## 6. alisp
-### `Interpreter` (`app/src/alisp/`)
+### `Interpreter` (`src/alisp/`)
 - `eval_str(&mut self, expr: &str) -> EvalOutcome`
 - `register_builtin(name, function)` でビルトイン登録（詳細は `docs/design/alisp_language_spec.md`）
 
@@ -88,12 +88,12 @@ if open.success {
 
 ## 10. テスト
 - 単体テスト: `#[cfg(test)]` ブロックでモジュール内部の API を検証
-- 結合テスト: `app/tests/` に配置、`cargo test` で実行
-- ベンチマーク: `app/benches/`、`cargo bench --offline` を想定
+- 結合テスト: `tests/` に配置、`cargo test` で実行
+- ベンチマーク: `benches/`、`cargo bench --offline` を想定
 
 ## 11. ドキュメント生成
 - `scripts/generate_docs.sh` を利用して `cargo doc --no-deps` を実行
-- 生成物は `app/target/doc/altre/index.html`
+- 生成物は `target/doc/altre/index.html`
 - CI 連携時は `cargo doc --no-deps --document-private-items` を追加し、警告ゼロを目標とする
 
 ---

@@ -48,7 +48,7 @@ rustdocを活用した自動生成APIドキュメントの整備を行う。
 - [x] 全pub項目のドキュメント化完了（主要公開APIのdoc commentを追加・見直し）
 - [x] doctests の実装完了（`FileOperationManager::file_exists` にサンプル追加）
 - [x] cargo doc の警告ゼロ達成（`cargo doc --no-deps` を実行し警告なしを確認）
-- [x] 生成ドキュメントの品質確認（`app/target/doc/altre/index.html` をレビュー）
+- [x] 生成ドキュメントの品質確認（`target/doc/altre/index.html` をレビュー）
 - [x] ドキュメント自動更新の設定完了（`scripts/generate_docs.sh` を追加）
 
 ## 見積もり

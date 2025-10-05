@@ -97,4 +97,4 @@
 - `describe-bindings` コマンドによる一覧表示
 - バッファごとのウィンドウ表示切替
 
-このドキュメントは MVP 版の実装状況に基づきます。実装状況は `docs/design/minibuffer.md` および `app/src/input/keybinding.rs` を併せて参照してください。
+このドキュメントは MVP 版の実装状況に基づきます。実装状況は `docs/design/minibuffer.md` および `src/input/keybinding.rs` を併せて参照してください。

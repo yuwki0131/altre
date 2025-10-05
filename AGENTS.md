@@ -11,7 +11,7 @@
 - リポジトリはモノレポ構成とし、成果物と設計資料を単一リポジトリで管理する。
 
 ## リポジトリ構成
-- `app/src/` が Rust 実装のルート。主なモジュール:
+- `src/` が Rust 実装のルート。主なモジュール:
   - `buffer/` ギャップバッファ・ナビゲーション等
   - `editor/` テキスト編集操作
   - `file/` ファイルI/O・補完
@@ -19,7 +19,7 @@
   - `minibuffer/` ミニバッファシステム（`system.rs` が入口）
   - `ui/` レイアウト・レンダラー・テーマ
   - `alisp/` 初期版 alisp インタプリタ（`docs/design/alisp_language_spec.md` / `docs/design/alisp_runtime_architecture.md` 参照）
-- `app/tests/` に統合テスト・性能テスト、`app/benches/` に Criterion ベンチ。
+- `tests/` に統合テスト・性能テスト、`benches/` に Criterion ベンチ。
 - 設計資料は `docs/design/`、QA 決定は `docs/adr-qa/` に集約。
 - タスク管理は `tasks/` 以下の Markdown を移動させて扱う（`TASK_MANAGEMENT.md` 参照）。
 
@@ -36,7 +36,7 @@
 - 設計や QA の決定（タブ幅 4 固定、性能目標など）は `docs/design/*` と `docs/adr-qa/init_QA.md` を参照して反映。
 
 ## テスト方針
-- 各モジュールに `#[cfg(test)]` の単体テストを配置し、結合テストは `app/tests/` へ。
+- 各モジュールに `#[cfg(test)]` の単体テストを配置し、結合テストは `tests/` へ。
 - プロパティテストには `proptest` を利用。失敗再現時は `PROPTEST_CASE_SEED` を記録。
 - ナビゲーション性能テストはリリースビルドで閾値を満たす想定。デバッグ環境で数値がばらつく場合は `--release` での確認を推奨。
 

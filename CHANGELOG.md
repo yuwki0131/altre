@@ -5,12 +5,12 @@
 ## [0.1.0]（ドラフト）
 ### 追加
 - Rust + ratatui による TUI エディタ MVP（複数バッファ、ミニバッファ、ファイル操作、基本編集）
-- ギャップバッファ実装とナビゲーション API（`app/src/buffer/`）
-- `CommandProcessor` を中心としたキーバインド処理とコマンド分配（`app/src/input/`）
-- `AdvancedRenderer` によるレイアウト分割とミニバッファ統合描画（`app/src/ui/renderer.rs`）
-- ファイル操作のアトミックセーブと LF 正規化処理（`app/src/file/operations.rs`）
-- インクリメンタル検索エンジンとハイライト描画（`app/src/search/`）
-- ベンチマーク／性能監視基盤（`app/src/performance/` と `app/benches/`）
+- ギャップバッファ実装とナビゲーション API（`src/buffer/`）
+- `CommandProcessor` を中心としたキーバインド処理とコマンド分配（`src/input/`）
+- `AdvancedRenderer` によるレイアウト分割とミニバッファ統合描画（`src/ui/renderer.rs`）
+- ファイル操作のアトミックセーブと LF 正規化処理（`src/file/operations.rs`）
+- インクリメンタル検索エンジンとハイライト描画（`src/search/`）
+- ベンチマーク／性能監視基盤（`src/performance/` と `benches/`）
 
 ### 改善
 - 未保存バッファの保存導線とエラーハンドリングメッセージを調整

@@ -6,7 +6,7 @@
 
 ## ゴール
 - コアプリミティブ（数値演算、比較、文字列結合、`print`/`message` など）と、必要最低限のエディタ連携関数を実装。
-- `app/src/alisp/primitives` に整理し、登録テーブルを evaluator から利用可能にする。
+- `src/alisp/primitives` に整理し、登録テーブルを evaluator から利用可能にする。
 - エラー時はミニバッファ表示に利用できるよう統一エラー型へ変換。
 
 ## ToDo
@@ -16,9 +16,9 @@
 - [x] ドキュメントコメントで使用例を提示。
 
 ## 成果物
-- `app/src/alisp/primitives.rs`
-- `app/src/alisp/evaluator.rs`（プリミティブ登録）
-- `app/tests/alisp_interpreter.rs`
+- `src/alisp/primitives.rs`
+- `src/alisp/evaluator.rs`（プリミティブ登録）
+- `tests/alisp_interpreter.rs`
 
 ## 参考
 - QA.md:Q1, Q6, Q7

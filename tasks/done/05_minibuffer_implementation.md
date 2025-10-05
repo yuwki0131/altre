@@ -44,10 +44,10 @@ Emacsスタイルのミニバッファとファイル操作コマンドを実装
    - 補完機能の動作確認
 
 ## 成果物
-- `app/src/minibuffer/mod.rs`
-- `app/src/minibuffer/completion.rs`
-- `app/src/file/operations.rs`
-- `app/tests/minibuffer_tests.rs`
+- `src/minibuffer/mod.rs`
+- `src/minibuffer/completion.rs`
+- `src/file/operations.rs`
+- `tests/minibuffer_tests.rs`
 
 ## 前提条件
 - 04_minibuffer_design.md の完了

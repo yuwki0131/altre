@@ -29,7 +29,7 @@ MVPにおけるaltreのコアアーキテクチャを設計する。
 ## 成果物
 - `docs/architecture/mvp_architecture.md` - 詳細なアーキテクチャドキュメント
 - `docs/architecture/module_dependencies.md` - モジュール依存関係図
-- `app/src/` - 基本的なモジュール構造のスケルトン
+- `src/` - 基本的なモジュール構造のスケルトン
 
 ## 前提条件
 - README.mdのMVP仕様
@@ -43,8 +43,8 @@ MVPにおけるaltreのコアアーキテクチャを設計する。
 - [x] 実装チームによるレビューと承認（`tasks/done/13_code_integration_and_cleanup.md` の完了報告をもって承認済み）
 
 ## ステータス
-- 2025-02-05 時点でアーキテクチャ関連ドキュメントと `app/src/` の基盤構造が整備されており、MVP 実装がこの設計に沿って進行中。
-- `app/src/app.rs:1` にイベントループ統合、`app/src/ui/renderer.rs:1` に UI レイヤ実装が揃っており、設計との差異なし。
+- 2025-02-05 時点でアーキテクチャ関連ドキュメントと `src/` の基盤構造が整備されており、MVP 実装がこの設計に沿って進行中。
+- `src/app.rs:1` にイベントループ統合、`src/ui/renderer.rs:1` に UI レイヤ実装が揃っており、設計との差異なし。
 
 ## 見積もり
 **期間**: 2-3日

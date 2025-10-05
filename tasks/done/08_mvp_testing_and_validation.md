@@ -48,8 +48,8 @@
    - ドキュメント整合性確認
 
 ## 成果物
-- `app/tests/` 配下の完全なテストスイート
-- `app/benches/` 配下のベンチマークテスト
+- `tests/` 配下の完全なテストスイート
+- `benches/` 配下のベンチマークテスト
 - テスト実行結果レポート
 - パフォーマンス測定結果
 
@@ -59,10 +59,10 @@
 
 ## 完了条件
 - [x] 全自動テストの成功（100%通過） — `cargo test --offline` を 2025-02-05 に実行し全件成功
-- [x] パフォーマンス要件の達成確認 — `app/tests/navigation_performance.rs` および `cargo bench --offline navigation_bench` で閾値内を確認
+- [x] パフォーマンス要件の達成確認 — `tests/navigation_performance.rs` および `cargo bench --offline navigation_bench` で閾値内を確認
 - [x] ユーザビリティテストの実施完了 — `manuals/mvp_validation_checklist.md` に手順と結果を記録
-- [x] プロパティテストの成功 — `app/tests/gap_buffer_prop.rs` などが自動テストで成功
-- [x] テストカバレッジ80%以上の達成 — 主要機能の単体・統合試験を `app/tests/` に整備済み
+- [x] プロパティテストの成功 — `tests/gap_buffer_prop.rs` などが自動テストで成功
+- [x] テストカバレッジ80%以上の達成 — 主要機能の単体・統合試験を `tests/` に整備済み
 - [x] ドキュメント整合性の確認 — `manuals/mvp_validation_checklist.md` / `performance_report.md` を更新
 
 ## 見積もり

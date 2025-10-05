@@ -13,10 +13,10 @@
 - 大きな編集への特別な最適化（スナップショット等）は MVP 範囲外。
 
 ## 3. 既存構成のおさらい
-- `app/src/buffer/editor.rs` : Gap Buffer ベースの低レベル編集ロジック。`ChangeNotifier` を備える。
-- `app/src/editor/text_editor.rs` : 入力バッファや性能計測を提供。最終的に `BaseTextEditor` (`buffer::editor::TextEditor`) を呼び出す。
-- `app/src/input/commands.rs` : `CommandProcessor` が編集コマンドを実行。
-- `app/src/app.rs` : `App` が `CommandProcessor` と `TextEditor` を統合し、複数バッファを管理。
+- `src/buffer/editor.rs` : Gap Buffer ベースの低レベル編集ロジック。`ChangeNotifier` を備える。
+- `src/editor/text_editor.rs` : 入力バッファや性能計測を提供。最終的に `BaseTextEditor` (`buffer::editor::TextEditor`) を呼び出す。
+- `src/input/commands.rs` : `CommandProcessor` が編集コマンドを実行。
+- `src/app.rs` : `App` が `CommandProcessor` と `TextEditor` を統合し、複数バッファを管理。
 
 Undo/Redo はバッファ (`OpenBuffer`) ごとに管理する必要があるため、`App` が `HistoryManager` を保持し、各 `OpenBuffer` に `HistoryStack` を保存する。
 
@@ -96,7 +96,7 @@ struct HistoryStack {
 
 ## 7. コンポーネント構成案
 ```
-app/src/editor/history/
+src/editor/history/
  ├── mod.rs             // HistoryStack, HistoryRecorder 公開
  ├── entry.rs           // HistoryEntry, AtomicEdit, CursorSnapshot
  └── recorder.rs        // ChangeListener 実装、まとめロジック
@@ -108,7 +108,7 @@ app/src/editor/history/
 
 ## 8. API 追加/変更まとめ
 - `Command` enum に `Undo`, `Redo` を追加。
-- `Action` enum (`app/src/input/keybinding.rs`) にも対応アクションを追加し、`C-/`, `C-.`（レイアウトによっては `C-7` / `C-_` / `C-?` / `C-\\` / `C-4` も許容）を割り当て。
+- `Action` enum (`src/input/keybinding.rs`) にも対応アクションを追加し、`C-/`, `C-.`（レイアウトによっては `C-7` / `C-_` / `C-?` / `C-\\` / `C-4` も許容）を割り当て。
 - `App` に `HistoryManager` フィールドを追加し、バッファ切替時に `HistoryStack` を同期。
 - `App` の編集系コマンドは `history.begin_command` / `end_command` でラップし、`HistoryRecorder` が `ChangeEvent` を受け取れるよう `TextEditor::add_change_listener` を利用。
 

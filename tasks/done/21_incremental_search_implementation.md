@@ -49,7 +49,7 @@ search/
 
 ### 検索エンジン実装
 ```rust
-// app/src/search/incremental.rs
+// src/search/incremental.rs
 
 use crate::error::Result;
 use crate::buffer::TextEditor;
@@ -241,7 +241,7 @@ pub enum SearchResult {
 
 ### 検索状態管理
 ```rust
-// app/src/search/state.rs
+// src/search/state.rs
 
 /// インクリメンタル検索状態
 #[derive(Debug, Clone)]
@@ -328,7 +328,7 @@ impl Default for SearchOptions {
 
 ### コマンド統合
 ```rust
-// app/src/search/commands.rs
+// src/search/commands.rs
 
 use crate::input::commands::{Command, CommandResult};
 use super::{IncrementalSearchEngine, SearchDirection, SearchResult};
@@ -485,7 +485,7 @@ impl SearchCommandProcessor {
 
 ### 単体テスト
 ```rust
-// app/src/search/tests.rs
+// src/search/tests.rs
 
 #[cfg(test)]
 mod tests {

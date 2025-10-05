@@ -40,11 +40,11 @@
    - カスタマイズ可能なスタイル
 
 ## 成果物
-- `app/src/ui/layout.rs` - レイアウト管理
-- `app/src/ui/text_area.rs` - テキストエリア描画
-- `app/src/ui/minibuffer_ui.rs` - ミニバッファ描画
-- `app/src/ui/theme.rs` - テーマシステム
-- `app/src/ui/renderer.rs` - 描画最適化
+- `src/ui/layout.rs` - レイアウト管理
+- `src/ui/text_area.rs` - テキストエリア描画
+- `src/ui/minibuffer_ui.rs` - ミニバッファ描画
+- `src/ui/theme.rs` - テーマシステム
+- `src/ui/renderer.rs` - 描画最適化
 - テストとベンチマーク
 
 ## 前提条件

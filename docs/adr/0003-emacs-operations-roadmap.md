@@ -69,14 +69,14 @@ altre は Emacs 互換の操作体系を目指しているが、現時点で実�
 ---
 
 ## Done タグ整合性確認（2025-09-27）
-- 基本カーソル移動 (`C-f`/`C-b`/`C-n`/`C-p`) → `app/src/input/keybinding.rs:438-441`、`manuals/user_guide.md:52-61`
-- インクリメンタル検索 (`C-s`/`C-r`) → `app/src/app.rs:190-214`、`app/src/search/mod.rs`、`manuals/user_guide.md:73-85`
-- ファイル操作 (`C-x C-f`/`C-x C-s`) → `app/src/input/keybinding.rs:461-464`、`app/src/input/commands.rs:243-258`
-- ミニバッファ (`M-x`/`M-:`) → `app/src/input/keybinding.rs:467-474`、`app/src/app.rs:274-320`
-- 終了 `C-x C-c` → `app/src/input/keybinding.rs:463`、`app/src/input/commands.rs:287-306`
-- 基本削除 (`Backspace`/`C-d`) → `app/src/input/keybinding.rs:456-458`
-- `C-a`/`C-e` → `app/src/input/keybinding.rs:442-443`
-- `M-<`/`M->` → `app/src/input/keybinding.rs:451-453`
+- 基本カーソル移動 (`C-f`/`C-b`/`C-n`/`C-p`) → `src/input/keybinding.rs:438-441`、`manuals/user_guide.md:52-61`
+- インクリメンタル検索 (`C-s`/`C-r`) → `src/app.rs:190-214`、`src/search/mod.rs`、`manuals/user_guide.md:73-85`
+- ファイル操作 (`C-x C-f`/`C-x C-s`) → `src/input/keybinding.rs:461-464`、`src/input/commands.rs:243-258`
+- ミニバッファ (`M-x`/`M-:`) → `src/input/keybinding.rs:467-474`、`src/app.rs:274-320`
+- 終了 `C-x C-c` → `src/input/keybinding.rs:463`、`src/input/commands.rs:287-306`
+- 基本削除 (`Backspace`/`C-d`) → `src/input/keybinding.rs:456-458`
+- `C-a`/`C-e` → `src/input/keybinding.rs:442-443`
+- `M-<`/`M->` → `src/input/keybinding.rs:451-453`
 
 ## Todo タグ整合性確認（2025-09-27）
 - 未実装: `M-f`/`M-b`, `M-d`/`M-Backspace`, スクロール系 (`C-l`, `C-v`, `M-v`, `C-x <`, `C-x >`), キルリング (`C-k`, `C-y`, `M-y`), `C-g`, リージョン操作, `C-x C-w`, `C-x s`, バッファ／ウィンドウ管理コマンド。
@@ -108,4 +108,4 @@ altre は Emacs 互換の操作体系を目指しているが、現時点で実�
 ## 参考
 - `tasks/todo/functions/*.md`
 - `manuals/user_guide.md`
-- `app/src/input/keybinding.rs`, `app/src/app.rs`, `app/src/input/commands.rs`
+- `src/input/keybinding.rs`, `src/app.rs`, `src/input/commands.rs`

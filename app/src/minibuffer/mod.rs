@@ -49,6 +49,10 @@ pub enum MinibufferMode {
     ErrorDisplay { message: String, expires_at: Instant },
     /// 情報メッセージ表示
     InfoDisplay { message: String, expires_at: Instant },
+    /// 置換パターン入力
+    QueryReplacePattern,
+    /// 置換後テキスト入力
+    QueryReplaceReplacement,
 }
 
 /// ミニバッファの状態
@@ -70,6 +74,8 @@ pub struct MinibufferState {
     pub history: history::SessionHistory,
     /// 履歴ナビゲーション位置
     pub history_index: Option<usize>,
+    /// 置換プロンプト状態
+    pub(crate) pending_replace: Option<ReplacePromptState>,
 }
 
 impl Default for MinibufferState {
@@ -83,6 +89,7 @@ impl Default for MinibufferState {
             selected_completion: None,
             history: history::SessionHistory::new(),
             history_index: None,
+            pending_replace: None,
         }
     }
 }
@@ -115,6 +122,12 @@ impl Default for MinibufferStyle {
             border_color: "dark_gray".to_string(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ReplacePromptState {
+    pattern: String,
+    is_regex: bool,
 }
 
 /// ミニバッファの入力イベント
@@ -165,6 +178,8 @@ pub enum MinibufferResult {
     EvalExpression(String),
     /// 保存用ファイルパス
     SaveFileAs(String),
+    /// クエリ置換入力完了
+    QueryReplace { pattern: String, replacement: String, is_regex: bool },
     /// キャンセル
     Cancel,
     /// 無効な操作
@@ -241,6 +256,7 @@ pub enum MinibufferAction {
     ExecuteCommand,
     EvalExpression,
     SaveFile,
+    QueryReplace { is_regex: bool, initial: Option<String> },
 }
 
 /// 新しいミニバッファコントローラー
@@ -340,6 +356,24 @@ impl ModernMinibuffer {
         self.update_completions();
     }
 
+    /// クエリ置換を開始
+    pub fn start_query_replace(&mut self, is_regex: bool, initial: Option<&str>) {
+        self.state.mode = MinibufferMode::QueryReplacePattern;
+        self.state.prompt = if is_regex {
+            "Regex query replace: ".to_string()
+        } else {
+            "Query replace: ".to_string()
+        };
+        let initial_text = initial.unwrap_or("");
+        self.state.input = initial_text.to_string();
+        self.state.cursor_pos = initial_text.chars().count();
+        self.state.pending_replace = Some(ReplacePromptState {
+            pattern: initial_text.to_string(),
+            is_regex,
+        });
+        self.update_completions();
+    }
+
     /// エラーメッセージを表示
     pub fn show_error(&mut self, message: String) {
         let expires_at = Instant::now() + Duration::from_secs(5); // QA.mdの回答
@@ -377,6 +411,7 @@ impl ModernMinibuffer {
         self.state.cursor_pos = 0;
         self.state.history_index = None;
         self.buffer_candidates.clear();
+        self.state.pending_replace = None;
     }
 
     /// 現在の状態を取得
@@ -411,6 +446,11 @@ impl ModernMinibuffer {
             }
             MinibufferAction::SaveFile => {
                 self.start_write_file(None);
+                MinibufferResult::Continue
+            }
+            MinibufferAction::QueryReplace { is_regex, initial } => {
+                let initial_ref = initial.as_ref().map(|s| s.as_str());
+                self.start_query_replace(is_regex, initial_ref);
                 MinibufferResult::Continue
             }
         }
@@ -763,6 +803,42 @@ impl ModernMinibuffer {
                     MinibufferResult::EvalExpression(input)
                 }
             }
+            MinibufferMode::QueryReplacePattern => {
+                if input.is_empty() {
+                    self.show_error("置換する文字列を入力してください".to_string());
+                    MinibufferResult::Continue
+                } else if let Some(state) = self.state.pending_replace.as_mut() {
+                    state.pattern = input.clone();
+                    self.state.mode = MinibufferMode::QueryReplaceReplacement;
+                    self.state.prompt = if state.is_regex {
+                        format!("Regex replace {} with: ", input)
+                    } else {
+                        format!("Replace {} with: ", input)
+                    };
+                    self.state.input.clear();
+                    self.state.cursor_pos = 0;
+                    MinibufferResult::Continue
+                } else {
+                    self.show_error("内部状態エラー".to_string());
+                    MinibufferResult::Continue
+                }
+            }
+            MinibufferMode::QueryReplaceReplacement => {
+                if let Some(state) = self.state.pending_replace.take() {
+                    let pattern = state.pattern;
+                    let is_regex = state.is_regex;
+                    let replacement_value = input.clone();
+                    self.deactivate();
+                    MinibufferResult::QueryReplace {
+                        pattern,
+                        replacement: replacement_value,
+                        is_regex,
+                    }
+                } else {
+                    self.show_error("内部状態エラー".to_string());
+                    MinibufferResult::Continue
+                }
+            }
             MinibufferMode::WriteFile => {
                 if input.is_empty() {
                     self.show_error("ファイル名を入力してください".to_string());
@@ -800,6 +876,23 @@ impl ModernMinibuffer {
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_replace_prefills_input() {
+        let mut minibuffer = ModernMinibuffer::new();
+        minibuffer.start_query_replace(false, Some("foo"));
+
+        let state = minibuffer.state();
+        assert!(matches!(state.mode, MinibufferMode::QueryReplacePattern));
+        assert_eq!(state.input, "foo");
+        assert_eq!(state.cursor_pos, 3);
+        assert!(matches!(state.pending_replace, Some(ReplacePromptState { is_regex: false, .. })));
     }
 }
 

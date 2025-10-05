@@ -149,6 +149,8 @@ pub enum Command {
     MoveBufferStart,
     MoveBufferEnd,
     EvalExpression,
+    QueryReplace,
+    RegexQueryReplace,
 
     // 未知のコマンド
     Unknown(String),
@@ -205,6 +207,8 @@ impl Command {
             "move-end-of-line" => Command::MoveLineEnd,
             "beginning-of-buffer" => Command::MoveBufferStart,
             "end-of-buffer" => Command::MoveBufferEnd,
+            "query-replace" => Command::QueryReplace,
+            "query-replace-regexp" => Command::RegexQueryReplace,
             _ => Command::Unknown(cmd.to_string()),
         }
     }
@@ -260,6 +264,8 @@ impl Command {
             Command::MoveLineEnd => "行末に移動",
             Command::MoveBufferStart => "バッファ先頭に移動",
             Command::MoveBufferEnd => "バッファ末尾に移動",
+            Command::QueryReplace => "クエリ置換を実行",
+            Command::RegexQueryReplace => "正規表現クエリ置換を実行",
             Command::Unknown(_) => "不明なコマンド",
         }
     }
@@ -437,7 +443,9 @@ impl CommandProcessor {
             | Command::KillRegion
             | Command::CopyRegion
             | Command::ExchangePointAndMark
-            | Command::MarkBuffer => {
+            | Command::MarkBuffer
+            | Command::QueryReplace
+            | Command::RegexQueryReplace => {
                 CommandResult::error("このコマンドはアプリ側で処理します".to_string())
             }
             Command::FindFile => self.execute_find_file(),

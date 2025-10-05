@@ -6,9 +6,9 @@ use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor
 use crate::error::{AltreError, Result, UiError, FileError};
 use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use crate::input::commands::{Command, CommandProcessor};
-use crate::minibuffer::{MinibufferSystem, SystemEvent, SystemResponse};
+use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
-use crate::search::{HighlightKind, SearchController, SearchDirection, SearchHighlight};
+use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight};
 use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -60,6 +60,26 @@ impl OpenBuffer {
     }
 }
 
+#[derive(Default)]
+struct ReplaceSession {
+    controller: QueryReplaceController,
+    highlights: Vec<SearchHighlight>,
+}
+
+impl ReplaceSession {
+    fn new() -> Self {
+        Self {
+            controller: QueryReplaceController::new(),
+            highlights: Vec::new(),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.controller = QueryReplaceController::new();
+        self.highlights.clear();
+    }
+}
+
 /// メインアプリケーション構造体
 ///
 /// 全てのコンポーネントを統合し、アプリケーションのライフサイクルを管理
@@ -80,6 +100,8 @@ pub struct App {
     command_processor: CommandProcessor,
     /// 検索コントローラ
     search: SearchController,
+    /// 置換セッション
+    replace: ReplaceSession,
     /// 現在のプレフィックスキー状態
     current_prefix: Option<String>,
     /// デバッグモード
@@ -131,6 +153,7 @@ impl App {
             keymap: ModernKeyMap::new(),
             command_processor: CommandProcessor::new(),
             search: SearchController::new(),
+            replace: ReplaceSession::new(),
             current_prefix: None,
             debug_mode: std::env::var("ALTRE_DEBUG").is_ok(),
             kill_ring: KillRing::new(),
@@ -533,6 +556,12 @@ impl App {
             return self.handle_minibuffer_key(key_event);
         }
 
+        if self.replace.controller.is_active() {
+            if self.handle_replace_key(key_event)? {
+                return Ok(());
+            }
+        }
+
         // 検索モードがアクティブな場合は専用処理
         if self.search.is_active() {
             self.handle_search_key(key_event);
@@ -664,6 +693,221 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn handle_replace_key(&mut self, key_event: KeyEvent) -> Result<bool> {
+        use KeyCode::*;
+        use KeyModifiers as KM;
+
+        if !self.replace.controller.is_active() {
+            return Ok(false);
+        }
+
+        match (key_event.code, key_event.modifiers) {
+            (Char('y'), KM::NONE) | (Char('Y'), KM::NONE) | (Char(' '), KM::NONE) => {
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.begin_history(HistoryCommandKind::Other);
+                match self.replace.controller.accept_current(&mut self.editor) {
+                    Ok(progress) => {
+                        self.end_history(true);
+                        self.after_replace_progress(progress);
+                    }
+                    Err(err) => {
+                        self.end_history(false);
+                        self.show_error_message(err);
+                    }
+                }
+                Ok(true)
+            }
+            (Char('n'), KM::NONE) | (Char('N'), KM::NONE) => {
+                let progress = self.replace.controller.skip_current();
+                self.after_replace_progress(progress);
+                Ok(true)
+            }
+            (Delete, _) | (Backspace, _) => {
+                let progress = self.replace.controller.skip_current();
+                self.after_replace_progress(progress);
+                Ok(true)
+            }
+            (Char('!'), KM::NONE) => {
+                self.reset_kill_context();
+                self.reset_recenter_cycle();
+                self.begin_history(HistoryCommandKind::Other);
+                match self.replace.controller.accept_all(&mut self.editor) {
+                    Ok(progress) => {
+                        self.end_history(true);
+                        self.after_replace_progress(progress);
+                    }
+                    Err(err) => {
+                        self.end_history(false);
+                        self.show_error_message(err);
+                    }
+                }
+                Ok(true)
+            }
+            (Enter, KM::NONE) | (Char('q'), KM::NONE) | (Char('Q'), KM::NONE) => {
+                let summary = self.replace.controller.finish();
+                self.finish_replace_session(summary);
+                Ok(true)
+            }
+            (Char('g'), modifiers) if modifiers.contains(KM::CONTROL) => {
+                self.begin_history(HistoryCommandKind::Other);
+                match self.replace.controller.cancel(&mut self.editor) {
+                    Ok(summary) => {
+                        self.end_history(true);
+                        self.finish_replace_session(summary);
+                    }
+                    Err(err) => {
+                        self.end_history(false);
+                        self.show_error_message(err);
+                    }
+                }
+                Ok(true)
+            }
+            _ => {
+                self.show_info_message("yで置換、nでスキップ、!で残りを置換、qで終了、C-gでキャンセル");
+                Ok(true)
+            }
+        }
+    }
+
+    fn start_query_replace_session(&mut self, pattern: String, replacement: String, use_regex: bool) -> Result<()> {
+        if pattern.is_empty() {
+            self.show_error_message(AltreError::Application("置換パターンが空です".to_string()));
+            return Ok(());
+        }
+
+        if self.replace.controller.is_active() {
+            let summary = self.replace.controller.finish();
+            self.finish_replace_session(summary);
+        }
+
+        if self.search.is_active() {
+            self.search.cancel(&mut self.editor);
+        }
+
+        let case_sensitive = pattern.chars().any(|c| c.is_uppercase());
+        let snapshot = self.editor.to_string();
+
+        let start = if use_regex {
+            match self
+                .replace
+                .controller
+                .start_regex(&snapshot, pattern.clone(), replacement.clone(), case_sensitive)
+            {
+                Ok(info) => info,
+                Err(err) => {
+                    self.show_error_message(AltreError::Application(format!(
+                        "正規表現エラー: {}",
+                        err
+                    )));
+                    self.replace.reset();
+                    return Ok(());
+                }
+            }
+        } else {
+            self.replace
+                .controller
+                .start_literal(&snapshot, pattern.clone(), replacement.clone(), case_sensitive)
+        };
+
+        if start.total_matches == 0 || !self.replace.controller.is_active() {
+            self.replace.highlights.clear();
+            self.show_info_message("置換対象が見つかりません");
+            return Ok(());
+        }
+
+        if let Some((start_pos, _)) = self.replace.controller.current_range() {
+            let _ = self.editor.move_cursor_to_char(start_pos);
+        }
+
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.update_replace_view();
+        Ok(())
+    }
+
+    fn after_replace_progress(&mut self, progress: ReplaceProgress) {
+        if !self.replace.controller.is_active() || progress.finished {
+            let summary = self.replace.controller.finish();
+            self.finish_replace_session(summary);
+        } else {
+            self.update_replace_view();
+        }
+    }
+
+    fn update_replace_view(&mut self) {
+        if !self.replace.controller.is_active() {
+            self.replace.highlights.clear();
+            return;
+        }
+
+        let snapshot = self.editor.to_string();
+        self.replace.highlights = self.replace.controller.highlights(&snapshot);
+        if let Some((start_pos, _)) = self.replace.controller.current_range() {
+            let _ = self.editor.move_cursor_to_char(start_pos);
+        }
+        if let Some(message) = self.replace_prompt_message(&snapshot) {
+            self.show_info_message(message);
+        }
+        self.ensure_cursor_visible();
+    }
+
+    fn replace_prompt_message(&self, snapshot: &str) -> Option<String> {
+        let (original, replacement, index, total) = self.replace.controller.current_preview(snapshot)?;
+        let label = if self.replace.controller.is_regex() {
+            "Regex replace"
+        } else {
+            "Query replace"
+        };
+        Some(format!(
+            "{} {}/{}: \"{}\" → \"{}\" (y=Yes, n=No, !=All, q=Quit)",
+            label,
+            index,
+            total,
+            Self::preview_fragment(&original),
+            Self::preview_fragment(&replacement)
+        ))
+    }
+
+    fn finish_replace_session(&mut self, summary: ReplaceSummary) {
+        self.replace.reset();
+        if summary.cancelled {
+            self.show_info_message(format!(
+                "置換をキャンセルしました（置換 {} 件、スキップ {} 件）",
+                summary.replaced, summary.skipped
+            ));
+        } else {
+            self.show_info_message(format!(
+                "置換完了: {} 件置換、{} 件スキップ",
+                summary.replaced, summary.skipped
+            ));
+        }
+        self.ensure_cursor_visible();
+    }
+
+    fn preview_fragment(input: &str) -> String {
+        const MAX_LEN: usize = 24;
+
+        if input.is_empty() {
+            return "<empty>".to_string();
+        }
+
+        let mut result = String::new();
+        for (idx, ch) in input.chars().enumerate() {
+            if idx >= MAX_LEN {
+                result.push('…');
+                break;
+            }
+            let display = match ch {
+                '\n' => '↵',
+                '\t' => '⇥',
+                _ => ch,
+            };
+            result.push(display);
+        }
+        result
     }
 
     fn handle_action(&mut self, action: Action) -> Result<()> {
@@ -962,6 +1206,12 @@ impl App {
             Command::EvalExpression => {
                 self.start_eval_expression_prompt()
             }
+            Command::QueryReplace => {
+                self.start_query_replace_prompt(false)
+            }
+            Command::RegexQueryReplace => {
+                self.start_query_replace_prompt(true)
+            }
             Command::MoveLineStart => {
                 self.navigate(NavigationAction::MoveLineStart);
                 Ok(())
@@ -1243,11 +1493,28 @@ impl App {
     fn keyboard_quit(&mut self) {
         self.reset_kill_context();
         self.reset_recenter_cycle();
+        let mut replaced_session = false;
+        if self.replace.controller.is_active() {
+            self.begin_history(HistoryCommandKind::Other);
+            match self.replace.controller.cancel(&mut self.editor) {
+                Ok(summary) => {
+                    self.end_history(true);
+                    self.finish_replace_session(summary);
+                    replaced_session = true;
+                }
+                Err(err) => {
+                    self.end_history(false);
+                    self.show_error_message(err);
+                }
+            }
+        }
         if self.search.is_active() {
             self.search.cancel(&mut self.editor);
         }
         self.editor.clear_mark();
-        self.show_info_message("キャンセルしました");
+        if !replaced_session {
+            self.show_info_message("キャンセルしました");
+        }
         self.ensure_cursor_visible();
     }
 
@@ -1538,6 +1805,46 @@ impl App {
         }
     }
 
+    fn start_query_replace_prompt(&mut self, is_regex: bool) -> Result<()> {
+        let mut initial_pattern: Option<String> = None;
+
+        if self.search.is_active() {
+            if let Some(pattern) = self.search.current_pattern() {
+                if !pattern.is_empty() {
+                    initial_pattern = Some(pattern.to_string());
+                }
+            }
+            self.search.accept();
+        } else if let Some(pattern) = self.search.last_pattern() {
+            if !pattern.is_empty() {
+                initial_pattern = Some(pattern.to_string());
+            }
+        }
+
+        if initial_pattern.is_none() {
+            if let Ok(Some(selection)) = self.editor.selection_text() {
+                if !selection.is_empty() {
+                    initial_pattern = Some(selection);
+                }
+            }
+        }
+
+        let action = MinibufferAction::QueryReplace {
+            is_regex,
+            initial: initial_pattern,
+        };
+
+        match self.minibuffer.handle_event(SystemEvent::Action(action)) {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
     fn start_save_as_prompt(&mut self, suggested_name: &str) -> Result<()> {
         let initial_path = env::current_dir()
             .map(|dir| dir.join(suggested_name))
@@ -1640,6 +1947,10 @@ impl App {
                 self.show_buffer_list();
                 Ok(())
             }
+            Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }) => {
+                self.start_query_replace_session(pattern, replacement, is_regex)?;
+                Ok(())
+            }
             Ok(SystemResponse::Quit) => {
                 self.shutdown();
                 Ok(())
@@ -1704,9 +2015,13 @@ impl App {
     fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
         let search_ui = self.search.ui_state();
         let search_highlights = self.search.highlights();
+        let replace_highlights = &self.replace.highlights;
         let selection_highlights = self.selection_highlights();
-        let mut combined_highlights = Vec::with_capacity(search_highlights.len() + selection_highlights.len());
+        let mut combined_highlights = Vec::with_capacity(
+            search_highlights.len() + replace_highlights.len() + selection_highlights.len(),
+        );
         combined_highlights.extend_from_slice(search_highlights);
+        combined_highlights.extend_from_slice(replace_highlights);
         combined_highlights.extend(selection_highlights.into_iter());
 
         let (file_label_buf, is_modified) = if let Some(buffer) = self.current_buffer() {

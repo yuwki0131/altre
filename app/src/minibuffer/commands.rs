@@ -233,6 +233,22 @@ impl CommandProcessor {
         });
 
         self.register_command(CommandDefinition {
+            name: "query-replace".to_string(),
+            description: "文字列を逐次置換".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("M-%".to_string()),
+            args_description: Some("from to".to_string()),
+        });
+
+        self.register_command(CommandDefinition {
+            name: "query-replace-regexp".to_string(),
+            description: "正規表現による逐次置換".to_string(),
+            can_execute: |_| true,
+            keybinding: Some("C-M-%".to_string()),
+            args_description: Some("pattern replacement".to_string()),
+        });
+
+        self.register_command(CommandDefinition {
             name: "kill-buffer".to_string(),
             description: "バッファを削除".to_string(),
             can_execute: |ctx| ctx.current_buffer_id.is_some(),

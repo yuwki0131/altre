@@ -162,6 +162,20 @@ impl Key {
         }
     }
 
+    pub fn alt_percent() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('%'),
+        }
+    }
+
+    pub fn ctrl_alt_percent() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: true, alt: true, shift: false },
+            code: KeyCode::Char('%'),
+        }
+    }
+
     pub fn arrow_up() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
@@ -391,6 +405,10 @@ pub enum Action {
     ExecuteCommand,
     /// alisp評価
     EvalExpression,
+    /// クエリ置換
+    QueryReplace,
+    /// 正規表現クエリ置換
+    RegexQueryReplace,
 }
 
 impl Action {
@@ -445,6 +463,8 @@ impl Action {
             Action::Quit => Some(Command::SaveBuffersKillTerminal),
             Action::ExecuteCommand => Some(Command::ExecuteCommand),
             Action::EvalExpression => Some(Command::EvalExpression),
+            Action::QueryReplace => Some(Command::QueryReplace),
+            Action::RegexQueryReplace => Some(Command::RegexQueryReplace),
         }
     }
 }
@@ -805,6 +825,8 @@ impl ModernKeyMap {
 
         // コマンド実行
         single.insert(Key::alt_x(), Action::ExecuteCommand);
+        single.insert(Key::alt_percent(), Action::QueryReplace);
+        single.insert(Key::ctrl_alt_percent(), Action::RegexQueryReplace);
         single.insert(
             Key {
                 modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },

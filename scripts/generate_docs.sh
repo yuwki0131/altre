@@ -2,10 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-APP_DIR="$REPO_ROOT/app"
-
-cd "$APP_DIR"
+cd "$REPO_ROOT"
 
 cargo doc --no-deps "$@"
 
-echo "Documentation generated at $APP_DIR/target/doc/altre/index.html"
+echo "Documentation generated at $REPO_ROOT/target/doc/altre/index.html"

@@ -1,7 +1,5 @@
 # Rust関連
 # Cargoビルド成果物
-/app/target/
-app/target/
 **/target/
 
 # Cargo.lockファイル（バイナリクレートの場合は含める、ライブラリの場合は除外）

@@ -48,7 +48,7 @@ pub enum MinibufferMode {
     /// エラーメッセージ表示
     ErrorDisplay { message: String, expires_at: Instant },
     /// 情報メッセージ表示
-    InfoDisplay { message: String, expires_at: Instant },
+    InfoDisplay { message: String, expires_at: Option<Instant> },
     /// 置換パターン入力
     QueryReplacePattern,
     /// 置換後テキスト入力
@@ -76,6 +76,8 @@ pub struct MinibufferState {
     pub history_index: Option<usize>,
     /// 置換プロンプト状態
     pub(crate) pending_replace: Option<ReplacePromptState>,
+    /// ステータスメッセージ
+    pub status_message: Option<String>,
 }
 
 impl Default for MinibufferState {
@@ -90,6 +92,7 @@ impl Default for MinibufferState {
             history: history::SessionHistory::new(),
             history_index: None,
             pending_replace: None,
+            status_message: None,
         }
     }
 }
@@ -371,6 +374,7 @@ impl ModernMinibuffer {
             pattern: initial_text.to_string(),
             is_regex,
         });
+        self.state.status_message = None;
         self.update_completions();
     }
 
@@ -382,7 +386,12 @@ impl ModernMinibuffer {
 
     /// 情報メッセージを表示
     pub fn show_info(&mut self, message: String) {
-        let expires_at = Instant::now() + Duration::from_secs(3);
+        self.show_info_with_duration(message, Some(Duration::from_secs(3)));
+    }
+
+    /// 情報メッセージを表示（任意の表示時間）
+    pub fn show_info_with_duration(&mut self, message: String, duration: Option<Duration>) {
+        let expires_at = duration.map(|d| Instant::now() + d);
         self.state.mode = MinibufferMode::InfoDisplay { message, expires_at };
     }
 
@@ -412,6 +421,7 @@ impl ModernMinibuffer {
         self.state.history_index = None;
         self.buffer_candidates.clear();
         self.state.pending_replace = None;
+        self.state.status_message = None;
     }
 
     /// 現在の状態を取得
@@ -868,14 +878,24 @@ impl ModernMinibuffer {
         let now = Instant::now();
 
         match &self.state.mode {
-            MinibufferMode::ErrorDisplay { expires_at, .. } |
-            MinibufferMode::InfoDisplay { expires_at, .. } => {
+            MinibufferMode::ErrorDisplay { expires_at, .. } => {
                 if now >= *expires_at {
                     self.deactivate();
                 }
             }
+            MinibufferMode::InfoDisplay { expires_at, .. } => {
+                if let Some(expiry) = expires_at {
+                    if now >= *expiry {
+                        self.deactivate();
+                    }
+                }
+            }
             _ => {}
         }
+    }
+
+    pub(crate) fn set_status_message(&mut self, message: Option<String>) {
+        self.state.status_message = message;
     }
 }
 

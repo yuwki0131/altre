@@ -113,7 +113,8 @@ impl MinibufferRenderer {
     /// 入力モードを描画
     fn render_input_mode(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
         // ミニバッファ用の領域を計算
-        let minibuffer_height = 1 + if self.config.show_border { 2 } else { 0 };
+        let inner_lines = 1 + if state.status_message.is_some() { 1 } else { 0 };
+        let minibuffer_height = inner_lines as u16 + if self.config.show_border { 2 } else { 0 };
         let completion_height = self.calculate_completion_height(state);
 
         let total_height = minibuffer_height + completion_height;
@@ -144,12 +145,19 @@ impl MinibufferRenderer {
 
     /// ミニバッファの入力部分を描画
     fn render_minibuffer_input(&self, frame: &mut Frame<'_>, area: Rect, state: &MinibufferState) {
-        // プロンプトと入力を結合
-        let prompt_text = format!("{}{}", state.prompt, state.input);
         let cursor_offset = state.prompt.chars().count() + state.cursor_pos;
 
-        let paragraph = Paragraph::new(prompt_text)
-            .style(self.config.input_style);
+        let mut lines = Vec::new();
+        lines.push(Line::from(vec![
+            Span::styled(state.prompt.clone(), self.config.prompt_style),
+            Span::styled(state.input.clone(), self.config.input_style),
+        ]));
+
+        if let Some(status) = &state.status_message {
+            lines.push(Line::styled(status.clone(), self.config.info_style));
+        }
+
+        let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
 
         let block = if self.config.show_border {
             Block::default()

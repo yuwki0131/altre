@@ -387,6 +387,22 @@ impl MinibufferSystem {
         Ok(SystemResponse::Continue)
     }
 
+    /// 情報メッセージを任意の時間表示
+    pub fn show_info_with_duration(
+        &mut self,
+        message: impl Into<String>,
+        duration: Option<Duration>,
+    ) -> Result<SystemResponse> {
+        self.minibuffer
+            .show_info_with_duration(message.into(), duration);
+        Ok(SystemResponse::Continue)
+    }
+
+    /// ステータスメッセージを設定
+    pub fn set_status_message(&mut self, message: Option<String>) {
+        self.minibuffer.set_status_message(message);
+    }
+
     /// ミニバッファを非アクティブ化
     pub fn deactivate(&mut self) {
         self.minibuffer.deactivate();

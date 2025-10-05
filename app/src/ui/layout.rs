@@ -152,27 +152,20 @@ impl LayoutManager {
             return areas;
         }
 
+        let minibuffer_height = if minibuffer_active { 1 } else { 1 };
+
         let mut constraints = Vec::new();
         let mut area_order = Vec::new();
 
-        // レイアウト順序：ミニバッファ（上部）→テキストエリア→ステータスライン
-
-        // ミニバッファは常時1行分を確保してレイアウトの揺れを防ぐ
-        let minibuffer_height = if minibuffer_active {
-            1
-        } else {
-            1
-        };
+        // ミニバッファを上部に固定
         constraints.push(Constraint::Length(minibuffer_height));
         area_order.push(AreaType::Minibuffer);
 
-        // TODO: 補完候補表示などで行数拡張が必要になった場合は上記高さを調整する
-
-        // メインのテキストエリア（中央）
+        // テキストエリアは残り全部
         constraints.push(Constraint::Min(1));
         area_order.push(AreaType::TextArea);
 
-        // ステータスライン（下部、表示する場合）
+        // ステータスラインが有効なら最後に追加
         if show_status_line {
             constraints.push(Constraint::Length(1));
             area_order.push(AreaType::StatusLine);
@@ -183,10 +176,9 @@ impl LayoutManager {
             .constraints(constraints)
             .split(area);
 
-        // 計算された領域をHashMapに格納
-        for (i, area_type) in area_order.iter().enumerate() {
-            if i < chunks.len() {
-                areas.insert(area_type.clone(), chunks[i]);
+        for (index, area_type) in area_order.iter().enumerate() {
+            if let Some(chunk) = chunks.get(index) {
+                areas.insert(area_type.clone(), *chunk);
             }
         }
 

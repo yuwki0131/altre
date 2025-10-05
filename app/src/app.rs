@@ -840,6 +840,7 @@ impl App {
     fn update_replace_view(&mut self) {
         if !self.replace.controller.is_active() {
             self.replace.highlights.clear();
+            self.minibuffer.set_status_message(None);
             return;
         }
 
@@ -848,9 +849,8 @@ impl App {
         if let Some((start_pos, _)) = self.replace.controller.current_range() {
             let _ = self.editor.move_cursor_to_char(start_pos);
         }
-        if let Some(message) = self.replace_prompt_message(&snapshot) {
-            self.show_info_message(message);
-        }
+        self.minibuffer
+            .set_status_message(self.replace_prompt_message(&snapshot));
         self.ensure_cursor_visible();
     }
 
@@ -873,6 +873,7 @@ impl App {
 
     fn finish_replace_session(&mut self, summary: ReplaceSummary) {
         self.replace.reset();
+        self.minibuffer.set_status_message(None);
         if summary.cancelled {
             self.show_info_message(format!(
                 "置換をキャンセルしました（置換 {} 件、スキップ {} 件）",
@@ -2153,6 +2154,7 @@ impl App {
             format!("{}-{}", parts.join("-"), key_name)
         }
     }
+
 }
 
 impl Default for App {

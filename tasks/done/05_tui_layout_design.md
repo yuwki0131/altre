@@ -44,10 +44,13 @@ ratatuiを使用したTUIの画面レイアウトとコンポーネント設計�
 - 日本語文字幅対応の必要性
 
 ## 完了条件
-- [x] 画面レイアウト仕様の確定
-- [x] ratatui コンポーネント設計の完成
-- [x] 色彩設計の策定
-- [x] 描画パフォーマンス要件の設定
+- [x] 画面レイアウト仕様の確定（`docs/design/tui_layout.md:1` にレイアウト仕様を記録）
+- [x] ratatui コンポーネント設計の完成（`app/src/ui/layout.rs:1` と `app/src/ui/renderer.rs:1` を構成）
+- [x] 色彩設計の策定（`app/src/ui/theme.rs:1` でテーマ設定を定義）
+- [x] 描画パフォーマンス要件の設定（`docs/design/performance_tests_spec.md:11` に応答時間目標を明記）
+
+## ステータス
+- `app/tests/window_management_tests.rs:1` にて複数ウィンドウ描画の回帰テストを運用中。さらなる UI 改良は `tasks/done/20_search_replace_ui_ux_design.md` を参照。
 
 ## 見積もり
 **期間**: 2-3日

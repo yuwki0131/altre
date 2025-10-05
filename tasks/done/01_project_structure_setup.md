@@ -58,11 +58,14 @@ MVPで必要なRustプロジェクトの基本構造とモジュール配置を�
 - 既存のCargo.tomlと依存関係の確認
 
 ## 完了条件
-- [ ] ディレクトリ構造の作成
-- [ ] 各モジュールのスケルトン実装
-- [ ] `cargo build` の成功
-- [ ] `cargo test` の成功
-- [ ] `cargo clippy` の警告ゼロ
+- [x] ディレクトリ構造の作成（`app/src/` 配下にモジュールを配置済み、`app/src/buffer/` などを整備）
+- [x] 各モジュールのスケルトン実装（`app/src/lib.rs:1` で再エクスポート、サブモジュール群を初期化）
+- [x] `cargo build` の成功（`DEBUG.md:20` にビルド手順を記録、直近の `cargo build --offline` 成功ログを確認）
+- [x] `cargo test` の成功（`tasks/done/15_minibuffer_test_suite.md` などテスト整備タスクで継続的に実施）
+- [x] `cargo clippy` の警告ゼロ（`tasks/done/13_code_integration_and_cleanup.md` の最終確認でクリア）
+
+## ステータス
+- プロジェクト構造は `README.md:61` 記載のとおり運用中。追加モジュールは `alisp/` などの将来フェーズで拡張する。
 
 ## 見積もり
 **期間**: 1-2日

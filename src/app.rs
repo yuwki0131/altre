@@ -9,7 +9,7 @@ use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight};
-use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
+use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind, edit_utils};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
@@ -19,6 +19,8 @@ use std::env;
 use std::io::stdout;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+const DEFAULT_TAB_WIDTH: usize = 4;
 
 /// デバッグ出力マクロ
 macro_rules! debug_log {
@@ -243,6 +245,65 @@ impl App {
     pub fn move_cursor_to_start(&mut self) -> Result<()> {
         let start_position = CursorPosition::new();
         self.editor.set_cursor(start_position);
+        Ok(())
+    }
+
+    /// 次の単語末尾へ移動（M-f相当、テスト支援用）
+    pub fn move_word_forward(&mut self) -> Result<bool> {
+        self.editor
+            .navigate(NavigationAction::MoveWordForward)
+            .map_err(|err| err.into())
+    }
+
+    /// 前の単語先頭へ移動（M-b相当、テスト支援用）
+    pub fn move_word_backward(&mut self) -> Result<bool> {
+        self.editor
+            .navigate(NavigationAction::MoveWordBackward)
+            .map_err(|err| err.into())
+    }
+
+    fn total_line_count(&self) -> usize {
+        let text = self.editor.to_string();
+        if text.is_empty() {
+            1
+        } else {
+            text.chars().filter(|&c| c == '\n').count() + 1
+        }
+    }
+
+    pub fn goto_line(&mut self, line: usize) -> Result<()> {
+        if line == 0 {
+            return Err(AltreError::Application(
+                "行番号は1以上を指定してください".to_string(),
+            ));
+        }
+
+        let target_index = line.saturating_sub(1);
+        let text = self.editor.to_string();
+        let chars: Vec<char> = text.chars().collect();
+
+        let mut char_pos = chars.len();
+
+        if target_index == 0 {
+            char_pos = 0;
+        } else {
+            let mut current_line = 0usize;
+            for (idx, ch) in chars.iter().enumerate() {
+                if *ch == '\n' {
+                    current_line += 1;
+                    if current_line == target_index {
+                        char_pos = idx + 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.editor.move_cursor_to_char(char_pos)?;
+        self.ensure_cursor_visible();
+        self.show_info_message(format!("{} 行目へ移動", line));
         Ok(())
     }
 
@@ -936,6 +997,18 @@ impl App {
                 self.navigate(NavigationAction::MoveCharBackward);
                 Ok(())
             }
+            Command::GotoLine => {
+                self.start_goto_line_prompt()?;
+                Ok(())
+            }
+            Command::ForwardWord => {
+                self.navigate(NavigationAction::MoveWordForward);
+                Ok(())
+            }
+            Command::BackwardWord => {
+                self.navigate(NavigationAction::MoveWordBackward);
+                Ok(())
+            }
             Command::NextLine => {
                 self.navigate(NavigationAction::MoveLineDown);
                 Ok(())
@@ -994,6 +1067,18 @@ impl App {
                 self.reset_kill_context();
                 self.reset_recenter_cycle();
                 self.ensure_cursor_visible();
+                Ok(())
+            }
+            Command::IndentForTab => {
+                self.indent_for_tab();
+                Ok(())
+            }
+            Command::NewlineAndIndent => {
+                self.newline_and_indent();
+                Ok(())
+            }
+            Command::OpenLine => {
+                self.open_line();
                 Ok(())
             }
             Command::KillWordForward => {
@@ -1261,6 +1346,98 @@ impl App {
 
         self.kill_context = KillContext::Kill;
         self.last_yank_range = None;
+    }
+
+    fn indent_for_tab(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let insertion = self.tab_insertion_string();
+        let result = self.editor.insert_str(&insertion);
+        let success = result.is_ok();
+
+        if let Err(err) = result {
+            self.show_error_message(err);
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn newline_and_indent(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let indent = self.current_line_indent();
+        let mut success = false;
+
+        match self.editor.insert_newline() {
+            Ok(()) => {
+                let result = if indent.is_empty() {
+                    Ok(())
+                } else {
+                    self.editor.insert_str(&indent)
+                };
+
+                if let Err(err) = result {
+                    self.show_error_message(err);
+                } else {
+                    success = true;
+                }
+            }
+            Err(err) => {
+                self.show_error_message(err);
+            }
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn open_line(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let cursor_before = *self.editor.cursor();
+        let mut success = false;
+
+        match self.editor.insert_newline() {
+            Ok(()) => {
+                self.editor.set_cursor(cursor_before);
+                success = true;
+            }
+            Err(err) => {
+                self.show_error_message(err);
+            }
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn current_line_indent(&self) -> String {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+
+        let line_content = if cursor.line < lines.len() {
+            lines[cursor.line]
+        } else {
+            lines.last().copied().unwrap_or("")
+        };
+
+        line_content
+            .chars()
+            .take_while(|ch| matches!(ch, ' ' | '\t'))
+            .collect()
+    }
+
+    fn tab_insertion_string(&self) -> String {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
+        let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+        " ".repeat(spaces)
     }
 
     fn kill_word_forward(&mut self) {
@@ -1867,6 +2044,24 @@ impl App {
         }
     }
 
+    fn start_goto_line_prompt(&mut self) -> Result<()> {
+        let current_line = self.editor.cursor().line + 1;
+        let total_lines = self.total_line_count();
+
+        match self
+            .minibuffer
+            .start_goto_line(current_line, total_lines)
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
     fn handle_minibuffer_key(&mut self, key_event: KeyEvent) -> Result<()> {
         let key: Key = key_event.into();
 
@@ -1915,8 +2110,12 @@ impl App {
                 Ok(())
             }
             Ok(SystemResponse::ExecuteCommand(cmd)) => {
-                self.show_info_message(format!("コマンド実行: {}", cmd));
-                Ok(())
+                if cmd == "goto-line" {
+                    self.start_goto_line_prompt()
+                } else {
+                    self.show_info_message(format!("コマンド実行: {}", cmd));
+                    Ok(())
+                }
             }
             Ok(SystemResponse::SwitchBuffer(name)) => {
                 let target = if name.trim().is_empty() {
@@ -1946,6 +2145,12 @@ impl App {
             }
             Ok(SystemResponse::ListBuffers) => {
                 self.show_buffer_list();
+                Ok(())
+            }
+            Ok(SystemResponse::GotoLine(line)) => {
+                if let Err(err) = self.goto_line(line) {
+                    self.show_error_message(err);
+                }
                 Ok(())
             }
             Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }) => {

@@ -134,6 +134,13 @@ impl Key {
         }
     }
 
+    pub fn alt_g() -> Self {
+        Self {
+            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            code: KeyCode::Char('g'),
+        }
+    }
+
     pub fn alt_d() -> Self {
         Self {
             modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
@@ -301,6 +308,12 @@ impl Key {
             && matches!(self.code, KeyCode::Char('x'))
     }
 
+    /// M-gキーかどうかを判定
+    pub fn is_alt_g(&self) -> bool {
+        !self.modifiers.ctrl && self.modifiers.alt && !self.modifiers.shift
+            && matches!(self.code, KeyCode::Char('g'))
+    }
+
     /// 挿入可能な文字かどうかを判定
     pub fn is_insertable_char(&self) -> bool {
         matches!(self.code, KeyCode::Char(_))
@@ -352,6 +365,14 @@ pub enum Action {
     KillWord(KillDirection),
     /// 改行
     InsertNewline,
+    /// タブ幅に沿ったインデント
+    IndentForTab,
+    /// 改行＋インデント
+    NewlineAndIndent,
+    /// 空行挿入（オープンライン）
+    OpenLine,
+    /// 指定行へ移動
+    GotoLine,
     /// 行キル
     KillLine,
     /// マーク設定
@@ -432,6 +453,10 @@ impl Action {
             Action::KillWord(KillDirection::Forward) => Some(Command::KillWordForward),
             Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
+            Action::IndentForTab => Some(Command::IndentForTab),
+            Action::NewlineAndIndent => Some(Command::NewlineAndIndent),
+            Action::OpenLine => Some(Command::OpenLine),
+            Action::GotoLine => Some(Command::GotoLine),
             Action::KillLine => Some(Command::KillLine),
             Action::SetMark => Some(Command::SetMark),
             Action::KillRegion => Some(Command::KillRegion),
@@ -634,12 +659,18 @@ impl ModernKeyMap {
     pub fn new() -> Self {
         let mut single_key_bindings = HashMap::with_capacity(32);
         let mut cx_prefix_bindings = HashMap::with_capacity(8);
+        let mut mg_prefix_bindings = HashMap::with_capacity(8);
 
-        Self::register_mvp_bindings(&mut single_key_bindings, &mut cx_prefix_bindings);
+        Self::register_mvp_bindings(
+            &mut single_key_bindings,
+            &mut cx_prefix_bindings,
+            &mut mg_prefix_bindings,
+        );
 
         Self {
             single_key_bindings,
             cx_prefix_bindings,
+            mg_prefix_bindings,
             partial_match_state: PartialMatchState::None,
         }
     }
@@ -648,6 +679,7 @@ impl ModernKeyMap {
     fn register_mvp_bindings(
         single: &mut HashMap<Key, Action>,
         cx_prefix: &mut HashMap<Key, Action>,
+        mg_prefix: &mut HashMap<Key, Action>,
     ) {
         // 移動系
         single.insert(Key::ctrl_n(), Action::Navigate(NavigationAction::MoveLineDown));
@@ -686,6 +718,34 @@ impl ModernKeyMap {
         single.insert(Key::alt_y(), Action::YankPop);
         single.insert(Key::ctrl_g(), Action::KeyboardQuit);
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Tab,
+            },
+            Action::IndentForTab,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('j'),
+            },
+            Action::NewlineAndIndent,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('o'),
+            },
+            Action::OpenLine,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('i'),
+            },
+            Action::IndentForTab,
+        );
         single.insert(
             Key {
                 modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -823,6 +883,16 @@ impl ModernKeyMap {
             Action::MarkBuffer,
         );
 
+        // M-gプレフィックス
+        mg_prefix.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Char('g'),
+            },
+            Action::GotoLine,
+        );
+        mg_prefix.insert(Key::alt_g(), Action::GotoLine);
+
         // コマンド実行
         single.insert(Key::alt_x(), Action::ExecuteCommand);
         single.insert(Key::alt_percent(), Action::QueryReplace);
@@ -852,6 +922,7 @@ impl ModernKeyMap {
         match self.partial_match_state {
             PartialMatchState::None => self.process_initial_key(key),
             PartialMatchState::CxPrefix => self.process_cx_prefix_key(key),
+            PartialMatchState::MgPrefix => self.process_mg_prefix_key(key),
         }
     }
 
@@ -859,6 +930,12 @@ impl ModernKeyMap {
         // C-x の場合は部分マッチ状態に移行
         if key.is_ctrl_x() {
             self.partial_match_state = PartialMatchState::CxPrefix;
+            return KeyProcessResult::PartialMatch;
+        }
+
+        // M-g の場合は部分マッチ状態に移行
+        if key.is_alt_g() {
+            self.partial_match_state = PartialMatchState::MgPrefix;
             return KeyProcessResult::PartialMatch;
         }
 
@@ -872,9 +949,9 @@ impl ModernKeyMap {
             return KeyProcessResult::Action(Action::InsertChar(key.to_char()));
         }
 
-        // Tabは文字挿入として扱う
-        if matches!(key.code, KeyCode::Tab) && !key.modifiers.ctrl && !key.modifiers.alt {
-            return KeyProcessResult::Action(Action::InsertChar('\t'));
+        // Tabはインデントコマンドとして扱う
+        if matches!(key.code, KeyCode::Tab) && !key.modifiers.alt {
+            return KeyProcessResult::Action(Action::IndentForTab);
         }
 
         // マッチしない場合はサイレント無視
@@ -895,6 +972,20 @@ impl ModernKeyMap {
         }
 
         // マッチしない場合はサイレント無視
+        KeyProcessResult::NoMatch
+    }
+
+    fn process_mg_prefix_key(&mut self, key: Key) -> KeyProcessResult {
+        self.partial_match_state = PartialMatchState::None;
+
+        if key == Key::ctrl_g() {
+            return KeyProcessResult::Action(Action::KeyboardQuit);
+        }
+
+        if let Some(action) = self.mg_prefix_bindings.get(&key) {
+            return KeyProcessResult::Action(action.clone());
+        }
+
         KeyProcessResult::NoMatch
     }
 
@@ -945,6 +1036,7 @@ impl ModernKeyMap {
     pub fn current_prefix_label(&self) -> Option<&'static str> {
         match self.partial_match_state {
             PartialMatchState::CxPrefix => Some("C-x"),
+            PartialMatchState::MgPrefix => Some("M-g"),
             PartialMatchState::None => None,
         }
     }
@@ -1020,6 +1112,8 @@ enum PartialMatchState {
     None,
     /// C-xプレフィックス待ち
     CxPrefix,
+    /// M-gプレフィックス待ち
+    MgPrefix,
 }
 
 /// キーマップ構造
@@ -1030,6 +1124,9 @@ pub struct ModernKeyMap {
 
     /// C-xプレフィックス用の特別マッピング
     cx_prefix_bindings: HashMap<Key, Action>,
+
+    /// M-gプレフィックス用のマッピング
+    mg_prefix_bindings: HashMap<Key, Action>,
 
     /// 部分マッチ状態の管理
     partial_match_state: PartialMatchState,
@@ -1148,6 +1245,14 @@ impl KeyMap {
                 KeyCombination::ctrl(CrosstermKeyCode::Char('f')),
             ]),
             KeyBinding::Command("find-file".to_string()),
+        );
+
+        self.bind_global(
+            LegacyKeySequence::new(vec![
+                KeyCombination::alt(CrosstermKeyCode::Char('g')),
+                KeyCombination::plain(CrosstermKeyCode::Char('g')),
+            ]),
+            KeyBinding::Command("goto-line".to_string()),
         );
 
         // C-x C-s (save-buffer)
@@ -1430,6 +1535,27 @@ mod tests {
     }
 
     #[test]
+    fn test_modern_keymap_mg_prefix() {
+        let mut keymap = ModernKeyMap::new();
+
+        // M-g 入力
+        let result1 = keymap.process_key(Key::alt_g());
+        assert_eq!(result1, KeyProcessResult::PartialMatch);
+        assert_eq!(keymap.current_prefix_label(), Some("M-g"));
+
+        // g 入力
+        let result2 = keymap.process_key(Key {
+            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            code: KeyCode::Char('g'),
+        });
+        assert_eq!(result2, KeyProcessResult::Action(Action::GotoLine));
+
+        // M-g M-g
+        keymap.process_key(Key::alt_g());
+        assert_eq!(keymap.process_key(Key::alt_g()), KeyProcessResult::Action(Action::GotoLine));
+    }
+
+    #[test]
     fn test_modern_keymap_kill_ring_bindings() {
         let mut keymap = ModernKeyMap::new();
 
@@ -1481,7 +1607,18 @@ mod tests {
             code: KeyCode::Tab,
         };
         let result = keymap.process_key(key);
-        assert_eq!(result, KeyProcessResult::Action(Action::InsertChar('\t')));
+        assert_eq!(result, KeyProcessResult::Action(Action::IndentForTab));
+    }
+
+    #[test]
+    fn test_ctrl_i_maps_to_indent() {
+        let mut keymap = ModernKeyMap::new();
+        let key = Key {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('i'),
+        };
+        let result = keymap.process_key(key);
+        assert_eq!(result, KeyProcessResult::Action(Action::IndentForTab));
     }
 
     #[test]
@@ -1519,6 +1656,10 @@ mod tests {
         assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
         assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::IndentForTab.to_command(), Some(Command::IndentForTab));
+        assert_eq!(Action::NewlineAndIndent.to_command(), Some(Command::NewlineAndIndent));
+        assert_eq!(Action::OpenLine.to_command(), Some(Command::OpenLine));
+        assert_eq!(Action::GotoLine.to_command(), Some(Command::GotoLine));
         assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
         assert_eq!(Action::ScrollPageDown.to_command(), Some(Command::ScrollPageDown));
         assert_eq!(Action::ScrollPageUp.to_command(), Some(Command::ScrollPageUp));

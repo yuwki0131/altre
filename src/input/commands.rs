@@ -3,7 +3,7 @@
 //! エディタコマンドの定義と実行
 
 use crate::buffer::{EditOperations, NavigationAction, TextEditor};
-use crate::editor::KillRing;
+use crate::editor::{KillRing, edit_utils};
 use crate::file::{FileOperationManager, FileBuffer, expand_path};
 /// コマンド実行の結果
 #[derive(Debug, Clone)]
@@ -87,6 +87,8 @@ enum LastCommand {
     Yank,
 }
 
+const DEFAULT_TAB_WIDTH: usize = 4;
+
 /// コマンドの種類
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -103,6 +105,10 @@ pub enum Command {
     DeleteBackwardChar,
     DeleteChar,
     InsertNewline,
+    IndentForTab,
+    NewlineAndIndent,
+    OpenLine,
+    GotoLine,
     KillWordForward,
     KillWordBackward,
     KillLine,
@@ -169,6 +175,10 @@ impl Command {
             "delete-backward-char" => Command::DeleteBackwardChar,
             "delete-char" => Command::DeleteChar,
             "newline" => Command::InsertNewline,
+            "indent-for-tab-command" => Command::IndentForTab,
+            "newline-and-indent" => Command::NewlineAndIndent,
+            "open-line" => Command::OpenLine,
+            "goto-line" => Command::GotoLine,
             "kill-word" => Command::KillWordForward,
             "backward-kill-word" => Command::KillWordBackward,
             "kill-line" => Command::KillLine,
@@ -244,6 +254,10 @@ impl Command {
             Command::ScrollLeft => "画面を左にスクロール",
             Command::ScrollRight => "画面を右にスクロール",
             Command::InsertNewline => "改行を挿入",
+            Command::IndentForTab => "タブ幅に沿ってインデント",
+            Command::NewlineAndIndent => "改行してインデント",
+            Command::OpenLine => "カーソル位置に空行を開く",
+            Command::GotoLine => "指定行へ移動",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
             Command::WriteFile => "別名でファイルを保存",
@@ -411,6 +425,9 @@ impl CommandProcessor {
                 let res = self.editor.insert_newline();
                 self.handle_edit(res)
             }
+            Command::IndentForTab => self.indent_for_tab(),
+            Command::NewlineAndIndent => self.insert_newline_and_indent(),
+            Command::OpenLine => self.open_line(),
             Command::KillWordForward => {
                 let res = self.editor.delete_word_forward();
                 self.handle_kill(res, KillJoin::Append)
@@ -444,6 +461,7 @@ impl CommandProcessor {
             | Command::CopyRegion
             | Command::ExchangePointAndMark
             | Command::MarkBuffer
+            | Command::GotoLine
             | Command::QueryReplace
             | Command::RegexQueryReplace => {
                 CommandResult::error("このコマンドはアプリ側で処理します".to_string())
@@ -489,6 +507,89 @@ impl CommandProcessor {
                 CommandResult::error(err.to_string())
             }
         }
+    }
+
+    fn insert_newline_and_indent(&mut self) -> CommandResult {
+        let indent = match self.current_line_indent() {
+            Ok(indent) => indent,
+            Err(err) => {
+                self.reset_command_context();
+                return CommandResult::error(err.to_string());
+            }
+        };
+
+        match self.editor.insert_newline() {
+            Ok(_) => {
+                if !indent.is_empty() {
+                    if let Err(err) = self.editor.insert_str(&indent) {
+                        self.reset_command_context();
+                        return CommandResult::error(err.to_string());
+                    }
+                }
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn indent_for_tab(&mut self) -> CommandResult {
+        let insertion = {
+            let cursor = *self.editor.cursor();
+            let text = self.editor.to_string();
+            let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
+            let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+            " ".repeat(spaces)
+        };
+
+        match self.editor.insert_str(&insertion) {
+            Ok(_) => {
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn open_line(&mut self) -> CommandResult {
+        let original_cursor = *self.editor.cursor();
+
+        match self.editor.insert_newline() {
+            Ok(_) => {
+                self.editor.set_cursor(original_cursor);
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn current_line_indent(&mut self) -> crate::error::Result<String> {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+
+        let line_content = if cursor.line < lines.len() {
+            lines[cursor.line]
+        } else {
+            lines.last().copied().unwrap_or("")
+        };
+
+        let indent = line_content
+            .chars()
+            .take_while(|ch| matches!(ch, ' ' | '\t'))
+            .collect();
+
+        Ok(indent)
     }
 
     fn handle_delete(&mut self, result: crate::error::Result<char>) -> CommandResult {
@@ -786,6 +887,10 @@ mod tests {
         assert!(matches!(Command::from_string("copy-region-as-kill"), Command::CopyRegion));
         assert!(matches!(Command::from_string("exchange-point-and-mark"), Command::ExchangePointAndMark));
         assert!(matches!(Command::from_string("mark-whole-buffer"), Command::MarkBuffer));
+        assert!(matches!(Command::from_string("indent-for-tab-command"), Command::IndentForTab));
+        assert!(matches!(Command::from_string("newline-and-indent"), Command::NewlineAndIndent));
+        assert!(matches!(Command::from_string("open-line"), Command::OpenLine));
+        assert!(matches!(Command::from_string("goto-line"), Command::GotoLine));
     }
 
     #[test]

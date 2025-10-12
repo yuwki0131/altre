@@ -363,7 +363,8 @@ impl AdvancedRenderer {
             | crate::minibuffer::MinibufferMode::SwitchBuffer
             | crate::minibuffer::MinibufferMode::KillBuffer
             | crate::minibuffer::MinibufferMode::QueryReplacePattern
-            | crate::minibuffer::MinibufferMode::QueryReplaceReplacement => {
+            | crate::minibuffer::MinibufferMode::QueryReplaceReplacement
+            | crate::minibuffer::MinibufferMode::GotoLine => {
                 lines.push(Line::from(vec![
                     Span::styled(state.prompt.clone(), prompt_style),
                     Span::styled(state.input.clone(), input_style),
@@ -393,7 +394,11 @@ impl AdvancedRenderer {
             }
         }
 
-        if lines.is_empty() {
+        if matches!(state.mode, crate::minibuffer::MinibufferMode::GotoLine) {
+            if let Some(status) = &state.status_message {
+                lines.push(Line::from(Span::styled(status.clone(), info_style)));
+            }
+        } else if lines.is_empty() {
             if let Some(status) = &state.status_message {
                 lines.push(Line::from(Span::styled(status.clone(), info_style)));
             }

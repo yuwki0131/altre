@@ -51,3 +51,51 @@ fn test_cursor_movement() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_word_navigation() -> Result<()> {
+    let mut app = App::new()?;
+
+    app.insert_str("alpha beta gamma")?;
+    app.move_cursor_to_start()?;
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    assert!(app.move_word_forward()?);
+    assert_eq!(app.get_cursor_position().column, 5); // after "alpha"
+
+    assert!(app.move_word_forward()?);
+    assert_eq!(app.get_cursor_position().column, 10); // after "beta"
+
+    assert!(app.move_word_backward()?);
+    assert_eq!(app.get_cursor_position().column, 6); // start of "beta"
+
+    assert!(app.move_word_backward()?);
+    assert_eq!(app.get_cursor_position().column, 0); // back to start
+
+    assert!(!app.move_word_backward()?); // cannot move further
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_goto_line() -> Result<()> {
+    let mut app = App::new()?;
+
+    app.insert_str("one\ntwo\nthree")?;
+    app.move_cursor_to_start()?;
+
+    app.goto_line(3)?;
+    assert_eq!(app.get_cursor_position().line, 2);
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    // 行数を超えた場合は末尾へ移動
+    app.goto_line(10)?;
+    assert_eq!(app.get_cursor_position().line, 2);
+    assert_eq!(app.get_cursor_position().column, "three".chars().count());
+
+    // 無効な行番号はエラー
+    assert!(app.goto_line(0).is_err());
+
+    Ok(())
+}

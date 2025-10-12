@@ -311,6 +311,38 @@ pub mod utils {
         }
     }
 
+    /// 次のタブストップまでに必要なスペース数を計算
+    pub fn spaces_to_next_tab_stop(line: &str, column: usize, tab_width: usize) -> usize {
+        if tab_width == 0 {
+            return 0;
+        }
+
+        let mut visual_col = 0usize;
+        for (idx, ch) in line.chars().enumerate() {
+            if idx >= column {
+                break;
+            }
+
+            if ch == '\t' {
+                let remainder = visual_col % tab_width;
+                visual_col += if remainder == 0 {
+                    tab_width
+                } else {
+                    tab_width - remainder
+                };
+            } else {
+                visual_col += 1;
+            }
+        }
+
+        let remainder = visual_col % tab_width;
+        if remainder == 0 {
+            tab_width
+        } else {
+            tab_width - remainder
+        }
+    }
+
     /// UTF-8文字境界での安全な範囲チェック
     pub fn safe_char_range(text: &str, start: usize, end: usize) -> Result<(usize, usize)> {
         let char_count = text.chars().count();
@@ -429,6 +461,17 @@ mod tests {
         assert_eq!(generate_indent(4, false, 4), "    ");
         assert_eq!(generate_indent(4, true, 4), "\t");
         assert_eq!(generate_indent(6, true, 4), "\t  ");
+    }
+
+    #[test]
+    fn test_spaces_to_next_tab_stop() {
+        assert_eq!(spaces_to_next_tab_stop("", 0, 4), 4);
+        assert_eq!(spaces_to_next_tab_stop("abcd", 4, 4), 4);
+        assert_eq!(spaces_to_next_tab_stop("abc", 3, 4), 1);
+        assert_eq!(spaces_to_next_tab_stop("\t", 1, 4), 4);
+        assert_eq!(spaces_to_next_tab_stop("\tab", 3, 4), 2);
+        assert_eq!(spaces_to_next_tab_stop("\tab", 2, 4), 3);
+        assert_eq!(spaces_to_next_tab_stop("あい", 2, 4), 2);
     }
 
     #[test]

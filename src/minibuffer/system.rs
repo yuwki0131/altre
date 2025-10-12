@@ -67,6 +67,8 @@ pub enum SystemState {
     FindFile,
     /// コマンド実行モード
     ExecuteCommand,
+    /// 行番号入力モード
+    GotoLine,
     /// エラー表示モード
     ErrorDisplay,
     /// 情報表示モード
@@ -103,6 +105,8 @@ pub enum SystemResponse {
     KillBuffer(String),
     /// バッファ一覧表示
     ListBuffers,
+    /// 行番号移動
+    GotoLine(usize),
     /// クエリ置換開始
     QueryReplace { pattern: String, replacement: String, is_regex: bool },
     /// システム終了要求
@@ -153,6 +157,7 @@ impl MinibufferSystem {
             super::MinibufferMode::SwitchBuffer | super::MinibufferMode::KillBuffer => SystemState::ExecuteCommand,
             super::MinibufferMode::ErrorDisplay { .. } => SystemState::ErrorDisplay,
             super::MinibufferMode::InfoDisplay { .. } => SystemState::InfoDisplay,
+            super::MinibufferMode::GotoLine => SystemState::GotoLine,
             _ => SystemState::Inactive,
         }
     }
@@ -223,6 +228,7 @@ impl MinibufferSystem {
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::GotoLine(line) => Ok(SystemResponse::GotoLine(line)),
             MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
             MinibufferResult::Cancel => {
                 self.minibuffer.deactivate();
@@ -243,6 +249,7 @@ impl MinibufferSystem {
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
             MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::GotoLine(line) => Ok(SystemResponse::GotoLine(line)),
             MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
             MinibufferResult::Invalid => Ok(SystemResponse::None),
@@ -372,6 +379,12 @@ impl MinibufferSystem {
     /// 式評価を開始
     pub fn start_eval_expression(&mut self) -> Result<SystemResponse> {
         self.minibuffer.start_eval_expression();
+        Ok(SystemResponse::Continue)
+    }
+
+    /// 行番号入力を開始
+    pub fn start_goto_line(&mut self, default_line: usize, max_line: usize) -> Result<SystemResponse> {
+        self.minibuffer.start_goto_line(default_line, max_line);
         Ok(SystemResponse::Continue)
     }
 
@@ -614,6 +627,16 @@ mod tests {
         let response = system.handle_execute_result("eval-expression (+ 1 2)".to_string()).unwrap();
         assert!(matches!(response, SystemResponse::Continue));
         assert_eq!(system.state(), SystemState::InfoDisplay);
+    }
+
+    #[test]
+    fn test_start_goto_line() {
+        let mut system = MinibufferSystem::new();
+
+        let response = system.start_goto_line(3, 50).unwrap();
+        assert!(matches!(response, SystemResponse::Continue));
+        assert_eq!(system.state(), SystemState::GotoLine);
+        assert_eq!(system.current_input(), "3");
     }
 
     #[test]

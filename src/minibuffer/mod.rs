@@ -53,6 +53,8 @@ pub enum MinibufferMode {
     QueryReplacePattern,
     /// 置換後テキスト入力
     QueryReplaceReplacement,
+    /// 行番号入力
+    GotoLine,
 }
 
 /// ミニバッファの状態
@@ -76,6 +78,8 @@ pub struct MinibufferState {
     pub history_index: Option<usize>,
     /// 置換プロンプト状態
     pub(crate) pending_replace: Option<ReplacePromptState>,
+    /// 行番号入力状態
+    pub(crate) pending_goto_line: Option<GotoLineState>,
     /// ステータスメッセージ
     pub status_message: Option<String>,
 }
@@ -92,6 +96,7 @@ impl Default for MinibufferState {
             history: history::SessionHistory::new(),
             history_index: None,
             pending_replace: None,
+            pending_goto_line: None,
             status_message: None,
         }
     }
@@ -131,6 +136,11 @@ impl Default for MinibufferStyle {
 pub(crate) struct ReplacePromptState {
     pattern: String,
     is_regex: bool,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct GotoLineState {
+    default_line: usize,
 }
 
 /// ミニバッファの入力イベント
@@ -181,6 +191,8 @@ pub enum MinibufferResult {
     EvalExpression(String),
     /// 保存用ファイルパス
     SaveFileAs(String),
+    /// 行番号入力結果
+    GotoLine(usize),
     /// クエリ置換入力完了
     QueryReplace { pattern: String, replacement: String, is_regex: bool },
     /// キャンセル
@@ -378,6 +390,24 @@ impl ModernMinibuffer {
         self.update_completions();
     }
 
+    /// 行番号ジャンプを開始
+    pub fn start_goto_line(&mut self, default_line: usize, max_line: usize) {
+        let normalized_default = default_line.max(1);
+        let normalized_max = max_line.max(1);
+
+        self.state.mode = MinibufferMode::GotoLine;
+        self.state.prompt = "Goto line: ".to_string();
+        self.state.input = normalized_default.to_string();
+        self.state.cursor_pos = self.state.input.chars().count();
+        self.state.pending_goto_line = Some(GotoLineState {
+            default_line: normalized_default,
+        });
+        self.state.status_message = Some(format!("行番号範囲: 1-{} (現在: {})", normalized_max, normalized_default));
+        self.state.completions.clear();
+        self.state.selected_completion = None;
+        self.state.history_index = None;
+    }
+
     /// エラーメッセージを表示
     pub fn show_error(&mut self, message: String) {
         let expires_at = Instant::now() + Duration::from_secs(5); // QA.mdの回答
@@ -421,6 +451,7 @@ impl ModernMinibuffer {
         self.state.history_index = None;
         self.buffer_candidates.clear();
         self.state.pending_replace = None;
+        self.state.pending_goto_line = None;
         self.state.status_message = None;
     }
 
@@ -849,6 +880,35 @@ impl ModernMinibuffer {
                     MinibufferResult::Continue
                 }
             }
+            MinibufferMode::GotoLine => {
+                let state = self
+                    .state
+                    .pending_goto_line
+                    .clone()
+                    .unwrap_or(GotoLineState {
+                        default_line: 1,
+                    });
+
+                let trimmed = input.trim();
+                let line_value = if trimmed.is_empty() {
+                    state.default_line
+                } else {
+                    match trimmed.parse::<usize>() {
+                        Ok(value) if value >= 1 => value,
+                        _ => {
+                            self.show_error("正の整数を入力してください".to_string());
+                            return MinibufferResult::Continue;
+                        }
+                    }
+                };
+
+                if !trimmed.is_empty() {
+                    self.add_to_history(trimmed.to_string());
+                }
+
+                self.deactivate();
+                MinibufferResult::GotoLine(line_value)
+            }
             MinibufferMode::WriteFile => {
                 if input.is_empty() {
                     self.show_error("ファイル名を入力してください".to_string());
@@ -913,6 +973,55 @@ mod tests {
         assert_eq!(state.input, "foo");
         assert_eq!(state.cursor_pos, 3);
         assert!(matches!(state.pending_replace, Some(ReplacePromptState { is_regex: false, .. })));
+    }
+
+    #[test]
+    fn goto_line_prompt_initial_state() {
+        let mut minibuffer = ModernMinibuffer::new();
+        minibuffer.start_goto_line(5, 42);
+
+        assert!(matches!(minibuffer.state.mode, MinibufferMode::GotoLine));
+        assert_eq!(minibuffer.state.input, "5");
+        assert_eq!(minibuffer.state.cursor_pos, 1);
+        assert_eq!(
+            minibuffer.state.status_message.as_deref(),
+            Some("行番号範囲: 1-42 (現在: 5)")
+        );
+        assert!(matches!(minibuffer.state.pending_goto_line, Some(GotoLineState { default_line: 5 })));
+    }
+
+    #[test]
+    fn goto_line_submit_with_input() {
+        let mut minibuffer = ModernMinibuffer::new();
+        minibuffer.start_goto_line(2, 10);
+        minibuffer.state.input = "7".to_string();
+        let result = minibuffer.submit();
+        match result {
+            MinibufferResult::GotoLine(line) => assert_eq!(line, 7),
+            other => panic!("unexpected result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn goto_line_submit_uses_default_when_empty() {
+        let mut minibuffer = ModernMinibuffer::new();
+        minibuffer.start_goto_line(3, 15);
+        minibuffer.state.input.clear();
+        let result = minibuffer.submit();
+        match result {
+            MinibufferResult::GotoLine(line) => assert_eq!(line, 3),
+            other => panic!("unexpected result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn goto_line_invalid_input_shows_error() {
+        let mut minibuffer = ModernMinibuffer::new();
+        minibuffer.start_goto_line(1, 5);
+        minibuffer.state.input = "abc".to_string();
+        let result = minibuffer.submit();
+        assert!(matches!(result, MinibufferResult::Continue));
+        assert!(matches!(minibuffer.state.mode, MinibufferMode::ErrorDisplay { .. }));
     }
 }
 

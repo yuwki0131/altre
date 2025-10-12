@@ -45,12 +45,19 @@ author = "username"
 "Backspace" = "delete-backward-char"
 "Delete" = "delete-forward-char"
 "Enter" = "insert-newline"
+"C-j" = "newline-and-indent"
+"C-o" = "open-line"
+"Tab" = "indent-for-tab-command"
+"C-i" = "indent-for-tab-command"
+"M-f" = "move-word-forward"
+"M-b" = "move-word-backward"
 
 [global.sequence]
 # 連続キーバインド
 "C-x C-f" = "file-open"
 "C-x C-s" = "file-save"
 "C-x C-c" = "quit"
+"M-g g" = "goto-line"
 
 [modes]
 # モード固有のキーバインド（将来実装）
@@ -134,6 +141,12 @@ silent_unbound = true
 "delete-backward-char" = { type = "delete", direction = "backward" }
 "delete-forward-char" = { type = "delete", direction = "forward" }
 "insert-newline" = { type = "insert", content = "\n" }
+"newline-and-indent" = { type = "editor", action = "newline-indent" }
+"open-line" = { type = "editor", action = "open-line" }
+"indent-for-tab-command" = { type = "editor", action = "indent-tabstop" }
+"move-word-forward" = { type = "cursor", direction = "word-forward" }
+"move-word-backward" = { type = "cursor", direction = "word-backward" }
+"goto-line" = { type = "editor", action = "goto-line" }
 
 # ファイル操作
 "file-open" = { type = "file", action = "open" }
@@ -306,6 +319,12 @@ impl KeybindingConfig {
         bindings.insert("Backspace".to_string(), "delete-backward-char".to_string());
         bindings.insert("Delete".to_string(), "delete-forward-char".to_string());
         bindings.insert("Enter".to_string(), "insert-newline".to_string());
+        bindings.insert("C-j".to_string(), "newline-and-indent".to_string());
+        bindings.insert("C-o".to_string(), "open-line".to_string());
+        bindings.insert("Tab".to_string(), "indent-for-tab-command".to_string());
+        bindings.insert("C-i".to_string(), "indent-for-tab-command".to_string());
+        bindings.insert("M-f".to_string(), "move-word-forward".to_string());
+        bindings.insert("M-b".to_string(), "move-word-backward".to_string());
 
         // コマンド実行
         bindings.insert("M-x".to_string(), "execute-command".to_string());
@@ -319,6 +338,7 @@ impl KeybindingConfig {
         bindings.insert("C-x C-f".to_string(), "file-open".to_string());
         bindings.insert("C-x C-s".to_string(), "file-save".to_string());
         bindings.insert("C-x C-c".to_string(), "quit".to_string());
+        bindings.insert("M-g g".to_string(), "goto-line".to_string());
 
         bindings
     }
@@ -537,9 +557,13 @@ impl ModernKeyMap {
         // 連続キーバインドの読み込み
         for (key_str, action_str) in &global.sequence {
             let key_seq = KeySequence::parse(key_str)?;
-            if key_seq.keys.len() == 2 && key_seq.keys[0].is_ctrl_x() {
+            if key_seq.keys.len() == 2 {
                 let action = self.parse_action(action_str)?;
-                self.cx_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                if key_seq.keys[0].is_ctrl_x() {
+                    self.cx_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                } else if key_seq.keys[0].is_alt_g() {
+                    self.mg_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                }
             }
         }
 
@@ -555,6 +579,12 @@ impl ModernKeyMap {
             "delete-backward-char" => Ok(Action::DeleteChar(DeleteDirection::Backward)),
             "delete-forward-char" => Ok(Action::DeleteChar(DeleteDirection::Forward)),
             "insert-newline" => Ok(Action::InsertNewline),
+            "indent-for-tab-command" => Ok(Action::IndentForTab),
+            "move-word-forward" => Ok(Action::Navigate(NavigationAction::MoveWordForward)),
+            "move-word-backward" => Ok(Action::Navigate(NavigationAction::MoveWordBackward)),
+            "goto-line" => Ok(Action::GotoLine),
+            "newline-and-indent" => Ok(Action::NewlineAndIndent),
+            "open-line" => Ok(Action::OpenLine),
             "file-open" => Ok(Action::FileOpen),
             "file-save" => Ok(Action::FileSave),
             "quit" => Ok(Action::Quit),

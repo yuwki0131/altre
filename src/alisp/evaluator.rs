@@ -7,6 +7,8 @@ use crate::alisp::runtime::{
     maybe_collect, set_symbol, value_to_string, Closure, EnvHandle, Function, RuntimeState, Value,
 };
 use crate::alisp::symbol::{SymbolId, SymbolInterner};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct EvalOutcome {
@@ -20,6 +22,7 @@ pub struct Interpreter {
     global_env: EnvHandle,
     specials: SpecialForms,
     _primitives: PrimitiveRegistry,
+    load_paths: Vec<PathBuf>,
 }
 
 #[derive(Clone, Copy)]
@@ -32,6 +35,7 @@ struct SpecialForms {
     set_bang: SymbolId,
     and_form: SymbolId,
     or_form: SymbolId,
+    load: SymbolId,
 }
 
 impl SpecialForms {
@@ -45,6 +49,7 @@ impl SpecialForms {
             set_bang: interner.intern("set!"),
             and_form: interner.intern("and"),
             or_form: interner.intern("or"),
+            load: interner.intern("load"),
         }
     }
 }
@@ -55,23 +60,71 @@ impl Interpreter {
         let specials = SpecialForms::new(&mut runtime.interner);
         let global_env = make_rooted_env(&mut runtime);
         let primitives = PrimitiveRegistry::install(&mut runtime, global_env);
-        Self { runtime, global_env, specials, _primitives: primitives }
+        let mut load_paths = Vec::new();
+        if let Ok(dir) = std::env::current_dir() {
+            load_paths.push(dir);
+        }
+        Self { runtime, global_env, specials, _primitives: primitives, load_paths }
+    }
+
+    pub fn set_load_root<P: Into<PathBuf>>(&mut self, root: P) {
+        self.load_paths.clear();
+        self.load_paths.push(root.into());
+    }
+
+    pub fn eval_file<P: AsRef<Path>>(&mut self, path: P) -> Result<(), EvalError> {
+        let candidate = path.as_ref();
+        let resolved = if candidate.is_absolute() {
+            candidate.to_path_buf()
+        } else {
+            self.load_paths
+                .last()
+                .cloned()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(candidate)
+        };
+
+        let source = fs::read_to_string(&resolved).map_err(|err| {
+            EvalError::new(
+                EvalErrorKind::Runtime(format!("ファイルを読み込めませんでした: {}", err)),
+                None,
+                format!("ファイルを読み込めませんでした: {}", err),
+            )
+        })?;
+
+        let parent = resolved.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        self.load_paths.push(parent);
+        let _ = self.eval_source(&source)?;
+        self.load_paths.pop();
+        Ok(())
     }
 
     pub fn eval(&mut self, source: &str) -> Result<EvalOutcome, EvalError> {
+        self.eval_source(source)
+    }
+
+    pub fn runtime_mut(&mut self) -> &mut RuntimeState {
+        &mut self.runtime
+    }
+
+    pub fn runtime(&self) -> &RuntimeState {
+        &self.runtime
+    }
+
+    fn eval_source(&mut self, source: &str) -> Result<EvalOutcome, EvalError> {
         let forms = reader::parse(source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
+        self.eval_forms(forms, self.global_env)
+    }
+
+    fn eval_forms(&mut self, forms: Vec<Expr>, env: EnvHandle) -> Result<EvalOutcome, EvalError> {
         let mut last_value = Value::Unit;
         for form in forms {
-            last_value = self.eval_expr(&form, self.global_env)?;
+            last_value = self.eval_expr(&form, env)?;
         }
         let display = value_to_string(&self.runtime, &last_value);
         let messages = self.runtime.drain_messages();
         collect(&mut self.runtime, &[last_value.clone()], &[self.global_env]);
         Ok(EvalOutcome { value: last_value, display, messages })
-    }
-
-    pub fn runtime(&self) -> &RuntimeState {
-        &self.runtime
     }
 
     fn eval_expr(&mut self, expr: &Expr, env: EnvHandle) -> Result<Value, EvalError> {
@@ -115,6 +168,9 @@ impl Interpreter {
             }
             if sym == self.specials.or_form {
                 return self.eval_or(&list[1..], env);
+            }
+            if sym == self.specials.load {
+                return self.eval_load(&list[1..], env);
             }
         }
         self.eval_call(list, env)
@@ -263,6 +319,56 @@ impl Interpreter {
             }
         }
         Ok(Value::Boolean(false))
+    }
+
+    fn eval_load(&mut self, exprs: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
+        if exprs.len() != 1 {
+            return Err(EvalError::new(
+                EvalErrorKind::ArityMismatch { expected: 1, found: exprs.len() },
+                None,
+                "load は1つの引数が必要です",
+            ));
+        }
+
+        let target = self.eval_expr(&exprs[0], env)?;
+        let path = self.expect_string_value(&target)?;
+        let candidate = PathBuf::from(path);
+        let resolved = if candidate.is_absolute() {
+            candidate
+        } else {
+            self
+                .load_paths
+                .last()
+                .cloned()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(candidate)
+        };
+
+        let source = fs::read_to_string(&resolved).map_err(|err| {
+            EvalError::new(
+                EvalErrorKind::Runtime(format!("ファイルを読み込めませんでした: {}", err)),
+                None,
+                format!("ファイルを読み込めませんでした: {}", err),
+            )
+        })?;
+
+        let parent = resolved.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        self.load_paths.push(parent);
+        let forms = reader::parse(&source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
+        let _ = self.eval_forms(forms, self.global_env)?;
+        self.load_paths.pop();
+        Ok(Value::Unit)
+    }
+
+    fn expect_string_value(&mut self, value: &Value) -> Result<String, EvalError> {
+        match value {
+            Value::String(handle) => Ok(self.runtime.heap.string_ref(*handle).to_string()),
+            _ => Err(EvalError::new(
+                EvalErrorKind::TypeMismatch { expected: "string", found: value.type_name() },
+                None,
+                "文字列が必要です",
+            )),
+        }
     }
 
     fn eval_call(&mut self, list: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {

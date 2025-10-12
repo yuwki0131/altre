@@ -6,6 +6,7 @@ use super::commands::Command;
 use crate::buffer::navigation::NavigationAction;
 use crossterm::event::{KeyCode as CrosstermKeyCode, KeyEvent, KeyModifiers as CrosstermModifiers};
 use std::collections::HashMap;
+use std::fmt;
 
 /// キー入力の内部表現
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -492,7 +493,83 @@ impl Action {
             Action::RegexQueryReplace => Some(Command::RegexQueryReplace),
         }
     }
+
+    pub fn from_command(command: &Command) -> Option<Self> {
+        match command {
+            Command::ForwardChar => Some(Action::Navigate(NavigationAction::MoveCharForward)),
+            Command::BackwardChar => Some(Action::Navigate(NavigationAction::MoveCharBackward)),
+            Command::NextLine => Some(Action::Navigate(NavigationAction::MoveLineDown)),
+            Command::PreviousLine => Some(Action::Navigate(NavigationAction::MoveLineUp)),
+            Command::MoveLineStart => Some(Action::Navigate(NavigationAction::MoveLineStart)),
+            Command::MoveLineEnd => Some(Action::Navigate(NavigationAction::MoveLineEnd)),
+            Command::MoveBufferStart => Some(Action::Navigate(NavigationAction::MoveBufferStart)),
+            Command::MoveBufferEnd => Some(Action::Navigate(NavigationAction::MoveBufferEnd)),
+            Command::ForwardWord => Some(Action::Navigate(NavigationAction::MoveWordForward)),
+            Command::BackwardWord => Some(Action::Navigate(NavigationAction::MoveWordBackward)),
+            Command::InsertNewline => Some(Action::InsertNewline),
+            Command::IndentForTab => Some(Action::IndentForTab),
+            Command::NewlineAndIndent => Some(Action::NewlineAndIndent),
+            Command::OpenLine => Some(Action::OpenLine),
+            Command::GotoLine => Some(Action::GotoLine),
+            Command::DeleteBackwardChar => Some(Action::DeleteChar(DeleteDirection::Backward)),
+            Command::DeleteChar => Some(Action::DeleteChar(DeleteDirection::Forward)),
+            Command::KillWordForward => Some(Action::KillWord(KillDirection::Forward)),
+            Command::KillWordBackward => Some(Action::KillWord(KillDirection::Backward)),
+            Command::KillLine => Some(Action::KillLine),
+            Command::SetMark => Some(Action::SetMark),
+            Command::KillRegion => Some(Action::KillRegion),
+            Command::CopyRegion => Some(Action::CopyRegion),
+            Command::ExchangePointAndMark => Some(Action::ExchangePointAndMark),
+            Command::MarkBuffer => Some(Action::MarkBuffer),
+            Command::ScrollPageDown => Some(Action::ScrollPageDown),
+            Command::ScrollPageUp => Some(Action::ScrollPageUp),
+            Command::Recenter => Some(Action::Recenter),
+            Command::ScrollLeft => Some(Action::ScrollHorizontalLeft),
+            Command::ScrollRight => Some(Action::ScrollHorizontalRight),
+            Command::Yank => Some(Action::Yank),
+            Command::YankPop => Some(Action::YankPop),
+            Command::KeyboardQuit => Some(Action::KeyboardQuit),
+            Command::Undo => Some(Action::Undo),
+            Command::Redo => Some(Action::Redo),
+            Command::FindFile => Some(Action::FileOpen),
+            Command::SaveBuffer => Some(Action::FileSave),
+            Command::WriteFile => Some(Action::WriteFile),
+            Command::SaveAllBuffers => Some(Action::SaveAllBuffers),
+            Command::SwitchToBuffer => Some(Action::SwitchBuffer),
+            Command::KillBuffer => Some(Action::KillBuffer),
+            Command::ListBuffers => Some(Action::ListBuffers),
+            Command::SplitWindowBelow => Some(Action::SplitWindowHorizontally),
+            Command::SplitWindowRight => Some(Action::SplitWindowVertically),
+            Command::DeleteOtherWindows => Some(Action::DeleteOtherWindows),
+            Command::DeleteWindow => Some(Action::DeleteWindow),
+            Command::OtherWindow => Some(Action::FocusOtherWindow),
+            Command::SaveBuffersKillTerminal | Command::Quit => Some(Action::Quit),
+            Command::ExecuteCommand => Some(Action::ExecuteCommand),
+            Command::EvalExpression => Some(Action::EvalExpression),
+            Command::QueryReplace => Some(Action::QueryReplace),
+            Command::RegexQueryReplace => Some(Action::RegexQueryReplace),
+            Command::InsertChar(_) | Command::Unknown(_) => None,
+        }
+    }
 }
+
+/// キーバインド更新エラー
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeybindingUpdateError {
+    UnsupportedSequence(String),
+    UnsupportedCommand(String),
+}
+
+impl fmt::Display for KeybindingUpdateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeybindingUpdateError::UnsupportedSequence(seq) => write!(f, "未対応のキーバインドシーケンスです: {}", seq),
+            KeybindingUpdateError::UnsupportedCommand(cmd) => write!(f, "未対応のコマンドです: {}", cmd),
+        }
+    }
+}
+
+impl std::error::Error for KeybindingUpdateError {}
 
 /// 削除方向
 #[derive(Debug, Clone, PartialEq)]
@@ -578,6 +655,7 @@ impl KeySequence {
             "Left" => KeyCode::Left,
             "Right" => KeyCode::Right,
             "Esc" => KeyCode::Esc,
+            "SPC" | "Space" => KeyCode::Char(' '),
             s if s.len() == 1 => KeyCode::Char(s.chars().next().unwrap()),
             _ => return Err(KeyParseError::UnknownKey(remaining.to_string())),
         };
@@ -672,6 +750,42 @@ impl ModernKeyMap {
             cx_prefix_bindings,
             mg_prefix_bindings,
             partial_match_state: PartialMatchState::None,
+        }
+    }
+
+    pub fn clear_bindings(&mut self) {
+        self.single_key_bindings.clear();
+        self.cx_prefix_bindings.clear();
+        self.mg_prefix_bindings.clear();
+    }
+
+    pub fn bind_command_sequence(&mut self, sequence: &str, command: &Command) -> Result<(), KeybindingUpdateError> {
+        let action = Action::from_command(command).ok_or_else(|| KeybindingUpdateError::UnsupportedCommand(format!("{:?}", command)))?;
+        self.bind_action_sequence(sequence, action)
+    }
+
+    pub fn bind_action_sequence(&mut self, sequence: &str, action: Action) -> Result<(), KeybindingUpdateError> {
+        let parsed = KeySequence::parse(sequence)
+            .map_err(|_| KeybindingUpdateError::UnsupportedSequence(sequence.to_string()))?;
+
+        match parsed.keys.len() {
+            1 => {
+                self.single_key_bindings.insert(parsed.keys[0].clone(), action);
+                Ok(())
+            }
+            2 => {
+                let prefix = &parsed.keys[0];
+                if prefix.is_ctrl_x() {
+                    self.cx_prefix_bindings.insert(parsed.keys[1].clone(), action);
+                    Ok(())
+                } else if prefix.is_alt_g() {
+                    self.mg_prefix_bindings.insert(parsed.keys[1].clone(), action);
+                    Ok(())
+                } else {
+                    Err(KeybindingUpdateError::UnsupportedSequence(sequence.to_string()))
+                }
+            }
+            _ => Err(KeybindingUpdateError::UnsupportedSequence(sequence.to_string())),
         }
     }
 

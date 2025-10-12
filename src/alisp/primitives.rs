@@ -21,6 +21,7 @@ pub struct PrimitiveRegistry {
     pub type_of: SymbolId,
     pub string_append: SymbolId,
     pub string_length: SymbolId,
+    pub bind_key: SymbolId,
 }
 
 impl PrimitiveRegistry {
@@ -51,6 +52,7 @@ impl PrimitiveRegistry {
             type_of: register!("type-of", primitive_type_of),
             string_append: register!("string-append", primitive_string_append),
             string_length: register!("string-length", primitive_string_length),
+            bind_key: register!("bind-key", primitive_bind_key),
         }
     }
 }
@@ -297,4 +299,18 @@ fn primitive_string_length(runtime: &mut RuntimeState, _env: EnvHandle, args: &[
     ensure_arity(args, 1)?;
     let s = expect_string(runtime, &args[0])?;
     Ok(Value::Integer(s.chars().count() as i64))
+}
+
+fn primitive_bind_key(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+    ensure_arity(args, 2)?;
+    let key_sequence = expect_string(runtime, &args[0])?.to_string();
+    let command_name = expect_string(runtime, &args[1])?.to_string();
+    let host = runtime
+        .host_mut()
+        .ok_or_else(|| EvalError::new(EvalErrorKind::Runtime("ホストが未設定です".into()), None, "ホストが未設定です"))?;
+
+    host.bind_key(&key_sequence, &command_name)
+        .map_err(|msg| EvalError::new(EvalErrorKind::Runtime(msg.clone()), None, msg))?;
+
+    Ok(Value::Unit)
 }

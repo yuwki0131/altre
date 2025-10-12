@@ -2,9 +2,10 @@
 //!
 //! アプリケーション全体の状態管理とメインループを実装
 
+use crate::alisp::{HostBridge, Interpreter};
 use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor};
 use crate::error::{AltreError, Result, UiError, FileError};
-use crate::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
+use crate::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
@@ -19,6 +20,8 @@ use std::env;
 use std::io::stdout;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const DEFAULT_TAB_WIDTH: usize = 4;
 
@@ -97,7 +100,7 @@ pub struct App {
     /// 高性能レンダラー
     renderer: AdvancedRenderer,
     /// キーマップ
-    keymap: ModernKeyMap,
+    keymap: Rc<RefCell<ModernKeyMap>>,
     /// コマンドプロセッサー
     command_processor: CommandProcessor,
     /// 検索コントローラ
@@ -152,7 +155,7 @@ impl App {
             editor: TextEditor::new(),
             minibuffer: MinibufferSystem::new(),
             renderer: AdvancedRenderer::new(),
-            keymap: ModernKeyMap::new(),
+            keymap: Rc::new(RefCell::new(ModernKeyMap::new())),
             command_processor: CommandProcessor::new(),
             search: SearchController::new(),
             replace: ReplaceSession::new(),
@@ -172,6 +175,7 @@ impl App {
         app.history.bind_editor(&mut app.editor);
 
         app.initialize_default_buffer()?;
+        app.load_initial_configuration()?;
 
         Ok(app)
     }
@@ -239,6 +243,11 @@ impl App {
     /// 文字列を挿入
     pub fn insert_str(&mut self, s: &str) -> Result<()> {
         self.editor.insert_str(s)
+    }
+
+    /// テストや外部連携用にキーマップへのハンドルを取得
+    pub fn keymap_handle(&self) -> Rc<RefCell<ModernKeyMap>> {
+        Rc::clone(&self.keymap)
     }
 
     /// カーソルを開始位置に移動
@@ -321,6 +330,56 @@ impl App {
         Ok(())
     }
 
+    fn load_initial_configuration(&mut self) -> Result<()> {
+        let default_init = Self::default_alisp_init_path();
+        let default_root = default_init
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+
+        let mut interpreter = Interpreter::new();
+        interpreter.runtime_mut().set_host(Box::new(KeymapHost::new(Rc::clone(&self.keymap))));
+        interpreter.set_load_root(default_root.clone());
+
+        {
+            let mut keymap = self.keymap.borrow_mut();
+            keymap.clear_bindings();
+        }
+
+        if !default_init.exists() {
+            return Err(AltreError::Application(format!(
+                "デフォルトalispファイルが見つかりません: {}",
+                default_init.display()
+            )));
+        }
+
+        interpreter
+            .eval_file(&default_init)
+            .map_err(|err| AltreError::Application(format!(
+                "デフォルト設定の読み込みに失敗しました: {}",
+                err
+            )))?;
+
+        if let Some(user_init) = Self::user_init_path() {
+            if user_init.exists() {
+                let user_root = user_init
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or_else(|| PathBuf::from("."));
+                interpreter.set_load_root(user_root);
+                if let Err(err) = interpreter.eval_file(&user_init) {
+                    self.show_error_message(AltreError::Application(format!(
+                        "ユーザー設定の読み込みに失敗しました: {}",
+                        err
+                    )));
+                }
+                interpreter.set_load_root(default_root);
+            }
+        }
+
+        Ok(())
+    }
+
     fn allocate_buffer_id(&mut self) -> usize {
         let id = self.next_buffer_id;
         self.next_buffer_id = self.next_buffer_id.saturating_add(1);
@@ -340,6 +399,20 @@ impl App {
             .iter()
             .find(|buffer| buffer.path().map_or(false, |p| p == path))
             .map(|buffer| buffer.id)
+    }
+
+    fn default_alisp_init_path() -> PathBuf {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("alisp")
+            .join("init.al")
+    }
+
+    fn user_init_path() -> Option<PathBuf> {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .ok()?;
+        Some(PathBuf::from(home).join(".altre").join("init.al"))
     }
 
     fn current_buffer_index(&self) -> Option<usize> {
@@ -640,7 +713,10 @@ impl App {
         }
 
         // 新しいキーマップシステムを使用してキーを処理
-        let result = self.keymap.process_key_event(key_event);
+        let result = {
+            let mut keymap = self.keymap.borrow_mut();
+            keymap.process_key_event(key_event)
+        };
 
         match result {
             KeyProcessResult::Action(action) => {
@@ -650,11 +726,12 @@ impl App {
             }
             KeyProcessResult::PartialMatch => {
                 // プレフィックスキーの場合、状態を記録（ミニバッファは使わない）
-                if let Some(prefix) = self.keymap.current_prefix_label() {
-                    self.current_prefix = Some(prefix.to_string());
-                } else {
-                    self.current_prefix = None;
-                }
+                let prefix = self
+                    .keymap
+                    .borrow()
+                    .current_prefix_label()
+                    .map(|s| s.to_string());
+                self.current_prefix = prefix;
             }
             KeyProcessResult::NoMatch => {
                 // 緊急終了のフォールバック
@@ -674,14 +751,14 @@ impl App {
         match (key_event.code, key_event.modifiers) {
             // C-g: キーシーケンスのキャンセル（無反応）
             (KeyCode::Char('g'), KeyModifiers::CONTROL) => {
-                self.keymap.reset_partial_match();
+                self.keymap.borrow_mut().reset_partial_match();
                 self.current_prefix = None;
                 self.keyboard_quit();
                 true
             }
             // ESC: キーシーケンスのキャンセル（無反応）
             (KeyCode::Esc, _) => {
-                self.keymap.reset_partial_match();
+                self.keymap.borrow_mut().reset_partial_match();
                 self.current_prefix = None;
                 true
             }
@@ -690,20 +767,20 @@ impl App {
     }
 
     fn try_start_search(&mut self, key_event: &KeyEvent) -> bool {
-        if self.keymap.is_partial_match() {
+        if self.keymap.borrow().is_partial_match() {
             return false;
         }
 
         if key_event.modifiers.contains(KeyModifiers::CONTROL) {
             match key_event.code {
                 KeyCode::Char('s') | KeyCode::Char('S') => {
-                    self.keymap.reset_partial_match();
+                    self.keymap.borrow_mut().reset_partial_match();
                     self.current_prefix = None;
                     self.search.start(&mut self.editor, SearchDirection::Forward);
                     return true;
                 }
                 KeyCode::Char('r') | KeyCode::Char('R') => {
-                    self.keymap.reset_partial_match();
+                    self.keymap.borrow_mut().reset_partial_match();
                     self.current_prefix = None;
                     self.search.start(&mut self.editor, SearchDirection::Backward);
                     return true;
@@ -979,9 +1056,10 @@ impl App {
                 self.show_error_message(AltreError::Application(
                     "アクションをコマンドに変換できませんでした".to_string()
                 ));
-                Ok(())
-            }
-        }
+        Ok(())
+    }
+}
+
     }
 
     fn execute_command(&mut self, command: Command) -> Result<()> {
@@ -2360,6 +2438,31 @@ impl App {
         }
     }
 
+}
+
+struct KeymapHost {
+    keymap: Rc<RefCell<ModernKeyMap>>,
+}
+
+impl KeymapHost {
+    fn new(keymap: Rc<RefCell<ModernKeyMap>>) -> Self {
+        Self { keymap }
+    }
+}
+
+impl HostBridge for KeymapHost {
+    fn bind_key(&mut self, key_sequence: &str, command_name: &str) -> std::result::Result<(), String> {
+        let command = Command::from_string(command_name);
+        match command {
+            Command::Unknown(_) => Err(format!("未知のコマンドです: {}", command_name)),
+            other => {
+                let mut keymap = self.keymap.borrow_mut();
+                keymap
+                    .bind_command_sequence(key_sequence, &other)
+                    .map_err(|err| err.to_string())
+            }
+        }
+    }
 }
 
 impl Default for App {

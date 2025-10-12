@@ -250,15 +250,25 @@ impl GcHeap {
     }
 }
 
+pub trait HostBridge {
+    fn bind_key(&mut self, key_sequence: &str, command_name: &str) -> std::result::Result<(), String>;
+}
+
 pub struct RuntimeState {
     pub heap: GcHeap,
     pub interner: SymbolInterner,
     pub messages: Vec<String>,
+    host: Option<Box<dyn HostBridge>>,
 }
 
 impl RuntimeState {
     pub fn new() -> Self {
-        Self { heap: GcHeap::new(), interner: SymbolInterner::new(), messages: Vec::new() }
+        Self {
+            heap: GcHeap::new(),
+            interner: SymbolInterner::new(),
+            messages: Vec::new(),
+            host: None,
+        }
     }
 
     pub fn intern<S: AsRef<str>>(&mut self, sym: S) -> SymbolId {
@@ -280,6 +290,18 @@ impl RuntimeState {
 
     pub fn drain_messages(&mut self) -> Vec<String> {
         std::mem::take(&mut self.messages)
+    }
+
+    pub fn set_host(&mut self, host: Box<dyn HostBridge>) {
+        self.host = Some(host);
+    }
+
+    pub fn host_mut(&mut self) -> Option<&mut (dyn HostBridge + '_)> {
+        if let Some(host) = self.host.as_mut() {
+            Some(host.as_mut())
+        } else {
+            None
+        }
     }
 }
 

@@ -12,3 +12,4 @@ mod runtime;
 pub use evaluator::{EvalOutcome, Interpreter};
 pub use symbol::{SymbolId, SymbolInterner};
 pub use error::{EvalError, ReaderError};
+pub use runtime::HostBridge;

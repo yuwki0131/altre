@@ -245,6 +245,11 @@ impl App {
         self.editor.insert_str(s)
     }
 
+    /// テストや外部連携用にキーマップへのハンドルを取得
+    pub fn keymap_handle(&self) -> Rc<RefCell<ModernKeyMap>> {
+        Rc::clone(&self.keymap)
+    }
+
     /// カーソルを開始位置に移動
     pub fn move_cursor_to_start(&mut self) -> Result<()> {
         let start_position = CursorPosition::new();

@@ -789,6 +789,24 @@ impl ModernKeyMap {
         }
     }
 
+    pub fn lookup_action(&self, sequence: &str) -> Option<Action> {
+        let parsed = KeySequence::parse(sequence).ok()?;
+        match parsed.keys.len() {
+            1 => self.single_key_bindings.get(&parsed.keys[0]).cloned(),
+            2 => {
+                let prefix = &parsed.keys[0];
+                if prefix.is_ctrl_x() {
+                    self.cx_prefix_bindings.get(&parsed.keys[1]).cloned()
+                } else if prefix.is_alt_g() {
+                    self.mg_prefix_bindings.get(&parsed.keys[1]).cloned()
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
     /// MVPキーバインドの登録
     fn register_mvp_bindings(
         single: &mut HashMap<Key, Action>,

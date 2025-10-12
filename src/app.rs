@@ -248,6 +248,20 @@ impl App {
         Ok(())
     }
 
+    /// 次の単語末尾へ移動（M-f相当、テスト支援用）
+    pub fn move_word_forward(&mut self) -> Result<bool> {
+        self.editor
+            .navigate(NavigationAction::MoveWordForward)
+            .map_err(|err| err.into())
+    }
+
+    /// 前の単語先頭へ移動（M-b相当、テスト支援用）
+    pub fn move_word_backward(&mut self) -> Result<bool> {
+        self.editor
+            .navigate(NavigationAction::MoveWordBackward)
+            .map_err(|err| err.into())
+    }
+
     /// カーソル位置を取得
     pub fn get_cursor_position(&self) -> &CursorPosition {
         self.editor.cursor()
@@ -936,6 +950,14 @@ impl App {
             }
             Command::BackwardChar => {
                 self.navigate(NavigationAction::MoveCharBackward);
+                Ok(())
+            }
+            Command::ForwardWord => {
+                self.navigate(NavigationAction::MoveWordForward);
+                Ok(())
+            }
+            Command::BackwardWord => {
+                self.navigate(NavigationAction::MoveWordBackward);
                 Ok(())
             }
             Command::NextLine => {

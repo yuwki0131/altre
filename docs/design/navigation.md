@@ -1216,7 +1216,7 @@ mod navigation_performance_tests {
 ## 10. 制限事項
 
 ### MVPでの制約
-- 単語移動（M-f, M-b）は未実装
+- 単語移動（M-f, M-b）は実装済み（`NavigationAction::MoveWordForward` / `MoveWordBackward`）
 - 段落移動は未実装
 - 複合文字（結合文字）の詳細対応は基本レベル
 - 動的なTab幅変更は未対応

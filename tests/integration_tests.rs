@@ -51,3 +51,29 @@ fn test_cursor_movement() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_word_navigation() -> Result<()> {
+    let mut app = App::new()?;
+
+    app.insert_str("alpha beta gamma")?;
+    app.move_cursor_to_start()?;
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    assert!(app.move_word_forward()?);
+    assert_eq!(app.get_cursor_position().column, 5); // after "alpha"
+
+    assert!(app.move_word_forward()?);
+    assert_eq!(app.get_cursor_position().column, 10); // after "beta"
+
+    assert!(app.move_word_backward()?);
+    assert_eq!(app.get_cursor_position().column, 6); // start of "beta"
+
+    assert!(app.move_word_backward()?);
+    assert_eq!(app.get_cursor_position().column, 0); // back to start
+
+    assert!(!app.move_word_backward()?); // cannot move further
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    Ok(())
+}

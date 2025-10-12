@@ -49,6 +49,8 @@ author = "username"
 "C-o" = "open-line"
 "Tab" = "indent-for-tab-command"
 "C-i" = "indent-for-tab-command"
+"M-f" = "move-word-forward"
+"M-b" = "move-word-backward"
 
 [global.sequence]
 # 連続キーバインド
@@ -141,6 +143,8 @@ silent_unbound = true
 "newline-and-indent" = { type = "editor", action = "newline-indent" }
 "open-line" = { type = "editor", action = "open-line" }
 "indent-for-tab-command" = { type = "editor", action = "indent-tabstop" }
+"move-word-forward" = { type = "cursor", direction = "word-forward" }
+"move-word-backward" = { type = "cursor", direction = "word-backward" }
 
 # ファイル操作
 "file-open" = { type = "file", action = "open" }
@@ -317,6 +321,8 @@ impl KeybindingConfig {
         bindings.insert("C-o".to_string(), "open-line".to_string());
         bindings.insert("Tab".to_string(), "indent-for-tab-command".to_string());
         bindings.insert("C-i".to_string(), "indent-for-tab-command".to_string());
+        bindings.insert("M-f".to_string(), "move-word-forward".to_string());
+        bindings.insert("M-b".to_string(), "move-word-backward".to_string());
 
         // コマンド実行
         bindings.insert("M-x".to_string(), "execute-command".to_string());
@@ -567,6 +573,8 @@ impl ModernKeyMap {
             "delete-forward-char" => Ok(Action::DeleteChar(DeleteDirection::Forward)),
             "insert-newline" => Ok(Action::InsertNewline),
             "indent-for-tab-command" => Ok(Action::IndentForTab),
+            "move-word-forward" => Ok(Action::Navigate(NavigationAction::MoveWordForward)),
+            "move-word-backward" => Ok(Action::Navigate(NavigationAction::MoveWordBackward)),
             "newline-and-indent" => Ok(Action::NewlineAndIndent),
             "open-line" => Ok(Action::OpenLine),
             "file-open" => Ok(Action::FileOpen),

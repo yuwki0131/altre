@@ -77,3 +77,25 @@ fn test_word_navigation() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_goto_line() -> Result<()> {
+    let mut app = App::new()?;
+
+    app.insert_str("one\ntwo\nthree")?;
+    app.move_cursor_to_start()?;
+
+    app.goto_line(3)?;
+    assert_eq!(app.get_cursor_position().line, 2);
+    assert_eq!(app.get_cursor_position().column, 0);
+
+    // 行数を超えた場合は末尾へ移動
+    app.goto_line(10)?;
+    assert_eq!(app.get_cursor_position().line, 2);
+    assert_eq!(app.get_cursor_position().column, "three".chars().count());
+
+    // 無効な行番号はエラー
+    assert!(app.goto_line(0).is_err());
+
+    Ok(())
+}

@@ -108,6 +108,7 @@ pub enum Command {
     IndentForTab,
     NewlineAndIndent,
     OpenLine,
+    GotoLine,
     KillWordForward,
     KillWordBackward,
     KillLine,
@@ -177,6 +178,7 @@ impl Command {
             "indent-for-tab-command" => Command::IndentForTab,
             "newline-and-indent" => Command::NewlineAndIndent,
             "open-line" => Command::OpenLine,
+            "goto-line" => Command::GotoLine,
             "kill-word" => Command::KillWordForward,
             "backward-kill-word" => Command::KillWordBackward,
             "kill-line" => Command::KillLine,
@@ -255,6 +257,7 @@ impl Command {
             Command::IndentForTab => "タブ幅に沿ってインデント",
             Command::NewlineAndIndent => "改行してインデント",
             Command::OpenLine => "カーソル位置に空行を開く",
+            Command::GotoLine => "指定行へ移動",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
             Command::WriteFile => "別名でファイルを保存",
@@ -458,6 +461,7 @@ impl CommandProcessor {
             | Command::CopyRegion
             | Command::ExchangePointAndMark
             | Command::MarkBuffer
+            | Command::GotoLine
             | Command::QueryReplace
             | Command::RegexQueryReplace => {
                 CommandResult::error("このコマンドはアプリ側で処理します".to_string())
@@ -886,6 +890,7 @@ mod tests {
         assert!(matches!(Command::from_string("indent-for-tab-command"), Command::IndentForTab));
         assert!(matches!(Command::from_string("newline-and-indent"), Command::NewlineAndIndent));
         assert!(matches!(Command::from_string("open-line"), Command::OpenLine));
+        assert!(matches!(Command::from_string("goto-line"), Command::GotoLine));
     }
 
     #[test]

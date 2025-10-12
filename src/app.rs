@@ -262,6 +262,51 @@ impl App {
             .map_err(|err| err.into())
     }
 
+    fn total_line_count(&self) -> usize {
+        let text = self.editor.to_string();
+        if text.is_empty() {
+            1
+        } else {
+            text.chars().filter(|&c| c == '\n').count() + 1
+        }
+    }
+
+    pub fn goto_line(&mut self, line: usize) -> Result<()> {
+        if line == 0 {
+            return Err(AltreError::Application(
+                "行番号は1以上を指定してください".to_string(),
+            ));
+        }
+
+        let target_index = line.saturating_sub(1);
+        let text = self.editor.to_string();
+        let chars: Vec<char> = text.chars().collect();
+
+        let mut char_pos = chars.len();
+
+        if target_index == 0 {
+            char_pos = 0;
+        } else {
+            let mut current_line = 0usize;
+            for (idx, ch) in chars.iter().enumerate() {
+                if *ch == '\n' {
+                    current_line += 1;
+                    if current_line == target_index {
+                        char_pos = idx + 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.editor.move_cursor_to_char(char_pos)?;
+        self.ensure_cursor_visible();
+        self.show_info_message(format!("{} 行目へ移動", line));
+        Ok(())
+    }
+
     /// カーソル位置を取得
     pub fn get_cursor_position(&self) -> &CursorPosition {
         self.editor.cursor()
@@ -950,6 +995,10 @@ impl App {
             }
             Command::BackwardChar => {
                 self.navigate(NavigationAction::MoveCharBackward);
+                Ok(())
+            }
+            Command::GotoLine => {
+                self.start_goto_line_prompt()?;
                 Ok(())
             }
             Command::ForwardWord => {
@@ -1995,6 +2044,24 @@ impl App {
         }
     }
 
+    fn start_goto_line_prompt(&mut self) -> Result<()> {
+        let current_line = self.editor.cursor().line + 1;
+        let total_lines = self.total_line_count();
+
+        match self
+            .minibuffer
+            .start_goto_line(current_line, total_lines)
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                self.show_error_message(AltreError::Application(format!(
+                    "ミニバッファの初期化に失敗しました: {}", err
+                )));
+                Ok(())
+            }
+        }
+    }
+
     fn handle_minibuffer_key(&mut self, key_event: KeyEvent) -> Result<()> {
         let key: Key = key_event.into();
 
@@ -2043,8 +2110,12 @@ impl App {
                 Ok(())
             }
             Ok(SystemResponse::ExecuteCommand(cmd)) => {
-                self.show_info_message(format!("コマンド実行: {}", cmd));
-                Ok(())
+                if cmd == "goto-line" {
+                    self.start_goto_line_prompt()
+                } else {
+                    self.show_info_message(format!("コマンド実行: {}", cmd));
+                    Ok(())
+                }
             }
             Ok(SystemResponse::SwitchBuffer(name)) => {
                 let target = if name.trim().is_empty() {
@@ -2074,6 +2145,12 @@ impl App {
             }
             Ok(SystemResponse::ListBuffers) => {
                 self.show_buffer_list();
+                Ok(())
+            }
+            Ok(SystemResponse::GotoLine(line)) => {
+                if let Err(err) = self.goto_line(line) {
+                    self.show_error_message(err);
+                }
                 Ok(())
             }
             Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }) => {

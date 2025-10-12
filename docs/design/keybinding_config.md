@@ -57,6 +57,7 @@ author = "username"
 "C-x C-f" = "file-open"
 "C-x C-s" = "file-save"
 "C-x C-c" = "quit"
+"M-g g" = "goto-line"
 
 [modes]
 # モード固有のキーバインド（将来実装）
@@ -145,6 +146,7 @@ silent_unbound = true
 "indent-for-tab-command" = { type = "editor", action = "indent-tabstop" }
 "move-word-forward" = { type = "cursor", direction = "word-forward" }
 "move-word-backward" = { type = "cursor", direction = "word-backward" }
+"goto-line" = { type = "editor", action = "goto-line" }
 
 # ファイル操作
 "file-open" = { type = "file", action = "open" }
@@ -336,6 +338,7 @@ impl KeybindingConfig {
         bindings.insert("C-x C-f".to_string(), "file-open".to_string());
         bindings.insert("C-x C-s".to_string(), "file-save".to_string());
         bindings.insert("C-x C-c".to_string(), "quit".to_string());
+        bindings.insert("M-g g".to_string(), "goto-line".to_string());
 
         bindings
     }
@@ -554,9 +557,13 @@ impl ModernKeyMap {
         // 連続キーバインドの読み込み
         for (key_str, action_str) in &global.sequence {
             let key_seq = KeySequence::parse(key_str)?;
-            if key_seq.keys.len() == 2 && key_seq.keys[0].is_ctrl_x() {
+            if key_seq.keys.len() == 2 {
                 let action = self.parse_action(action_str)?;
-                self.cx_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                if key_seq.keys[0].is_ctrl_x() {
+                    self.cx_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                } else if key_seq.keys[0].is_alt_g() {
+                    self.mg_prefix_bindings.insert(key_seq.keys[1].clone(), action);
+                }
             }
         }
 
@@ -575,6 +582,7 @@ impl ModernKeyMap {
             "indent-for-tab-command" => Ok(Action::IndentForTab),
             "move-word-forward" => Ok(Action::Navigate(NavigationAction::MoveWordForward)),
             "move-word-backward" => Ok(Action::Navigate(NavigationAction::MoveWordBackward)),
+            "goto-line" => Ok(Action::GotoLine),
             "newline-and-indent" => Ok(Action::NewlineAndIndent),
             "open-line" => Ok(Action::OpenLine),
             "file-open" => Ok(Action::FileOpen),

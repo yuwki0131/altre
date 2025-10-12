@@ -352,6 +352,8 @@ pub enum Action {
     KillWord(KillDirection),
     /// 改行
     InsertNewline,
+    /// タブ幅に沿ったインデント
+    IndentForTab,
     /// 改行＋インデント
     NewlineAndIndent,
     /// 空行挿入（オープンライン）
@@ -436,6 +438,7 @@ impl Action {
             Action::KillWord(KillDirection::Forward) => Some(Command::KillWordForward),
             Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
+            Action::IndentForTab => Some(Command::IndentForTab),
             Action::NewlineAndIndent => Some(Command::NewlineAndIndent),
             Action::OpenLine => Some(Command::OpenLine),
             Action::KillLine => Some(Command::KillLine),
@@ -694,6 +697,13 @@ impl ModernKeyMap {
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
         single.insert(
             Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Tab,
+            },
+            Action::IndentForTab,
+        );
+        single.insert(
+            Key {
                 modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
                 code: KeyCode::Char('j'),
             },
@@ -705,6 +715,13 @@ impl ModernKeyMap {
                 code: KeyCode::Char('o'),
             },
             Action::OpenLine,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('i'),
+            },
+            Action::IndentForTab,
         );
         single.insert(
             Key {
@@ -892,9 +909,9 @@ impl ModernKeyMap {
             return KeyProcessResult::Action(Action::InsertChar(key.to_char()));
         }
 
-        // Tabは文字挿入として扱う
-        if matches!(key.code, KeyCode::Tab) && !key.modifiers.ctrl && !key.modifiers.alt {
-            return KeyProcessResult::Action(Action::InsertChar('\t'));
+        // Tabはインデントコマンドとして扱う
+        if matches!(key.code, KeyCode::Tab) && !key.modifiers.alt {
+            return KeyProcessResult::Action(Action::IndentForTab);
         }
 
         // マッチしない場合はサイレント無視
@@ -1501,7 +1518,18 @@ mod tests {
             code: KeyCode::Tab,
         };
         let result = keymap.process_key(key);
-        assert_eq!(result, KeyProcessResult::Action(Action::InsertChar('\t')));
+        assert_eq!(result, KeyProcessResult::Action(Action::IndentForTab));
+    }
+
+    #[test]
+    fn test_ctrl_i_maps_to_indent() {
+        let mut keymap = ModernKeyMap::new();
+        let key = Key {
+            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            code: KeyCode::Char('i'),
+        };
+        let result = keymap.process_key(key);
+        assert_eq!(result, KeyProcessResult::Action(Action::IndentForTab));
     }
 
     #[test]
@@ -1539,6 +1567,7 @@ mod tests {
         assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
         assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::IndentForTab.to_command(), Some(Command::IndentForTab));
         assert_eq!(Action::NewlineAndIndent.to_command(), Some(Command::NewlineAndIndent));
         assert_eq!(Action::OpenLine.to_command(), Some(Command::OpenLine));
         assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));

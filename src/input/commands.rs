@@ -3,7 +3,7 @@
 //! エディタコマンドの定義と実行
 
 use crate::buffer::{EditOperations, NavigationAction, TextEditor};
-use crate::editor::KillRing;
+use crate::editor::{KillRing, edit_utils};
 use crate::file::{FileOperationManager, FileBuffer, expand_path};
 /// コマンド実行の結果
 #[derive(Debug, Clone)]
@@ -87,6 +87,8 @@ enum LastCommand {
     Yank,
 }
 
+const DEFAULT_TAB_WIDTH: usize = 4;
+
 /// コマンドの種類
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -103,6 +105,7 @@ pub enum Command {
     DeleteBackwardChar,
     DeleteChar,
     InsertNewline,
+    IndentForTab,
     NewlineAndIndent,
     OpenLine,
     KillWordForward,
@@ -171,6 +174,7 @@ impl Command {
             "delete-backward-char" => Command::DeleteBackwardChar,
             "delete-char" => Command::DeleteChar,
             "newline" => Command::InsertNewline,
+            "indent-for-tab-command" => Command::IndentForTab,
             "newline-and-indent" => Command::NewlineAndIndent,
             "open-line" => Command::OpenLine,
             "kill-word" => Command::KillWordForward,
@@ -248,6 +252,7 @@ impl Command {
             Command::ScrollLeft => "画面を左にスクロール",
             Command::ScrollRight => "画面を右にスクロール",
             Command::InsertNewline => "改行を挿入",
+            Command::IndentForTab => "タブ幅に沿ってインデント",
             Command::NewlineAndIndent => "改行してインデント",
             Command::OpenLine => "カーソル位置に空行を開く",
             Command::FindFile => "ファイルを開く",
@@ -417,6 +422,7 @@ impl CommandProcessor {
                 let res = self.editor.insert_newline();
                 self.handle_edit(res)
             }
+            Command::IndentForTab => self.indent_for_tab(),
             Command::NewlineAndIndent => self.insert_newline_and_indent(),
             Command::OpenLine => self.open_line(),
             Command::KillWordForward => {
@@ -516,6 +522,27 @@ impl CommandProcessor {
                         return CommandResult::error(err.to_string());
                     }
                 }
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn indent_for_tab(&mut self) -> CommandResult {
+        let insertion = {
+            let cursor = *self.editor.cursor();
+            let text = self.editor.to_string();
+            let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
+            let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+            " ".repeat(spaces)
+        };
+
+        match self.editor.insert_str(&insertion) {
+            Ok(_) => {
                 self.reset_command_context();
                 CommandResult::success()
             }
@@ -856,6 +883,7 @@ mod tests {
         assert!(matches!(Command::from_string("copy-region-as-kill"), Command::CopyRegion));
         assert!(matches!(Command::from_string("exchange-point-and-mark"), Command::ExchangePointAndMark));
         assert!(matches!(Command::from_string("mark-whole-buffer"), Command::MarkBuffer));
+        assert!(matches!(Command::from_string("indent-for-tab-command"), Command::IndentForTab));
         assert!(matches!(Command::from_string("newline-and-indent"), Command::NewlineAndIndent));
         assert!(matches!(Command::from_string("open-line"), Command::OpenLine));
     }

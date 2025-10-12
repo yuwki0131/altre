@@ -47,6 +47,8 @@ author = "username"
 "Enter" = "insert-newline"
 "C-j" = "newline-and-indent"
 "C-o" = "open-line"
+"Tab" = "indent-for-tab-command"
+"C-i" = "indent-for-tab-command"
 
 [global.sequence]
 # 連続キーバインド
@@ -138,6 +140,7 @@ silent_unbound = true
 "insert-newline" = { type = "insert", content = "\n" }
 "newline-and-indent" = { type = "editor", action = "newline-indent" }
 "open-line" = { type = "editor", action = "open-line" }
+"indent-for-tab-command" = { type = "editor", action = "indent-tabstop" }
 
 # ファイル操作
 "file-open" = { type = "file", action = "open" }
@@ -312,6 +315,8 @@ impl KeybindingConfig {
         bindings.insert("Enter".to_string(), "insert-newline".to_string());
         bindings.insert("C-j".to_string(), "newline-and-indent".to_string());
         bindings.insert("C-o".to_string(), "open-line".to_string());
+        bindings.insert("Tab".to_string(), "indent-for-tab-command".to_string());
+        bindings.insert("C-i".to_string(), "indent-for-tab-command".to_string());
 
         // コマンド実行
         bindings.insert("M-x".to_string(), "execute-command".to_string());
@@ -561,6 +566,7 @@ impl ModernKeyMap {
             "delete-backward-char" => Ok(Action::DeleteChar(DeleteDirection::Backward)),
             "delete-forward-char" => Ok(Action::DeleteChar(DeleteDirection::Forward)),
             "insert-newline" => Ok(Action::InsertNewline),
+            "indent-for-tab-command" => Ok(Action::IndentForTab),
             "newline-and-indent" => Ok(Action::NewlineAndIndent),
             "open-line" => Ok(Action::OpenLine),
             "file-open" => Ok(Action::FileOpen),

@@ -95,6 +95,7 @@ impl KeySequence {
 | `Backspace` | 前文字削除 | 高 |
 | `Delete` | 後文字削除 | 高 |
 | `Enter` | 改行 | 高 |
+| `Tab` / `C-i` | タブ幅に沿ってインデント | 高 |
 | `C-j` | 改行して既存インデントを適用 | 高 |
 | `C-o` | カーソル位置に空行を挿入 | 高 |
 
@@ -152,6 +153,8 @@ pub enum Action {
     DeleteChar(DeleteDirection),
     /// 改行
     InsertNewline,
+    /// タブ幅に沿ったインデント
+    IndentForTab,
     /// 改行＋インデント
     NewlineAndIndent,
     /// 空行挿入
@@ -430,6 +433,13 @@ impl KeyMap {
         single.insert(Key::enter(), Action::InsertNewline);
         single.insert(
             Key {
+                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                code: KeyCode::Tab,
+            },
+            Action::IndentForTab,
+        );
+        single.insert(
+            Key {
                 modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
                 code: KeyCode::Char('j'),
             },
@@ -441,6 +451,13 @@ impl KeyMap {
                 code: KeyCode::Char('o'),
             },
             Action::OpenLine,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('i'),
+            },
+            Action::IndentForTab,
         );
 
         // ファイル操作（C-xプレフィックス）

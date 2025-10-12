@@ -9,7 +9,7 @@ use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
 use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
 use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight};
-use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind};
+use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind, edit_utils};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
@@ -19,6 +19,8 @@ use std::env;
 use std::io::stdout;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+const DEFAULT_TAB_WIDTH: usize = 4;
 
 /// デバッグ出力マクロ
 macro_rules! debug_log {
@@ -996,6 +998,10 @@ impl App {
                 self.ensure_cursor_visible();
                 Ok(())
             }
+            Command::IndentForTab => {
+                self.indent_for_tab();
+                Ok(())
+            }
             Command::NewlineAndIndent => {
                 self.newline_and_indent();
                 Ok(())
@@ -1271,6 +1277,22 @@ impl App {
         self.last_yank_range = None;
     }
 
+    fn indent_for_tab(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let insertion = self.tab_insertion_string();
+        let result = self.editor.insert_str(&insertion);
+        let success = result.is_ok();
+
+        if let Err(err) = result {
+            self.show_error_message(err);
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
     fn newline_and_indent(&mut self) {
         self.begin_history(HistoryCommandKind::Other);
         let indent = self.current_line_indent();
@@ -1337,6 +1359,14 @@ impl App {
             .chars()
             .take_while(|ch| matches!(ch, ' ' | '\t'))
             .collect()
+    }
+
+    fn tab_insertion_string(&self) -> String {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
+        let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+        " ".repeat(spaces)
     }
 
     fn kill_word_forward(&mut self) {

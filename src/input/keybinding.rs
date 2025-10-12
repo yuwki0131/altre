@@ -352,6 +352,10 @@ pub enum Action {
     KillWord(KillDirection),
     /// 改行
     InsertNewline,
+    /// 改行＋インデント
+    NewlineAndIndent,
+    /// 空行挿入（オープンライン）
+    OpenLine,
     /// 行キル
     KillLine,
     /// マーク設定
@@ -432,6 +436,8 @@ impl Action {
             Action::KillWord(KillDirection::Forward) => Some(Command::KillWordForward),
             Action::KillWord(KillDirection::Backward) => Some(Command::KillWordBackward),
             Action::InsertNewline => Some(Command::InsertNewline),
+            Action::NewlineAndIndent => Some(Command::NewlineAndIndent),
+            Action::OpenLine => Some(Command::OpenLine),
             Action::KillLine => Some(Command::KillLine),
             Action::SetMark => Some(Command::SetMark),
             Action::KillRegion => Some(Command::KillRegion),
@@ -686,6 +692,20 @@ impl ModernKeyMap {
         single.insert(Key::alt_y(), Action::YankPop);
         single.insert(Key::ctrl_g(), Action::KeyboardQuit);
         single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('j'),
+            },
+            Action::NewlineAndIndent,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                code: KeyCode::Char('o'),
+            },
+            Action::OpenLine,
+        );
         single.insert(
             Key {
                 modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
@@ -1519,6 +1539,8 @@ mod tests {
         assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
         assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
         assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
+        assert_eq!(Action::NewlineAndIndent.to_command(), Some(Command::NewlineAndIndent));
+        assert_eq!(Action::OpenLine.to_command(), Some(Command::OpenLine));
         assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
         assert_eq!(Action::ScrollPageDown.to_command(), Some(Command::ScrollPageDown));
         assert_eq!(Action::ScrollPageUp.to_command(), Some(Command::ScrollPageUp));

@@ -996,6 +996,14 @@ impl App {
                 self.ensure_cursor_visible();
                 Ok(())
             }
+            Command::NewlineAndIndent => {
+                self.newline_and_indent();
+                Ok(())
+            }
+            Command::OpenLine => {
+                self.open_line();
+                Ok(())
+            }
             Command::KillWordForward => {
                 self.kill_word_forward();
                 Ok(())
@@ -1261,6 +1269,74 @@ impl App {
 
         self.kill_context = KillContext::Kill;
         self.last_yank_range = None;
+    }
+
+    fn newline_and_indent(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let indent = self.current_line_indent();
+        let mut success = false;
+
+        match self.editor.insert_newline() {
+            Ok(()) => {
+                let result = if indent.is_empty() {
+                    Ok(())
+                } else {
+                    self.editor.insert_str(&indent)
+                };
+
+                if let Err(err) = result {
+                    self.show_error_message(err);
+                } else {
+                    success = true;
+                }
+            }
+            Err(err) => {
+                self.show_error_message(err);
+            }
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn open_line(&mut self) {
+        self.begin_history(HistoryCommandKind::Other);
+        let cursor_before = *self.editor.cursor();
+        let mut success = false;
+
+        match self.editor.insert_newline() {
+            Ok(()) => {
+                self.editor.set_cursor(cursor_before);
+                success = true;
+            }
+            Err(err) => {
+                self.show_error_message(err);
+            }
+        }
+
+        self.end_history(success);
+        self.reset_kill_context();
+        self.reset_recenter_cycle();
+        self.ensure_cursor_visible();
+    }
+
+    fn current_line_indent(&self) -> String {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+
+        let line_content = if cursor.line < lines.len() {
+            lines[cursor.line]
+        } else {
+            lines.last().copied().unwrap_or("")
+        };
+
+        line_content
+            .chars()
+            .take_while(|ch| matches!(ch, ' ' | '\t'))
+            .collect()
     }
 
     fn kill_word_forward(&mut self) {

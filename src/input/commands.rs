@@ -103,6 +103,8 @@ pub enum Command {
     DeleteBackwardChar,
     DeleteChar,
     InsertNewline,
+    NewlineAndIndent,
+    OpenLine,
     KillWordForward,
     KillWordBackward,
     KillLine,
@@ -169,6 +171,8 @@ impl Command {
             "delete-backward-char" => Command::DeleteBackwardChar,
             "delete-char" => Command::DeleteChar,
             "newline" => Command::InsertNewline,
+            "newline-and-indent" => Command::NewlineAndIndent,
+            "open-line" => Command::OpenLine,
             "kill-word" => Command::KillWordForward,
             "backward-kill-word" => Command::KillWordBackward,
             "kill-line" => Command::KillLine,
@@ -244,6 +248,8 @@ impl Command {
             Command::ScrollLeft => "画面を左にスクロール",
             Command::ScrollRight => "画面を右にスクロール",
             Command::InsertNewline => "改行を挿入",
+            Command::NewlineAndIndent => "改行してインデント",
+            Command::OpenLine => "カーソル位置に空行を開く",
             Command::FindFile => "ファイルを開く",
             Command::SaveBuffer => "バッファを保存",
             Command::WriteFile => "別名でファイルを保存",
@@ -411,6 +417,8 @@ impl CommandProcessor {
                 let res = self.editor.insert_newline();
                 self.handle_edit(res)
             }
+            Command::NewlineAndIndent => self.insert_newline_and_indent(),
+            Command::OpenLine => self.open_line(),
             Command::KillWordForward => {
                 let res = self.editor.delete_word_forward();
                 self.handle_kill(res, KillJoin::Append)
@@ -489,6 +497,68 @@ impl CommandProcessor {
                 CommandResult::error(err.to_string())
             }
         }
+    }
+
+    fn insert_newline_and_indent(&mut self) -> CommandResult {
+        let indent = match self.current_line_indent() {
+            Ok(indent) => indent,
+            Err(err) => {
+                self.reset_command_context();
+                return CommandResult::error(err.to_string());
+            }
+        };
+
+        match self.editor.insert_newline() {
+            Ok(_) => {
+                if !indent.is_empty() {
+                    if let Err(err) = self.editor.insert_str(&indent) {
+                        self.reset_command_context();
+                        return CommandResult::error(err.to_string());
+                    }
+                }
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn open_line(&mut self) -> CommandResult {
+        let original_cursor = *self.editor.cursor();
+
+        match self.editor.insert_newline() {
+            Ok(_) => {
+                self.editor.set_cursor(original_cursor);
+                self.reset_command_context();
+                CommandResult::success()
+            }
+            Err(err) => {
+                self.reset_command_context();
+                CommandResult::error(err.to_string())
+            }
+        }
+    }
+
+    fn current_line_indent(&mut self) -> crate::error::Result<String> {
+        let cursor = *self.editor.cursor();
+        let text = self.editor.to_string();
+        let lines: Vec<&str> = text.split('\n').collect();
+
+        let line_content = if cursor.line < lines.len() {
+            lines[cursor.line]
+        } else {
+            lines.last().copied().unwrap_or("")
+        };
+
+        let indent = line_content
+            .chars()
+            .take_while(|ch| matches!(ch, ' ' | '\t'))
+            .collect();
+
+        Ok(indent)
     }
 
     fn handle_delete(&mut self, result: crate::error::Result<char>) -> CommandResult {
@@ -786,6 +856,8 @@ mod tests {
         assert!(matches!(Command::from_string("copy-region-as-kill"), Command::CopyRegion));
         assert!(matches!(Command::from_string("exchange-point-and-mark"), Command::ExchangePointAndMark));
         assert!(matches!(Command::from_string("mark-whole-buffer"), Command::MarkBuffer));
+        assert!(matches!(Command::from_string("newline-and-indent"), Command::NewlineAndIndent));
+        assert!(matches!(Command::from_string("open-line"), Command::OpenLine));
     }
 
     #[test]

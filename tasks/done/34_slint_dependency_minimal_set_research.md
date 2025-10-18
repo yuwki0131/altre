@@ -18,10 +18,14 @@ Slint GUI を各ターゲット OS（NixOS/Ubuntu/Debian/Linux Mint/Windows/macO
 - 最新の Slint ドキュメントを参照できること
 
 ## 完了条件
-- [ ] Linux (Wayland/X11) で必要なライブラリが一覧化されている
-- [ ] Windows/macOS でのインストール手順案がまとめられている
-- [ ] NixOS 向けの derivation/shell 更新案が提示されている
-- [ ] ドキュメント化された結果が共有ディレクトリに保存されている
+- [x] Linux (Wayland/X11) で必要なライブラリが一覧化されている
+- [x] Windows/macOS でのインストール手順案がまとめられている
+- [x] NixOS 向けの derivation/shell 更新案が提示されている
+- [x] ドキュメント化された結果が共有ディレクトリに保存されている
+
+## メモ
+- 調査結果は `docs/design/slint_dependency_minimum.md` にまとめた。
+- 主要ディストリビューションごとの必須パッケージとライセンス留意点を整理し、後続の依存導入タスクの基礎とした。
 
 ## 見積もり
 **期間**: 1日  

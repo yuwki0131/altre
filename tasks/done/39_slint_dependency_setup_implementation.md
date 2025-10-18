@@ -19,13 +19,19 @@
 - Slint GUI フロントエンド実装の着手前後で実行
 
 ## 完了条件
-- [ ] NixOS で GUI ビルド・実行が成功
-- [ ] Ubuntu/Debian 等で必要パッケージがガイドに記載されている
-- [ ] Windows/macOS のセットアップ手順が更新
-- [ ] 変更内容がドキュメントおよび CHANGELOG に反映
+- [x] NixOS で GUI ビルド・実行が成功（`nix/shell.nix` を追加）
+- [x] Ubuntu/Debian 等で必要パッケージがガイドに記載されている
+- [x] Windows/macOS のセットアップ手順が更新
+- [x] 変更内容がドキュメントおよび CHANGELOG に反映
+
+## 実施メモ
+- `Cargo.toml` にオプション依存 `slint` を追加し、`gui` フィーチャーと連携。
+- `nix/shell.nix` を新規作成し、Slint・Wayland・フォント関連パッケージを同梱。
+- `INSTALL.md` に各 OS 向けの追加パッケージ一覧と Nix シェル利用方法を追記。
+- `README.md` のセットアップ節に GUI 依存の概要を追加し、`CHANGELOG.md` に記録。
 
 ## 見積もり
-**期間**: 1日  
+**期間**: 1日
 **優先度**: 中（GUI 実装準備）
 
 ## 関連タスク

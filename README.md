@@ -21,7 +21,7 @@ Emacs風テキストエディタ実装
 
 ## 現在のステータス
 - 開発フェーズ: MVP コア機能に加え、バッファ・ウィンドウ管理と検索機能を統合済み
-- 対応プラットフォーム: ターミナル向け TUI（ratatui）。将来的に GUI (Tauri) 拡張を計画
+- 対応プラットフォーム: ターミナル向け TUI（ratatui）。将来的に GUI (Slint) 拡張を進行中
 
 ## セットアップ
 ### 前提条件
@@ -34,6 +34,12 @@ Emacs風テキストエディタ実装
 cargo build --offline
 cargo test --offline
 ```
+
+### GUI（Slint）依存パッケージ
+GUI 実装に着手する場合は、OS ごとに追加ライブラリが必要です。詳細は `docs/design/slint_dependency_minimum.md` を参照してください。代表的な例:
+- **NixOS**: `slint`, `wayland`, `wayland-protocols`, `libxkbcommon`, `fontconfig`, `freetype`, `harfbuzz`, `mesa`, `vulkan-loader`, `pkg-config`
+- **Ubuntu / Debian**: `libwayland-dev`, `wayland-protocols`, `libxkbcommon-dev`, `libfreetype6-dev`, `libfontconfig1-dev`, `libharfbuzz-dev`, `libgl1-mesa-dev`, `libegl1-mesa-dev`, `pkg-config`
+- **Windows / macOS**: Visual Studio Build Tools / Xcode Command Line Tools、`slint` crate（Cargo）、フォント関連ライブラリ
 
 ### 実行
 

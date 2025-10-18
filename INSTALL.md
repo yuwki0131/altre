@@ -10,6 +10,24 @@
 - Rust 1.78 以上（`rustup` 推奨）
 - C コンパイラ（clang または gcc）
 - UTF-8 表示に対応した端末
+- GUI 開発時は追加で以下をインストール
+  - **NixOS**: `slint`, `wayland`, `wayland-protocols`, `libxkbcommon`, `fontconfig`, `freetype`, `harfbuzz`, `mesa`, `libGL`, `vulkan-loader`, `pkg-config`
+  - **Ubuntu / Debian / Linux Mint**:
+    ```
+    sudo apt install libwayland-dev wayland-protocols libxkbcommon-dev \
+      libfreetype6-dev libfontconfig1-dev libharfbuzz-dev \
+      libgl1-mesa-dev libegl1-mesa-dev vulkan-loader pkg-config
+    ```
+  - **Fedora**:
+    ```
+    sudo dnf install wayland-devel wayland-protocols-devel libxkbcommon-devel \
+      libX11-devel libXext-devel libXcursor-devel libXi-devel \
+      freetype-devel fontconfig-devel harfbuzz-devel \
+      mesa-libGL-devel mesa-libEGL-devel vulkan-loader pkgconf-pkg-config
+    ```
+  - **Windows**: Visual Studio Build Tools、CMake、`winget install slint.slint`（または Cargo 経由）、GPU ドライバ
+  - **macOS**: Xcode Command Line Tools、`brew install slint freetype harfbuzz fontconfig pkg-config`
+  - 依存の背景と詳細は `docs/design/slint_dependency_minimum.md` を参照
 
 ### ソース取得とビルド
 ```bash
@@ -31,6 +49,12 @@ cd altre
 cargo run --release --offline
 ```
 raw mode を利用するため、端末や仮想環境によっては実行に失敗することがあります。その場合は `manuals/troubleshooting.md` を参照してください。
+
+## 3. NixOS での開発シェル
+`nix/shell.nix` を用意しています。Nix 環境では以下で必要パッケージが揃ったシェルに入ります。
+```bash
+nix-shell
+```
 
 ## 3. 設定
 MVP 版にはユーザー設定ファイルはありません。将来的に `~/.altre.d/` 配下へ設定ファイルを配置する予定です。

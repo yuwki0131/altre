@@ -5,11 +5,15 @@ Slint GUI をビルド・実行するために必要なランタイム／ライ�
 
 ## 共通要件
 - Rust 1.78 以降
-- Slint クレート（`slint`, `slint-build`）
+- Slint クレート（`slint`）
 - GPU/ソフトウェアレンダリング用バックエンド（OpenGL/EGL/Vulkan のいずれか）
 - フォント・テキストレンダリングライブラリ（FreeType, Fontconfig, HarfBuzz）
 - Wayland/X11 用のクライアントライブラリ（Linux のみ）
 - `pkg-config`（ビルド時のライブラリ検出に使用）
+
+### Cargo 設定
+- `Cargo.toml` では `slint` をオプション依存として追加し、`gui` フィーチャーに紐付ける。
+- `slint::include_slint!` を利用する予定のため `slint-build` は現状不要。
 
 ## NixOS
 | 目的 | パッケージ |

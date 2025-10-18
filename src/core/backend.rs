@@ -4,22 +4,17 @@
 
 use crate::alisp::{HostBridge, Interpreter};
 use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor};
-use crate::error::{AltreError, Result, UiError, FileError};
+use crate::error::{AltreError, Result, FileError};
 use crate::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
 use crate::input::commands::{Command, CommandProcessor};
 use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
-use crate::ui::{AdvancedRenderer, StatusLineInfo, WindowManager, SplitOrientation, ViewportState};
-use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight};
+use crate::ui::{WindowManager, SplitOrientation, ViewportState};
+use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight, SearchUiState};
 use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind, edit_utils};
 use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::execute;
-use ratatui::{backend::CrosstermBackend, Terminal};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::env;
-use std::io::stdout;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -88,7 +83,7 @@ impl ReplaceSession {
 /// メインアプリケーション構造体
 ///
 /// 全てのコンポーネントを統合し、アプリケーションのライフサイクルを管理
-pub struct App {
+pub struct Backend {
     /// アプリケーション実行状態
     running: bool,
     /// 初期化状態
@@ -97,8 +92,6 @@ pub struct App {
     editor: TextEditor,
     /// ミニバッファシステム
     minibuffer: MinibufferSystem,
-    /// 高性能レンダラー
-    renderer: AdvancedRenderer,
     /// キーマップ
     keymap: Rc<RefCell<ModernKeyMap>>,
     /// コマンドプロセッサー
@@ -146,15 +139,34 @@ enum KillMerge {
     Prepend,
 }
 
-impl App {
+/// 描画用のメタデータ
+#[derive(Debug, Clone)]
+pub struct RenderMetadata {
+    /// ステータスラインに表示するラベル
+    pub status_label: String,
+    /// バッファが未保存かどうか
+    pub is_modified: bool,
+    /// 検索・置換・選択ハイライト
+    pub highlights: Vec<SearchHighlight>,
+    /// 検索UI状態
+    pub search_ui: Option<SearchUiState>,
+}
+
+/// レンダラーへ引き渡す参照群
+pub struct RenderView<'a> {
+    pub editor: &'a TextEditor,
+    pub minibuffer: &'a MinibufferSystem,
+    pub window_manager: &'a mut WindowManager,
+}
+
+impl Backend {
     /// 新しいアプリケーションインスタンスを作成
     pub fn new() -> Result<Self> {
-        let mut app = App {
+        let mut app = Backend {
             running: true,
             initialized: true,
             editor: TextEditor::new(),
             minibuffer: MinibufferSystem::new(),
-            renderer: AdvancedRenderer::new(),
             keymap: Rc::new(RefCell::new(ModernKeyMap::new())),
             command_processor: CommandProcessor::new(),
             search: SearchController::new(),
@@ -180,29 +192,6 @@ impl App {
         Ok(app)
     }
 
-    /// メインイベントループを実行
-    pub fn run(&mut self) -> Result<()> {
-        self.enter_terminal()?;
-
-        let backend = CrosstermBackend::new(stdout());
-        let mut terminal = Terminal::new(backend)
-            .map_err(|err| Self::terminal_error("terminal init", err))?;
-        terminal
-            .hide_cursor()
-            .map_err(|err| Self::terminal_error("hide cursor", err))?;
-
-        let loop_result = self.event_loop(&mut terminal);
-        let show_cursor_result = terminal
-            .show_cursor()
-            .map_err(|err| Self::terminal_error("show cursor", err));
-        drop(terminal);
-        let cleanup_result = self.leave_terminal();
-
-        loop_result
-            .and(show_cursor_result)
-            .and(cleanup_result)
-    }
-
     /// アプリケーションが実行中かどうかを確認
     pub fn is_running(&self) -> bool {
         self.running
@@ -216,6 +205,33 @@ impl App {
     /// アプリケーションが初期化されているかを確認
     pub fn is_initialized(&self) -> bool {
         self.initialized
+    }
+
+    /// 描画に必要なメタデータを取得
+    pub fn render_metadata(&self) -> RenderMetadata {
+        let search_ui = self.search.ui_state().cloned();
+        let mut highlights = Vec::new();
+        highlights.extend_from_slice(self.search.highlights());
+        highlights.extend(self.replace.highlights.iter().cloned());
+        highlights.extend(self.selection_highlights());
+
+        let (status_label, is_modified) = self.status_line_data();
+
+        RenderMetadata {
+            status_label,
+            is_modified,
+            highlights,
+            search_ui,
+        }
+    }
+
+    /// レンダラーへ渡す参照群を生成
+    pub fn render_view(&mut self) -> RenderView<'_> {
+        RenderView {
+            editor: &self.editor,
+            minibuffer: &self.minibuffer,
+            window_manager: &mut self.window_manager,
+        }
     }
 
     /// ファイルを開く
@@ -652,28 +668,8 @@ impl App {
             .expect("フォーカスウィンドウが存在しません")
     }
 
-    fn event_loop<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
-        while self.running {
-            self.process_minibuffer_timer();
-            self.render(terminal)?;
 
-            if event::poll(Duration::from_millis(16))
-                .map_err(|err| Self::terminal_error("event poll", err))?
-            {
-                match event::read().map_err(|err| Self::terminal_error("event read", err))? {
-                    Event::Key(key_event) => self.handle_key_event(key_event)?,
-                    Event::Resize(_, _) => {
-                        // 次回描画で自動的に反映されるため処理不要
-                    }
-                    Event::Mouse(_) | Event::FocusGained | Event::FocusLost | Event::Paste(_) => {}
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // ミニバッファのメッセージ表示があれば先に消去
         if self.minibuffer.is_message_displayed() {
             let key = Key::from(key_event);
@@ -1855,6 +1851,21 @@ impl App {
         highlights
     }
 
+    fn status_line_data(&self) -> (String, bool) {
+        if let Some(buffer) = self.current_buffer() {
+            let label = if let Some(path) = buffer.path() {
+                path.display().to_string()
+            } else if buffer.name().trim().is_empty() {
+                "[未保存] *scratch*".to_string()
+            } else {
+                format!("[未保存] {}", buffer.name())
+            };
+            (label, buffer.is_modified())
+        } else {
+            ("[バッファなし]".to_string(), false)
+        }
+    }
+
     fn ensure_cursor_visible(&mut self) {
         let (total_lines, max_columns) = self.buffer_metrics();
         let cursor_line = self.editor.cursor().line;
@@ -2296,50 +2307,7 @@ impl App {
         self.ensure_cursor_visible();
     }
 
-    fn render<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
-        let search_ui = self.search.ui_state();
-        let search_highlights = self.search.highlights();
-        let replace_highlights = &self.replace.highlights;
-        let selection_highlights = self.selection_highlights();
-        let mut combined_highlights = Vec::with_capacity(
-            search_highlights.len() + replace_highlights.len() + selection_highlights.len(),
-        );
-        combined_highlights.extend_from_slice(search_highlights);
-        combined_highlights.extend_from_slice(replace_highlights);
-        combined_highlights.extend(selection_highlights.into_iter());
-
-        let (file_label_buf, is_modified) = if let Some(buffer) = self.current_buffer() {
-            let label = if let Some(path) = buffer.path() {
-                path.display().to_string()
-            } else if buffer.name().trim().is_empty() {
-                "[未保存] *scratch*".to_string()
-            } else {
-                format!("[未保存] {}", buffer.name())
-            };
-            (label, buffer.is_modified())
-        } else {
-            ("[バッファなし]".to_string(), false)
-        };
-
-        let status_info = StatusLineInfo {
-            file_label: file_label_buf.as_str(),
-            is_modified,
-        };
-
-        self.renderer
-            .render(
-                terminal,
-                &self.editor,
-                &mut self.window_manager,
-                &self.minibuffer,
-                search_ui,
-                &combined_highlights,
-                status_info,
-            )
-            .map_err(|err| Self::terminal_error("render", err))
-    }
-
-    fn process_minibuffer_timer(&mut self) {
+    pub fn process_minibuffer_timer(&mut self) {
         if let Err(err) = self.minibuffer.handle_event(SystemEvent::Update) {
             eprintln!("minibuffer update error: {}", err);
         }
@@ -2355,28 +2323,6 @@ impl App {
         if let Err(mini_err) = self.minibuffer.show_error(error.to_string()) {
             eprintln!("minibuffer error: {}", mini_err);
         }
-    }
-
-    fn enter_terminal(&self) -> Result<()> {
-        enable_raw_mode().map_err(|err| Self::terminal_error("enable raw mode", err))?;
-        let mut out = stdout();
-        execute!(out, EnterAlternateScreen)
-            .map_err(|err| Self::terminal_error("enter alternate screen", err))?;
-        Ok(())
-    }
-
-    fn leave_terminal(&self) -> Result<()> {
-        let mut out = stdout();
-        execute!(out, LeaveAlternateScreen)
-            .map_err(|err| Self::terminal_error("leave alternate screen", err))?;
-        disable_raw_mode().map_err(|err| Self::terminal_error("disable raw mode", err))?;
-        Ok(())
-    }
-
-    fn terminal_error(context: &str, err: impl std::fmt::Display) -> AltreError {
-        AltreError::Ui(UiError::RenderingFailed {
-            component: format!("{}: {}", context, err),
-        })
     }
 
     /// キーイベントを人間が読みやすい形式に変換
@@ -2465,7 +2411,7 @@ impl HostBridge for KeymapHost {
     }
 }
 
-impl Default for App {
+impl Default for Backend {
     fn default() -> Self {
         Self::new().expect("アプリケーションの初期化に失敗しました")
     }
@@ -2477,7 +2423,7 @@ mod tests {
 
     #[test]
     fn kill_line_removes_text_without_messages() {
-        let mut app = App::new().expect("app init");
+        let mut app = Backend::new().expect("app init");
         app.insert_str("hello\nworld").unwrap();
         app.move_cursor_to_start().unwrap();
 

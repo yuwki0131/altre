@@ -1,4 +1,4 @@
-use altre::{error, App, Result};
+use altre::{error, Result, TuiApplication};
 
 fn main() -> Result<()> {
     error::setup_panic_handler();
@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     println!("Version: {}", env!("CARGO_PKG_VERSION"));
     println!();
 
-    let mut app = App::new()?;
+    let mut app = TuiApplication::new()?;
     app.run()?;
 
     Ok(())

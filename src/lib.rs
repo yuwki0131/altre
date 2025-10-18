@@ -8,7 +8,8 @@ pub mod alisp;
 // コアモジュール
 pub mod error;
 pub mod logging;
-pub mod app;
+pub mod core;
+pub mod frontend;
 
 // データ層
 pub mod buffer;
@@ -29,5 +30,6 @@ pub mod ui;
 pub mod performance;
 
 // 公開API
-pub use app::App;
+pub use core::Backend;
+pub use frontend::TuiApplication;
 pub use error::{AltreError, Result};

@@ -99,3 +99,8 @@ Crossterm Event → FrontendEvent → CoreBackend::handle_event()
 - 設計をもとにタスク `tui_backend_frontend_separation_implementation.md` を進める。
 - GUI フロントエンド設計（Slint）と同期し、共有インターフェースを確定させる。
 - テスト戦略・依存調査タスクと連携し、リファクタリング後の検証計画を具体化する。
+
+## 実装メモ（2025-09-28）
+- バックエンドは `src/core/backend.rs` として切り出し、描画や端末制御を排除して共有ロジックに集中させた。
+- TUI フロントエンドは `src/frontend/tui/mod.rs` に配置し、Crossterm/Ratatui 依存とイベントループを担当。
+- 描画のための `RenderMetadata` / `RenderView` をバックエンドから提供し、レンダラーとの橋渡しを明示化。

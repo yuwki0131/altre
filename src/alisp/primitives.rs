@@ -3,6 +3,10 @@ use crate::alisp::runtime::{define_symbol, value_to_string, Function, RuntimeSta
 use crate::alisp::runtime::EnvHandle;
 use crate::alisp::symbol::SymbolId;
 
+/// インタプリタ初期化時に登録した組込み関数のシンボルを保持する。
+/// 現在は再利用シナリオが未実装のため未参照だが、将来的に再バインドや
+/// メタプログラミングからアクセスする可能性がある。
+#[allow(dead_code)]
 pub struct PrimitiveRegistry {
     pub add: SymbolId,
     pub sub: SymbolId,

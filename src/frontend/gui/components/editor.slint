@@ -1,0 +1,65 @@
+export struct CursorData {
+    line: int,
+    column: int,
+}
+
+export struct EditorData {
+    lines: [string],
+    cursor: CursorData,
+}
+
+export component EditorView inherits FocusScope {
+    in property <EditorData> data;
+    callback key_event(KeyEvent);
+
+    init_focus := Timer {
+        interval: 0ms;
+        running: true;
+        triggered => {
+            self.running = false;
+            root.focus();
+        }
+    }
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: #101010;
+
+        Flickable {
+            width: parent.width;
+            height: parent.height;
+
+            VerticalLayout {
+                padding: 8px;
+                spacing: 2px;
+
+                for line_text[index] in root.data.lines: Rectangle {
+                    background: {
+                        if (index == root.data.cursor.line) {
+                            #1f1f28
+                        } else {
+                            #101010
+                        }
+                    };
+
+                    content_text := Text {
+                        x: 4px;
+                        text: line_text;
+                        color: #f0f0f0;
+                        font-family: "monospace";
+                        font-size: 13px;
+                    }
+
+                    height: content_text.preferred-height + 4px;
+                }
+            }
+        }
+
+    }
+
+    key-pressed(event) => {
+        root.key_event(event);
+        accept;
+    }
+}

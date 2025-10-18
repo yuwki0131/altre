@@ -15,7 +15,7 @@ categories = ["command-line-utilities", "text-editors"]
 ratatui = "0.29"
 crossterm = "0.28"
 regex = "1.11"
-slint = { version = "1.5", optional = true }
+slint = { version = "1.13", optional = true }
 
 # Error handling
 thiserror = "1.0"
@@ -36,6 +36,9 @@ unicode-width = "0.1"
 proptest = "1.4"
 tempfile = "3.8"
 criterion = { version = "0.4", features = ["html_reports"] }
+
+[build-dependencies]
+slint-build = { version = "1.13", optional = false }
 
 # Feature flags for future extensions
 [features]

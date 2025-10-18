@@ -76,28 +76,17 @@ frontend/gui/
 - 将来的な情報追加を想定し、`ModeLineInfo` を struct として受け取る。
 
 ## データモデル
-- `ViewModelSnapshot` から Slint 用の `SharedStruct` に変換するブリッジを `bridge.rs` に実装。
-- 代表的なモデル例:
-  ```rust
-  #[derive(Clone)]
-  pub struct ViewModelSnapshot {
-      pub buffers: Vec<BufferView>,
-      pub active_buffer: usize,
-      pub minibuffer: MinibufferViewModel,
-      pub mode_line: ModeLineViewModel,
-      pub diagnostics: Vec<DiagnosticMessage>,
-  }
-  ```
-  Slint 側では `Struct BufferView { lines: [ModelLine], cursor: ModelCursor, scroll_top: int, ... }` として受け取る。
+- `src/core/backend.rs` に `RenderMetadata` / `RenderView` を追加し、バックエンドが描画用データ（ステータスライン情報 / ハイライト / ミニバッファ状態）を提供する。
+- `src/frontend/gui/mod.rs` では `update_view` 関数が `TextEditor`・`MinibufferSystem` から得た状態を `EditorData` / `MinibufferData` / `ModeLineData`（`.slint` で定義）へ変換し、`AppWindow` に反映する。
 - 更新方式:
-  - Rust → Slint: `ComponentHandle::set_*` を利用し、差分更新（Slint 内部で差分処理）。
-  - Slint → Rust: 入力イベントで `invoke_backend_action(action_id)` のようなコールバックを用意。
+  - Rust → Slint: プロパティ setter (`set_editor`, `set_minibuffer`, `set_modeline`) を利用し、Slint 側で差分描画される。
+  - Slint → Rust: `EditorView` の `key_event` コールバックを通じて `slint::platform::KeyEvent` を `crossterm::event::KeyEvent` に変換し、`Backend::handle_key_event` に渡す。
 
 ## イベントハンドリング
 - Rust 側が主導するイベントループを維持する。
-  1. `GuiFrontend::run` で Slint アプリケーションを初期化。
-  2. `CoreBackend` の `tick()` で定期処理（メッセージ消去など）を実行。
-  3. Slint の `ComponentHandle::window().request_redraw()` を利用し、バックエンド更新時に描画を要求。
+  1. `GuiApplication::run` で `AppWindow` を生成し、`slint::Timer` により `Backend::process_minibuffer_timer` を定期実行。
+  2. キーイベントは `EditorView` の `key-pressed` から `GuiApplication::setup_callbacks` に渡り、`slint_to_crossterm` で変換の上 `Backend::handle_key_event` に委譲。
+  3. 入力処理・タイマー処理後は `update_view` で Slint 側のプロパティを更新し、表示差分を描画。
 - キーイベント変換:
   ```rust
   fn on_key_pressed(&self, event: slint::platform::KeyEvent) {

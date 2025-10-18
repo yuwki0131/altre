@@ -31,5 +31,7 @@ pub mod performance;
 
 // 公開API
 pub use core::Backend;
+#[cfg(feature = "gui")]
+pub use frontend::GuiApplication;
 pub use frontend::TuiApplication;
 pub use error::{AltreError, Result};

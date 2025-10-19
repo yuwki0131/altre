@@ -40,6 +40,14 @@ dependencies = [
 [[package]]
 name = "altre-tauri"
 version = "0.1.0"
+dependencies = [
+ "altre",
+ "crossterm",
+ "dirs 5.0.1",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "anes"

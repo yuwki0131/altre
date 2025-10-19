@@ -1,0 +1,110 @@
+:root {
+  color-scheme: dark;
+  font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
+  background-color: #1c1c1c;
+  color: #f0f0f0;
+}
+
+body {
+  margin: 0;
+  background-color: inherit;
+  color: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app__header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2c2c2c;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+.editor-surface {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.editor-surface__buffer {
+  flex: 1;
+  padding: 1rem;
+  overflow: auto;
+  outline: none;
+  white-space: pre;
+  tab-size: 4;
+  line-height: 1.4;
+}
+
+.editor-surface__buffer:focus {
+  box-shadow: inset 0 0 0 2px #4466ff33;
+}
+
+.editor-surface__line {
+  display: block;
+}
+
+.editor-surface__line--active {
+  background-color: #2a2a40;
+}
+
+.editor-surface__cursor {
+  display: inline-block;
+  width: 1ch;
+  background-color: #88aaff;
+  color: #111;
+}
+
+.app__minibuffer {
+  border-top: 1px solid #2c2c2c;
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.95rem;
+}
+
+.minibuffer__prompt {
+  color: #9fa8ff;
+}
+
+.minibuffer__input {
+  flex: 1;
+  color: #ffffff;
+}
+
+.minibuffer__message {
+  color: #ffb86c;
+}
+
+.statusline {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 1rem;
+  border-top: 1px solid #2c2c2c;
+  font-size: 0.85rem;
+  background-color: #202025;
+  color: #d0d0d0;
+}
+
+.statusline__dirty {
+  color: #ff6b6b;
+}
+
+.statusline__clean {
+  color: #7bd88f;
+}
+
+.app__loading,
+.app__error {
+  padding: 2rem;
+  text-align: center;
+}
+
+.app__error {
+  color: #ff7676;
+}

@@ -18,6 +18,7 @@
 - ログレコード数が多いため、必要ならサンプリングやフィルタリングオプションを検討する。
 
 ## 追記（2025-03-15）
+- React フロントエンドに `useEditor` フックとバックエンドサービスを追加し、Fallback を含むキー入力・描画更新が可能な UI を実装。`npm run build` 成功でビルド確認。
 - Slint ベースの GUI 実装を撤去し、当面は TUI のみを提供する構成に統合。
 - `GuiApplication` / `GuiRunOptions` / `--gui` 系 CLI オプションを削除し、`cargo run` で常に TUI が起動するよう変更。
 - Slint 依存（`slint`, `slint-build`, `.slint` ファイル、`build.rs`）を整理し、ドキュメントにも Tauri への移行予定である旨を追記。

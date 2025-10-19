@@ -24,6 +24,10 @@ Tauri GUI を追加開発できるよう、モノレポ構成・ワークスペ�
 - [ ] `tauri dev`（GUI 起動）が最低限のウィンドウ表示まで確認できる。
 - [ ] README / INSTALL に必要最小限のセットアップ追記項目が列挙されている。
 
+## 進捗メモ
+- 2025-03-15: ワークスペース化 (`altre-core` / `altre-tauri`) と React 雛形 (`frontend/react`) を追加。`cargo check` は成功済み。
+- 2025-03-15: README に TUI/GUI の想定コマンドと NixOS 向け `npm install` 手順メモを追記。npm 実行確認と `tauri dev` は未対応。
+
 ## メモ
 - NixOS で標準 npm コマンドが失敗する場合は `nix develop` などの回避策を記録する（QA Q34）。
 - 既存 `src/main.rs` の起動判定は変更せず、GUI 起動は Tauri コマンド側で提供する。

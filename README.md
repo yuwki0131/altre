@@ -24,28 +24,56 @@ Emacs風テキストエディタ実装
 - 対応プラットフォーム: ターミナル向け TUI（ratatui）。GUI は Slint 実装を撤去し、Tauri ベースへの移行を再設計中
 
 ## セットアップ
-### 前提条件
+### 必須ツール
 - Rust 1.78 以降（`rustup` 経由のインストールを推奨）
 - 色表示と raw mode に対応した端末
+- （GUI 開発時）Node.js 18 以降 / npm、Tauri CLI（後続タスクで導入予定）
 
-### ビルド・テスト
-
-```bash
-cargo build --offline
-cargo test --offline
-```
-
-### GUI（Tauri 設計中）について
-現在のビルド対象は TUI のみです。GUI フロントエンドは Slint 実装を撤去し、Tauri ベースの再構築を検討中です。依存パッケージやセットアップ手順は設計確定後に再公開します。
-
-### 実行
+### リポジトリ取得
 
 ```bash
-cargo run --offline
+git clone <REPO_URL>
+cd altre
 ```
 
-* raw mode が利用できない環境では TUI が正しく起動しない場合あり
-* トラブルシューティングは`manuals/troubleshooting.md` を参照
+### TUI のビルド・テスト
+
+```bash
+# ビルド
+cargo build -p altre --release          # オフライン環境では --offline を付与
+
+# テスト
+cargo test -p altre --release           # 依存取得が不要な環境で実行
+```
+
+### TUI の実行
+
+```bash
+cargo run -p altre --release
+```
+
+* raw mode が利用できない環境ではエラーになることがあります。
+* トラブルシューティングは `manuals/troubleshooting.md` を参照してください。
+
+### GUI（Tauri）開発準備（NixOS 前提メモ）
+現時点では GUI は未実装ですが、開発環境の雛形は次の手順で整備できます。
+
+```bash
+# 1. 開発シェルに入る（nix-shell または nix develop を使用）
+nix-shell nix/shell.nix        # または `nix develop`
+
+# 2. React フロントエンドの依存を取得
+cd frontend/react
+npm install                    # 初回のみ
+npm run dev                    # フロントエンド単体プレビュー
+
+# 3. 別ターミナルで Rust 側プレースホルダを起動
+cd ../../
+cargo run -p altre-tauri        # 現状はプレースホルダのメッセージを表示
+```
+
+* `npm install` が失敗する場合は、開発シェルで Node.js が有効になっているか確認してください。
+* `tauri dev` 相当のコマンドは Tauri 実装タスク完了後に案内します。
 
 ## 基本操作
 - 文字入力・Backspace/Delete/Enter/Tab による基本編集、`C-d` で前方削除、`C-k` で行キル
@@ -62,10 +90,14 @@ cargo run --offline
 ## リポジトリ構成
 ```
 .
-├── benches/              # Criterion ベンチマーク
-├── src/                  # Rust クレート本体
-├── tests/                # 結合テスト・統合テスト
-├── Cargo.toml            # Cargo マニフェスト
+├── altre-core/           # Rust クレート本体（TUI 実装・ベンチ・テスト）
+│   ├── benches/          # Criterion ベンチマーク
+│   ├── src/              # コア実装
+│   └── tests/            # 結合テスト・統合テスト
+├── altre-tauri/          # Tauri GUI エントリポイント（プレースホルダ）
+├── frontend/             # GUI フロントエンド資産
+│   └── react/            # React ベース UI 雛形
+├── Cargo.toml            # ワークスペースマニフェスト
 ├── Cargo.lock            # 依存関係ロックファイル
 ├── docs/                 # 設計ドキュメント・ADR
 │   ├── adr/              # アーキテクチャ決定記録

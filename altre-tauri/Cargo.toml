@@ -1,0 +1,8 @@
+[package]
+name = "altre-tauri"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# Tauri 依存は設計タスク完了後に追加する

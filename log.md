@@ -22,3 +22,6 @@
 - `GuiApplication` / `GuiRunOptions` / `--gui` 系 CLI オプションを削除し、`cargo run` で常に TUI が起動するよう変更。  
 - Slint 依存（`slint`, `slint-build`, `.slint` ファイル、`build.rs`）を整理し、ドキュメントにも Tauri への移行予定である旨を追記。  
 - GUI 関連ドキュメント（ADR/設計資料/タスク）は履歴として残しつつ、Tauri 再設計が必要である注記を追加。
+- ワークスペース構成へ移行し、`altre-core/`（TUI クレート）と `altre-tauri/`（Tauri エントリ用プレースホルダ）を追加。  
+- `frontend/react/` 配下に React + Vite 雛形を配置し、GUI 実装タスクの受け皿を整備。
+- README に TUI/GUI の実行コマンドと NixOS 向け `npm install` / `npm run dev` 手順を追記し、開発手順を整理。

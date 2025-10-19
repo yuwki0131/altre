@@ -1,194 +1,49 @@
 # AI_DEBUG_GUIDE.md
-> **Purpose:**  
-> This document explains how Codex CLI (or any AI agent) can debug and fix issues in this Rust + Slint GUI application.
+> **目的:**  
+> Codex CLI や Claude Code などの AI エージェントが、ターミナル/ツールベースの環境から altre を安全にデバッグ・検証するためのガイドラインを提供します。
 
 ---
 
-## 🧩 Overview
+## 現状（2025-03-15 時点）
 
-This project is a **native GUI text editor** built in **Rust + Slint**.  
-Since GUI applications do not expose their state through CLI by default, this guide describes a standardized **AI debugging protocol** that allows a CLI-based AI agent to:
-
-- Run the GUI in test mode (`--test`)
-- Observe and log UI state changes in JSON format
-- Optionally capture screenshots for visual verification
-- Analyze logs and suggest or apply code fixes
+- altre は ratatui + crossterm による **TUI 実装のみが有効** です。  
+- 旧 Slint ベース GUI フロントエンドは除去済みで、**Tauri を用いた新 GUI 設計を再検討中** です。  
+- `--gui` / `--tui` / `--gui-debug` / `--debug-log` といった CLI フラグは廃止され、`cargo run` は常に TUI を起動します。  
+- GUI 専用のログ出力 (`debug/debug.log` など) は生成されません。必要に応じて一般的な Rust ログ (`RUST_LOG`) を利用してください。
 
 ---
 
-## ⚙️ 1. Test Execution Mode
+## CLI ベース検証フロー
 
-### 🔧 Command
-```bash
-cargo run -- --test
-```
+1. **ビルド検証**  
+   ```bash
+   cargo check
+   ```
+   依存解決を行わずに型チェックのみが行われます。ネットワーク制限のある環境では `--offline` を付与してください。
 
-### 🧠 Description
-Running with the `--test` flag triggers a non-interactive test mode in which:
-- The app simulates basic UI interactions (button clicks, state changes)
-- Internal state is dumped to `debug_state.json`
-- Any errors or unexpected values are printed to stdout and `debug.log`
+2. **テスト実行**  
+   ```bash
+   cargo test
+   ```
+   単体テスト・結合テストをまとめて実行します。パフォーマンス測定を行う場合は `cargo bench --offline` を使用します。
 
-This allows Codex CLI to run the app **headlessly**, without a physical display.
-
----
-
-## 🧾 2. State Observation
-
-During runtime, all meaningful UI updates and interactions are serialized to `debug_state.json`.
-
-Example format:
-
-```json
-{
-  "timestamp": "2025-10-18T12:30:00Z",
-  "text_buffer": "Hello World",
-  "cursor_position": 5,
-  "window_title": "Altre Editor",
-  "error": null
-}
-```
-
-### ✅ Codex CLI Task
-- Parse `debug_state.json`
-- Detect abnormal states (e.g., wrong values, missing updates, panic traces)
-- Suggest or apply code corrections in relevant Rust files
+3. **実行確認（TUI）**  
+   ```bash
+   cargo run --offline
+   ```
+   TUI を起動し、基本的な編集操作（ファイル読み込み、移動、検索、Undo/Redo など）を確認します。raw mode を利用できない環境では起動に失敗する可能性があるため、その場合は `manuals/troubleshooting.md` を参照してください。
 
 ---
 
-## 📸 3. Screenshot Capture (optional visual check)
+## ログとデバッグ
 
-If running in CI or virtualized environments (Linux only):
-
-```bash
-xvfb-run --server-num=1 ./target/debug/my_editor --test &
-sleep 1
-import -window root screenshot.png
-```
-
-The file `screenshot.png` can then be analyzed by Codex CLI (if image analysis is supported).
-
-Use this for:
-- Layout or rendering issues
-- Missing UI components
-- Text misalignment or visual artifacts
+- 重大なランタイムエラーは `anyhow::Result` と panic ハンドラで捕捉され、CLI 上に表示されます。  
+- 追加のログが必要な場合は `RUST_LOG=debug cargo run` のように環境変数で制御してください。  
+- 旧 GUI デバッグロガーは撤去済みです。GUI ログの再導入は Tauri 実装タスクで再検討します。
 
 ---
 
-## 🧰 4. Event and Error Logging
+## 今後の Tauri 移行に向けて
 
-All user interactions or simulated events are recorded in `debug.log`.  
-Each entry follows this format:
-
-```
-[2025-10-18T12:31:12Z] EVENT: ButtonClicked -> counter = 4
-[2025-10-18T12:31:13Z] STATE: { "counter": 4, "text": "Hello" }
-[2025-10-18T12:31:14Z] ERROR: Cannot render label "file_status"
-```
-
-### ✅ Codex CLI Task
-- Read and parse `debug.log`
-- Identify error lines or unusual event sequences
-- Suggest fixes to relevant handlers (e.g. `.on_button_clicked`, `.set_property`, etc.)
-
----
-
-## 🔗 5. HTTP Observation API (optional)
-
-When compiled with `--features debug_api`, the app exposes a local debug API:
-
-```bash
-cargo run --features debug_api
-```
-
-### Endpoint
-```
-GET http://localhost:7070/state
-```
-
-### Response Example
-```json
-{
-  "buffer": "fn main() {}",
-  "cursor": { "line": 3, "column": 1 },
-  "status": "idle"
-}
-```
-
-### ✅ Codex CLI Task
-- Perform HTTP GET request to `/state`
-- Compare the returned state with expected behavior
-- Suggest or apply code fixes if inconsistency is detected
-
----
-
-## 🧪 6. AI Debug Workflow Summary
-
-| Step | Action | CLI Command | Output |
-|------|---------|--------------|---------|
-| 1 | Build & run test mode | `cargo run -- --test` | `debug_state.json`, `debug.log` |
-| 2 | Analyze state | `cat debug_state.json` | JSON |
-| 3 | Analyze log | `cat debug.log` | Text |
-| 4 | (Optional) Capture screenshot | `import -window root screenshot.png` | PNG |
-| 5 | Fix issues | AI modifies Rust code | Commit & rerun |
-
----
-
-## 🧩 7. Key Principles for Codex CLI
-
-1. **Never expect direct GUI feedback.**  
-   Use text logs (`debug.log`) and state JSONs (`debug_state.json`).
-
-2. **Use `cargo run -- --test` or `cargo test` for execution.**
-
-3. **After modification, always rerun the test** and verify that:
-   - No new errors appear in logs
-   - State transitions are consistent
-
-4. **When in doubt**, print additional logs or serialize more internal data.
-
----
-
-## 🧩 8. Example Commands for AI
-
-```bash
-# Run and collect logs
-cargo run -- --test > output.log 2>&1
-
-# Inspect current UI state
-cat debug_state.json
-
-# Look for runtime errors
-grep ERROR debug.log
-
-# Rebuild after fix
-cargo build
-```
-
----
-
-## 🧭 9. Common Error Categories (AI should detect these)
-
-| Type | Symptom | Typical Cause | Fix Strategy |
-|------|----------|----------------|---------------|
-| Runtime Panic | App exits immediately | Borrow/unwrap misuse | Add Option handling |
-| UI Freeze | No state change | Missing `invoke_*` call | Trigger event explicitly |
-| State Desync | JSON shows old data | Not calling `set_property()` | Add state sync |
-| Render Error | Label/button missing | `.slint` mismatch | Adjust `.slint` file |
-| Text corruption | Garbled output | Unicode mishandling | Use `.into()` or `.clone()` on `SharedString` |
-
----
-
-## 🧩 10. Integration Hints
-
-Codex CLI should:
-- Treat this file (`AI_DEBUG_GUIDE.md`) as the debugging protocol
-- Use test commands from section 6
-- Never attempt direct GUI interaction
-- Always provide reasoning when proposing code changes
-
----
-
-> **Maintainer Note:**  
-> This guide is intentionally AI-readable.  
-> Any CLI agent capable of file access, command execution, and JSON parsing can use it to debug this Slint-based GUI project.
+- GUI フロントエンドの再設計方針が固まり次第、Tauri ベースでの自動テスト/デバッグ手順を本ガイドに追記します。  
+- それまでは TUI 部分の品質確保を優先し、GUI 関連タスクは `tasks/` 配下の該当ファイルで進捗管理してください。

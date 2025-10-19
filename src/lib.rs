@@ -33,5 +33,3 @@ pub mod performance;
 pub use core::Backend;
 pub use error::{AltreError, Result};
 pub use frontend::TuiApplication;
-#[cfg(feature = "gui")]
-pub use frontend::{GuiApplication, GuiRunOptions};

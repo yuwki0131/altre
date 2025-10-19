@@ -2,9 +2,9 @@
 //!
 //! 基本編集機能のメインインターフェース
 
-use crate::buffer::{TextEditor as BaseTextEditor, EditOperations, ChangeListener};
-use crate::error::{EditError, Result};
 use super::input_buffer::InputBuffer;
+use crate::buffer::{ChangeListener, EditOperations, TextEditor as BaseTextEditor};
+use crate::error::{EditError, Result};
 use std::time::Instant;
 
 /// 高性能テキストエディタ
@@ -45,7 +45,8 @@ impl TextEditor {
         self.start_performance_measurement();
 
         // 入力バッファに追加
-        self.input_buffer.add_char(ch)
+        self.input_buffer
+            .add_char(ch)
             .map_err(|e| EditError::BufferError(format!("入力バッファエラー: {}", e)))?;
 
         // フラッシュが必要かチェック
@@ -66,7 +67,8 @@ impl TextEditor {
             self.base_editor.insert_str(s)?;
         } else {
             // バッファに追加
-            self.input_buffer.add_str(s)
+            self.input_buffer
+                .add_str(s)
                 .map_err(|e| EditError::BufferError(format!("入力バッファエラー: {}", e)))?;
 
             // フラッシュが必要かチェック
@@ -171,7 +173,11 @@ impl TextEditor {
     fn end_performance_measurement(&self, operation_name: &str) {
         let duration = self.last_operation_time.elapsed();
         if duration.as_millis() > 1 {
-            eprintln!("Warning: {} took {}ms (target: <1ms)", operation_name, duration.as_millis());
+            eprintln!(
+                "Warning: {} took {}ms (target: <1ms)",
+                operation_name,
+                duration.as_millis()
+            );
         }
     }
 
@@ -250,7 +256,10 @@ impl TextEditor {
     }
 
     /// ナビゲーション操作を実行
-    pub fn navigate(&mut self, action: crate::buffer::NavigationAction) -> std::result::Result<bool, crate::buffer::NavigationError> {
+    pub fn navigate(
+        &mut self,
+        action: crate::buffer::NavigationAction,
+    ) -> std::result::Result<bool, crate::buffer::NavigationError> {
         // 入力バッファをフラッシュしてからナビゲーション
         let _ = self.flush_input_buffer();
         self.base_editor.navigate(action)

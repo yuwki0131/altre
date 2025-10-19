@@ -163,6 +163,8 @@ dependencies = [
  "proptest",
  "ratatui",
  "regex",
+ "serde",
+ "serde_json",
  "shellexpand",
  "slint",
  "slint-build",

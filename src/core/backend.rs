@@ -4,18 +4,21 @@
 
 use crate::alisp::{HostBridge, Interpreter};
 use crate::buffer::{CursorPosition, EditOperations, NavigationAction, TextEditor};
-use crate::error::{AltreError, Result, FileError};
-use crate::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
+use crate::editor::{edit_utils, HistoryCommandKind, HistoryManager, HistoryStack, KillRing};
+use crate::error::{AltreError, FileError, Result};
+use crate::file::{expand_path, operations::FileOperationManager, FileBuffer};
 use crate::input::commands::{Command, CommandProcessor};
-use crate::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent, SystemResponse};
-use crate::ui::{WindowManager, SplitOrientation, ViewportState};
-use crate::search::{HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController, SearchDirection, SearchHighlight, SearchUiState};
-use crate::editor::{KillRing, HistoryManager, HistoryStack, HistoryCommandKind, edit_utils};
-use crate::file::{operations::FileOperationManager, FileBuffer, expand_path};
+use crate::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
+use crate::minibuffer::{MinibufferAction, MinibufferSystem, SystemEvent, SystemResponse};
+use crate::search::{
+    HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController,
+    SearchDirection, SearchHighlight, SearchUiState,
+};
+use crate::ui::{SplitOrientation, ViewportState, WindowManager};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::cell::RefCell;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::cell::RefCell;
 use std::rc::Rc;
 
 const DEFAULT_TAB_WIDTH: usize = 4;
@@ -354,7 +357,9 @@ impl Backend {
             .unwrap_or_else(|| PathBuf::from("."));
 
         let mut interpreter = Interpreter::new();
-        interpreter.runtime_mut().set_host(Box::new(KeymapHost::new(Rc::clone(&self.keymap))));
+        interpreter
+            .runtime_mut()
+            .set_host(Box::new(KeymapHost::new(Rc::clone(&self.keymap))));
         interpreter.set_load_root(default_root.clone());
 
         {
@@ -369,12 +374,9 @@ impl Backend {
             )));
         }
 
-        interpreter
-            .eval_file(&default_init)
-            .map_err(|err| AltreError::Application(format!(
-                "デフォルト設定の読み込みに失敗しました: {}",
-                err
-            )))?;
+        interpreter.eval_file(&default_init).map_err(|err| {
+            AltreError::Application(format!("デフォルト設定の読み込みに失敗しました: {}", err))
+        })?;
 
         if let Some(user_init) = Self::user_init_path() {
             if user_init.exists() {
@@ -446,7 +448,8 @@ impl Backend {
     }
 
     pub fn current_buffer_name(&self) -> Option<String> {
-        self.current_buffer().map(|buffer| buffer.name().to_string())
+        self.current_buffer()
+            .map(|buffer| buffer.name().to_string())
     }
 
     fn persist_current_buffer_state(&mut self) {
@@ -468,8 +471,9 @@ impl Backend {
             self.persist_current_buffer_state();
         }
 
-        let index = self.find_buffer_index(id)
-            .ok_or_else(|| AltreError::Application(format!("バッファID {} が見つかりません", id)))?;
+        let index = self.find_buffer_index(id).ok_or_else(|| {
+            AltreError::Application(format!("バッファID {} が見つかりません", id))
+        })?;
 
         let (content, cursor, file_clone, history_clone) = {
             let buffer = &self.buffers[index];
@@ -492,7 +496,8 @@ impl Backend {
         self.editor.set_cursor(cursor);
         self.history.replace_stack(history_clone, &mut self.editor);
         self.command_processor.set_current_buffer(file_clone);
-        self.command_processor.sync_editor_content(&self.editor.to_string());
+        self.command_processor
+            .sync_editor_content(&self.editor.to_string());
 
         if let Some(viewport) = self.window_manager.focused_viewport_mut() {
             *viewport = ViewportState::new();
@@ -504,7 +509,10 @@ impl Backend {
     }
 
     pub fn buffer_names(&self) -> Vec<String> {
-        self.buffers.iter().map(|buffer| buffer.name().to_string()).collect()
+        self.buffers
+            .iter()
+            .map(|buffer| buffer.name().to_string())
+            .collect()
     }
 
     fn buffer_display_lines(&self) -> Vec<String> {
@@ -551,12 +559,15 @@ impl Backend {
 
     fn switch_to_buffer_by_name(&mut self, name: &str) -> Result<()> {
         if name.trim().is_empty() {
-            self.show_error_message(AltreError::Application("バッファ名を入力してください".to_string()));
+            self.show_error_message(AltreError::Application(
+                "バッファ名を入力してください".to_string(),
+            ));
             return Ok(());
         }
 
-        let index = self.find_buffer_index_by_name(name)
-            .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", name)))?;
+        let index = self.find_buffer_index_by_name(name).ok_or_else(|| {
+            AltreError::Application(format!("バッファ '{}' が見つかりません", name))
+        })?;
         let target_id = self.buffers[index].id;
         self.load_buffer_by_id(target_id, true)?;
         self.show_info_message(format!("バッファを切り替えました: {}", name));
@@ -565,26 +576,32 @@ impl Backend {
 
     fn kill_buffer_by_name(&mut self, name: Option<&str>) -> Result<()> {
         if self.buffers.len() <= 1 {
-            self.show_error_message(AltreError::Application("最後のバッファは削除できません".to_string()));
+            self.show_error_message(AltreError::Application(
+                "最後のバッファは削除できません".to_string(),
+            ));
             return Ok(());
         }
 
         let target_id = if let Some(buffer_name) = name.filter(|n| !n.trim().is_empty()) {
-            let index = self.find_buffer_index_by_name(buffer_name)
-                .ok_or_else(|| AltreError::Application(format!("バッファ '{}' が見つかりません", buffer_name)))?;
+            let index = self.find_buffer_index_by_name(buffer_name).ok_or_else(|| {
+                AltreError::Application(format!("バッファ '{}' が見つかりません", buffer_name))
+            })?;
             self.buffers[index].id
         } else {
-            self.current_buffer_id
-                .ok_or_else(|| AltreError::Application("カレントバッファが存在しません".to_string()))?
+            self.current_buffer_id.ok_or_else(|| {
+                AltreError::Application("カレントバッファが存在しません".to_string())
+            })?
         };
 
-        let index = self.find_buffer_index(target_id)
-            .ok_or_else(|| AltreError::Application("指定されたバッファが見つかりません".to_string()))?;
+        let index = self.find_buffer_index(target_id).ok_or_else(|| {
+            AltreError::Application("指定されたバッファが見つかりません".to_string())
+        })?;
 
         if self.buffers[index].is_modified() {
             let name = self.buffers[index].name().to_string();
             self.show_error_message(AltreError::Application(format!(
-                "バッファ '{}' は未保存の変更があります", name
+                "バッファ '{}' は未保存の変更があります",
+                name
             )));
             return Ok(());
         }
@@ -634,7 +651,10 @@ impl Backend {
 
         if let Some(existing_id) = self.find_buffer_id_by_path(&expanded_path) {
             self.load_buffer_by_id(existing_id, true)?;
-            return Ok(format!("既存のバッファに切り替えました: {}", expanded_path.display()));
+            return Ok(format!(
+                "既存のバッファに切り替えました: {}",
+                expanded_path.display()
+            ));
         }
 
         let mut file_manager = FileOperationManager::new();
@@ -655,19 +675,16 @@ impl Backend {
     }
 
     fn current_viewport_mut(&mut self) -> &mut ViewportState {
-        self
-            .window_manager
+        self.window_manager
             .focused_viewport_mut()
             .expect("フォーカスウィンドウが存在しません")
     }
 
     fn current_viewport(&self) -> &ViewportState {
-        self
-            .window_manager
+        self.window_manager
             .focused_viewport()
             .expect("フォーカスウィンドウが存在しません")
     }
-
 
     pub fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // ミニバッファのメッセージ表示があれば先に消去
@@ -675,7 +692,8 @@ impl Backend {
             let key = Key::from(key_event);
             if let Err(err) = self.minibuffer.handle_event(SystemEvent::KeyInput(key)) {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの処理に失敗しました: {}", err
+                    "ミニバッファの処理に失敗しました: {}",
+                    err
                 )));
                 return Ok(());
             }
@@ -731,10 +749,15 @@ impl Backend {
             }
             KeyProcessResult::NoMatch => {
                 // 緊急終了のフォールバック
-                if key_event.modifiers.contains(KeyModifiers::CONTROL) && key_event.code == KeyCode::Char('c') {
+                if key_event.modifiers.contains(KeyModifiers::CONTROL)
+                    && key_event.code == KeyCode::Char('c')
+                {
                     self.shutdown();
                 } else {
-                    self.show_info_message(format!("未対応のキー: {}", Self::format_key_event(&key_event)));
+                    self.show_info_message(format!(
+                        "未対応のキー: {}",
+                        Self::format_key_event(&key_event)
+                    ));
                 }
             }
         }
@@ -772,13 +795,15 @@ impl Backend {
                 KeyCode::Char('s') | KeyCode::Char('S') => {
                     self.keymap.borrow_mut().reset_partial_match();
                     self.current_prefix = None;
-                    self.search.start(&mut self.editor, SearchDirection::Forward);
+                    self.search
+                        .start(&mut self.editor, SearchDirection::Forward);
                     return true;
                 }
                 KeyCode::Char('r') | KeyCode::Char('R') => {
                     self.keymap.borrow_mut().reset_partial_match();
                     self.current_prefix = None;
-                    self.search.start(&mut self.editor, SearchDirection::Backward);
+                    self.search
+                        .start(&mut self.editor, SearchDirection::Backward);
                     return true;
                 }
                 _ => {}
@@ -900,13 +925,20 @@ impl Backend {
                 Ok(true)
             }
             _ => {
-                self.show_info_message("yで置換、nでスキップ、!で残りを置換、qで終了、C-gでキャンセル");
+                self.show_info_message(
+                    "yで置換、nでスキップ、!で残りを置換、qで終了、C-gでキャンセル",
+                );
                 Ok(true)
             }
         }
     }
 
-    fn start_query_replace_session(&mut self, pattern: String, replacement: String, use_regex: bool) -> Result<()> {
+    fn start_query_replace_session(
+        &mut self,
+        pattern: String,
+        replacement: String,
+        use_regex: bool,
+    ) -> Result<()> {
         if pattern.is_empty() {
             self.show_error_message(AltreError::Application("置換パターンが空です".to_string()));
             return Ok(());
@@ -925,11 +957,12 @@ impl Backend {
         let snapshot = self.editor.to_string();
 
         let start = if use_regex {
-            match self
-                .replace
-                .controller
-                .start_regex(&snapshot, pattern.clone(), replacement.clone(), case_sensitive)
-            {
+            match self.replace.controller.start_regex(
+                &snapshot,
+                pattern.clone(),
+                replacement.clone(),
+                case_sensitive,
+            ) {
                 Ok(info) => info,
                 Err(err) => {
                     self.show_error_message(AltreError::Application(format!(
@@ -941,9 +974,12 @@ impl Backend {
                 }
             }
         } else {
-            self.replace
-                .controller
-                .start_literal(&snapshot, pattern.clone(), replacement.clone(), case_sensitive)
+            self.replace.controller.start_literal(
+                &snapshot,
+                pattern.clone(),
+                replacement.clone(),
+                case_sensitive,
+            )
         };
 
         if start.total_matches == 0 || !self.replace.controller.is_active() {
@@ -989,7 +1025,8 @@ impl Backend {
     }
 
     fn replace_prompt_message(&self, snapshot: &str) -> Option<String> {
-        let (original, replacement, index, total) = self.replace.controller.current_preview(snapshot)?;
+        let (original, replacement, index, total) =
+            self.replace.controller.current_preview(snapshot)?;
         let label = if self.replace.controller.is_regex() {
             "Regex replace"
         } else {
@@ -1050,19 +1087,16 @@ impl Backend {
             Some(command) => self.execute_command(command),
             None => {
                 self.show_error_message(AltreError::Application(
-                    "アクションをコマンドに変換できませんでした".to_string()
+                    "アクションをコマンドに変換できませんでした".to_string(),
                 ));
-        Ok(())
-    }
-}
-
+                Ok(())
+            }
+        }
     }
 
     fn execute_command(&mut self, command: Command) -> Result<()> {
         match command {
-            Command::FindFile => {
-                self.start_find_file_prompt()
-            }
+            Command::FindFile => self.start_find_file_prompt(),
             Command::ForwardChar => {
                 self.navigate(NavigationAction::MoveCharForward);
                 Ok(())
@@ -1242,13 +1276,17 @@ impl Backend {
             Command::SwitchToBuffer => {
                 let buffers = self.buffer_names();
                 let initial = self.last_buffer_name();
-                self.minibuffer.start_switch_buffer(&buffers, initial.as_deref())?;
+                self.minibuffer
+                    .start_switch_buffer(&buffers, initial.as_deref())?;
                 Ok(())
             }
             Command::KillBuffer => {
                 let buffers = self.buffer_names();
-                let current_name = self.current_buffer().map(|buffer| buffer.name().to_string());
-                self.minibuffer.start_kill_buffer(&buffers, current_name.as_deref())?;
+                let current_name = self
+                    .current_buffer()
+                    .map(|buffer| buffer.name().to_string());
+                self.minibuffer
+                    .start_kill_buffer(&buffers, current_name.as_deref())?;
                 Ok(())
             }
             Command::ListBuffers => {
@@ -1303,7 +1341,8 @@ impl Backend {
                     if let Some(index) = self.find_buffer_index(id) {
                         let buffer_clone = self.buffers[index].file.clone();
                         self.command_processor.set_current_buffer(buffer_clone);
-                        self.command_processor.sync_editor_content(&self.editor.to_string());
+                        self.command_processor
+                            .sync_editor_content(&self.editor.to_string());
                     }
                 }
 
@@ -1326,11 +1365,13 @@ impl Backend {
                     } else {
                         let buffer_clone = self.buffers[index].file.clone();
                         self.command_processor.set_current_buffer(buffer_clone);
-                        self.command_processor.sync_editor_content(&self.editor.to_string());
+                        self.command_processor
+                            .sync_editor_content(&self.editor.to_string());
 
                         let result = self.command_processor.execute(Command::SaveBuffer);
                         if result.success {
-                            if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                            if let Some(updated) = self.command_processor.current_buffer().cloned()
+                            {
                                 self.buffers[index].file = updated;
                             }
                             if let Some(msg) = result.message {
@@ -1360,18 +1401,10 @@ impl Backend {
                 self.shutdown();
                 Ok(())
             }
-            Command::ExecuteCommand => {
-                self.start_execute_command_prompt()
-            }
-            Command::EvalExpression => {
-                self.start_eval_expression_prompt()
-            }
-            Command::QueryReplace => {
-                self.start_query_replace_prompt(false)
-            }
-            Command::RegexQueryReplace => {
-                self.start_query_replace_prompt(true)
-            }
+            Command::ExecuteCommand => self.start_execute_command_prompt(),
+            Command::EvalExpression => self.start_eval_expression_prompt(),
+            Command::QueryReplace => self.start_query_replace_prompt(false),
+            Command::RegexQueryReplace => self.start_query_replace_prompt(true),
             Command::MoveLineStart => {
                 self.navigate(NavigationAction::MoveLineStart);
                 Ok(())
@@ -1510,7 +1543,8 @@ impl Backend {
         let cursor = *self.editor.cursor();
         let text = self.editor.to_string();
         let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
-        let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+        let spaces =
+            edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
         " ".repeat(spaces)
     }
 
@@ -1838,7 +1872,10 @@ impl Backend {
             return highlights;
         }
 
-        let first_line_len = lines.get(start_line).map(|l| l.chars().count()).unwrap_or(0);
+        let first_line_len = lines
+            .get(start_line)
+            .map(|l| l.chars().count())
+            .unwrap_or(0);
         push_highlight(start_line, start_col, first_line_len, &mut highlights);
 
         for line in (start_line + 1)..end_line {
@@ -2036,12 +2073,11 @@ impl Backend {
 
         // ミニバッファでファイル検索を開始
         match self.minibuffer.start_find_file(Some(&initial_path)) {
-            Ok(_) => {
-                Ok(())
-            },
+            Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2053,7 +2089,8 @@ impl Backend {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2065,7 +2102,8 @@ impl Backend {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2105,7 +2143,8 @@ impl Backend {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2126,7 +2165,8 @@ impl Backend {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2137,14 +2177,12 @@ impl Backend {
         let current_line = self.editor.cursor().line + 1;
         let total_lines = self.total_line_count();
 
-        match self
-            .minibuffer
-            .start_goto_line(current_line, total_lines)
-        {
+        match self.minibuffer.start_goto_line(current_line, total_lines) {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファの初期化に失敗しました: {}", err
+                    "ミニバッファの初期化に失敗しました: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2169,14 +2207,16 @@ impl Backend {
                         self.persist_current_buffer_state();
                         if let Some(index) = self.current_buffer_index() {
                             if let Some(current) = self.buffers.get(index) {
-                                self.command_processor.set_current_buffer(
-                                    current.file.clone(),
-                                );
+                                self.command_processor
+                                    .set_current_buffer(current.file.clone());
                             }
-                            self.command_processor.sync_editor_content(&self.editor.to_string());
+                            self.command_processor
+                                .sync_editor_content(&self.editor.to_string());
                             let result = self.command_processor.save_buffer_as(path.clone());
                             if result.success {
-                                if let Some(updated) = self.command_processor.current_buffer().cloned() {
+                                if let Some(updated) =
+                                    self.command_processor.current_buffer().cloned()
+                                {
                                     if let Some(buffer) = self.buffers.get_mut(index) {
                                         buffer.file = updated;
                                         buffer.cursor = *self.editor.cursor();
@@ -2219,14 +2259,18 @@ impl Backend {
                     }
                 } else {
                     self.show_error_message(AltreError::Application(
-                        "切り替えるバッファが見つかりません".to_string()
+                        "切り替えるバッファが見つかりません".to_string(),
                     ));
                 }
                 Ok(())
             }
             Ok(SystemResponse::KillBuffer(name)) => {
                 let trimmed = name.trim();
-                let target = if trimmed.is_empty() { None } else { Some(trimmed) };
+                let target = if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                };
                 if let Err(err) = self.kill_buffer_by_name(target) {
                     self.show_error_message(err);
                 }
@@ -2242,7 +2286,11 @@ impl Backend {
                 }
                 Ok(())
             }
-            Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }) => {
+            Ok(SystemResponse::QueryReplace {
+                pattern,
+                replacement,
+                is_regex,
+            }) => {
                 self.start_query_replace_session(pattern, replacement, is_regex)?;
                 Ok(())
             }
@@ -2256,7 +2304,8 @@ impl Backend {
             }
             Err(err) => {
                 self.show_error_message(AltreError::Application(format!(
-                    "ミニバッファエラー: {}", err
+                    "ミニバッファエラー: {}",
+                    err
                 )));
                 Ok(())
             }
@@ -2383,7 +2432,6 @@ impl Backend {
             format!("{}-{}", parts.join("-"), key_name)
         }
     }
-
 }
 
 struct KeymapHost {
@@ -2397,7 +2445,11 @@ impl KeymapHost {
 }
 
 impl HostBridge for KeymapHost {
-    fn bind_key(&mut self, key_sequence: &str, command_name: &str) -> std::result::Result<(), String> {
+    fn bind_key(
+        &mut self,
+        key_sequence: &str,
+        command_name: &str,
+    ) -> std::result::Result<(), String> {
         let command = Command::from_string(command_name);
         match command {
             Command::Unknown(_) => Err(format!("未知のコマンドです: {}", command_name)),

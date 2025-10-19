@@ -3,13 +3,13 @@
 mod ast;
 pub mod error;
 mod evaluator;
+pub mod integration;
 mod primitives;
 pub mod reader;
-mod symbol;
-pub mod integration;
 mod runtime;
+mod symbol;
 
-pub use evaluator::{EvalOutcome, Interpreter};
-pub use symbol::{SymbolId, SymbolInterner};
 pub use error::{EvalError, ReaderError};
+pub use evaluator::{EvalOutcome, Interpreter};
 pub use runtime::HostBridge;
+pub use symbol::{SymbolId, SymbolInterner};

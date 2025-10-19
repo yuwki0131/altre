@@ -4,16 +4,16 @@
 
 use std::collections::HashMap;
 
+use crate::buffer::TextEditor;
+use crate::search::{HighlightKind, SearchHighlight};
+use crate::ui::theme::{ComponentType, Theme};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Clear},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
-use crate::buffer::TextEditor;
-use crate::search::{HighlightKind, SearchHighlight};
-use crate::ui::theme::{Theme, ComponentType};
 
 /// テキストエリア描画器
 #[derive(Debug)]
@@ -61,11 +61,7 @@ impl TextArea {
         let mut paragraph = Paragraph::new(lines);
 
         if self.show_border {
-            paragraph = paragraph.block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("altre")
-            );
+            paragraph = paragraph.block(Block::default().borders(Borders::ALL).title("altre"));
         }
 
         frame.render_widget(paragraph, area);
@@ -137,8 +133,16 @@ impl TextArea {
         let cursor_y = content_y + screen_line as u16;
 
         // 表示領域内かチェック
-        let max_x = if self.show_border { area.x + area.width - 1 } else { area.x + area.width };
-        let max_y = if self.show_border { area.y + area.height - 1 } else { area.y + area.height };
+        let max_x = if self.show_border {
+            area.x + area.width - 1
+        } else {
+            area.x + area.width
+        };
+        let max_y = if self.show_border {
+            area.y + area.height - 1
+        } else {
+            area.y + area.height
+        };
 
         if cursor_x < max_x && cursor_y < max_y {
             Some((cursor_x, cursor_y))
@@ -353,9 +357,7 @@ fn build_highlighted_line(
                             .bg(Color::Cyan)
                             .add_modifier(Modifier::BOLD)
                     } else {
-                        Style::default()
-                            .fg(Color::White)
-                            .bg(Color::Rgb(0, 80, 80))
+                        Style::default().fg(Color::White).bg(Color::Rgb(0, 80, 80))
                     }
                 }
             };
@@ -377,7 +379,10 @@ fn build_highlighted_line(
 }
 
 fn substring_by_char(text: &str, start: usize, end: usize) -> String {
-    text.chars().skip(start).take(end.saturating_sub(start)).collect()
+    text.chars()
+        .skip(start)
+        .take(end.saturating_sub(start))
+        .collect()
 }
 
 fn digit_count(mut value: usize) -> usize {
@@ -459,6 +464,6 @@ mod tests {
         text_area.set_cursor(30, 0);
         let (start, end) = text_area.calculate_visible_range(area, 50);
         assert_eq!(start, 20); // 30 - 20/2
-        assert_eq!(end, 40);  // 20 + 20
+        assert_eq!(end, 40); // 20 + 20
     }
 }

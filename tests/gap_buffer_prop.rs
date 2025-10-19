@@ -4,8 +4,8 @@
 //! methods so downstream integrations can rely on stable behaviour.
 
 use altre::buffer::GapBuffer;
-use proptest::{prelude::*, prop_oneof};
 use proptest::test_runner::Config as ProptestConfig;
+use proptest::{prelude::*, prop_oneof};
 
 #[derive(Debug, Clone)]
 enum Operation {
@@ -20,12 +20,16 @@ fn small_unicode_string() -> impl Strategy<Value = String> {
 }
 
 fn operation_strategy() -> impl Strategy<Value = Operation> {
-    let insert_char = (0u16..192u16, any::<char>())
-        .prop_map(|(pos, ch)| Operation::InsertChar { pos: pos as usize, ch });
-    let insert_str = (0u16..192u16, proptest::collection::vec(any::<char>(), 0..5))
-        .prop_map(|(pos, chars)| Operation::InsertStr {
-            pos: pos as usize,
-            text: chars.into_iter().collect(),
+    let insert_char = (0u16..192u16, any::<char>()).prop_map(|(pos, ch)| Operation::InsertChar {
+        pos: pos as usize,
+        ch,
+    });
+    let insert_str =
+        (0u16..192u16, proptest::collection::vec(any::<char>(), 0..5)).prop_map(|(pos, chars)| {
+            Operation::InsertStr {
+                pos: pos as usize,
+                text: chars.into_iter().collect(),
+            }
         });
     let delete = (0u16..192u16).prop_map(|pos| Operation::Delete { pos: pos as usize });
 

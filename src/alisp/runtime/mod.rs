@@ -95,61 +95,89 @@ pub struct GcHeap {
 
 impl GcHeap {
     pub fn new() -> Self {
-        Self { entries: Vec::new(), allocated: 0, next_gc_threshold: 128 }
+        Self {
+            entries: Vec::new(),
+            allocated: 0,
+            next_gc_threshold: 128,
+        }
     }
 
     pub fn alloc_string(&mut self, value: String) -> StringHandle {
         let handle = StringHandle(self.entries.len());
-        self.entries.push(Some(HeapEntry { object: HeapObject::String(value), marked: false }));
+        self.entries.push(Some(HeapEntry {
+            object: HeapObject::String(value),
+            marked: false,
+        }));
         self.allocated += 1;
         handle
     }
 
     pub fn alloc_env(&mut self, env: Environment) -> EnvHandle {
         let handle = EnvHandle(self.entries.len());
-        self.entries.push(Some(HeapEntry { object: HeapObject::Env(env), marked: false }));
+        self.entries.push(Some(HeapEntry {
+            object: HeapObject::Env(env),
+            marked: false,
+        }));
         self.allocated += 1;
         handle
     }
 
     pub fn alloc_closure(&mut self, closure: Closure) -> ClosureHandle {
         let handle = ClosureHandle(self.entries.len());
-        self.entries.push(Some(HeapEntry { object: HeapObject::Closure(closure), marked: false }));
+        self.entries.push(Some(HeapEntry {
+            object: HeapObject::Closure(closure),
+            marked: false,
+        }));
         self.allocated += 1;
         handle
     }
 
     pub fn string_ref(&self, handle: StringHandle) -> &str {
         match self.entries.get(handle.0).and_then(|e| e.as_ref()) {
-            Some(HeapEntry { object: HeapObject::String(s), .. }) => s.as_str(),
+            Some(HeapEntry {
+                object: HeapObject::String(s),
+                ..
+            }) => s.as_str(),
             _ => panic!("invalid string handle"),
         }
     }
 
     pub fn env_ref(&self, handle: EnvHandle) -> &Environment {
         match self.entries.get(handle.0).and_then(|e| e.as_ref()) {
-            Some(HeapEntry { object: HeapObject::Env(env), .. }) => env,
+            Some(HeapEntry {
+                object: HeapObject::Env(env),
+                ..
+            }) => env,
             _ => panic!("invalid env handle"),
         }
     }
 
     pub fn env_mut(&mut self, handle: EnvHandle) -> &mut Environment {
         match self.entries.get_mut(handle.0).and_then(|e| e.as_mut()) {
-            Some(HeapEntry { object: HeapObject::Env(env), .. }) => env,
+            Some(HeapEntry {
+                object: HeapObject::Env(env),
+                ..
+            }) => env,
             _ => panic!("invalid env handle"),
         }
     }
 
     pub fn closure_ref(&self, handle: ClosureHandle) -> &Closure {
         match self.entries.get(handle.0).and_then(|e| e.as_ref()) {
-            Some(HeapEntry { object: HeapObject::Closure(closure), .. }) => closure,
+            Some(HeapEntry {
+                object: HeapObject::Closure(closure),
+                ..
+            }) => closure,
             _ => panic!("invalid closure handle"),
         }
     }
 
     pub fn closure_mut(&mut self, handle: ClosureHandle) -> &mut Closure {
         match self.entries.get_mut(handle.0).and_then(|e| e.as_mut()) {
-            Some(HeapEntry { object: HeapObject::Closure(closure), .. }) => closure,
+            Some(HeapEntry {
+                object: HeapObject::Closure(closure),
+                ..
+            }) => closure,
             _ => panic!("invalid closure handle"),
         }
     }
@@ -251,7 +279,11 @@ impl GcHeap {
 }
 
 pub trait HostBridge {
-    fn bind_key(&mut self, key_sequence: &str, command_name: &str) -> std::result::Result<(), String>;
+    fn bind_key(
+        &mut self,
+        key_sequence: &str,
+        command_name: &str,
+    ) -> std::result::Result<(), String>;
 }
 
 pub struct RuntimeState {
@@ -319,11 +351,21 @@ pub fn value_to_string(runtime: &RuntimeState, value: &Value) -> String {
 }
 
 pub fn make_rooted_env(runtime: &mut RuntimeState) -> EnvHandle {
-    runtime.heap.alloc_env(Environment { parent: None, bindings: Vec::new() })
+    runtime.heap.alloc_env(Environment {
+        parent: None,
+        bindings: Vec::new(),
+    })
 }
 
-pub fn extend_env(runtime: &mut RuntimeState, parent: EnvHandle, bindings: Vec<(SymbolId, Value)>) -> EnvHandle {
-    runtime.heap.alloc_env(Environment { parent: Some(parent), bindings })
+pub fn extend_env(
+    runtime: &mut RuntimeState,
+    parent: EnvHandle,
+    bindings: Vec<(SymbolId, Value)>,
+) -> EnvHandle {
+    runtime.heap.alloc_env(Environment {
+        parent: Some(parent),
+        bindings,
+    })
 }
 
 pub fn lookup_env(runtime: &RuntimeState, env: EnvHandle, symbol: SymbolId) -> Option<Value> {
@@ -347,7 +389,12 @@ pub fn define_symbol(runtime: &mut RuntimeState, env: EnvHandle, symbol: SymbolI
     }
 }
 
-pub fn set_symbol(runtime: &mut RuntimeState, env: EnvHandle, symbol: SymbolId, value: Value) -> Result<(), EvalError> {
+pub fn set_symbol(
+    runtime: &mut RuntimeState,
+    env: EnvHandle,
+    symbol: SymbolId,
+    value: Value,
+) -> Result<(), EvalError> {
     let mut current = Some(env);
     while let Some(handle) = current {
         let frame = runtime.heap.env_mut(handle);
@@ -357,10 +404,22 @@ pub fn set_symbol(runtime: &mut RuntimeState, env: EnvHandle, symbol: SymbolId, 
         }
         current = frame.parent;
     }
-    Err(EvalError::new(EvalErrorKind::NameNotFound(symbol), None, format!("未定義のシンボル: {}", runtime.resolve(symbol).unwrap_or("<unknown>"))))
+    Err(EvalError::new(
+        EvalErrorKind::NameNotFound(symbol),
+        None,
+        format!(
+            "未定義のシンボル: {}",
+            runtime.resolve(symbol).unwrap_or("<unknown>")
+        ),
+    ))
 }
 
-pub fn make_closure(runtime: &mut RuntimeState, params: Vec<SymbolId>, body: Vec<Expr>, env: EnvHandle) -> ClosureHandle {
+pub fn make_closure(
+    runtime: &mut RuntimeState,
+    params: Vec<SymbolId>,
+    body: Vec<Expr>,
+    env: EnvHandle,
+) -> ClosureHandle {
     runtime.heap.alloc_closure(Closure { params, body, env })
 }
 

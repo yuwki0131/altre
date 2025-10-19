@@ -1,11 +1,17 @@
 use altre::app::App;
-use altre::input::keybinding::{Action, Key, KeyCode, KeyModifiers, KeyProcessResult, ModernKeyMap};
+use altre::input::keybinding::{
+    Action, Key, KeyCode, KeyModifiers, KeyProcessResult, ModernKeyMap,
+};
 use std::fs;
 use tempfile::tempdir;
 
 fn plain_char(ch: char) -> Key {
     Key {
-        modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+        modifiers: KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+        },
         code: KeyCode::Char(ch),
     }
 }
@@ -13,9 +19,7 @@ fn plain_char(ch: char) -> Key {
 #[test]
 fn test_switch_buffer_via_api() {
     let mut app = App::new().expect("app init");
-    let scratch_name = app
-        .current_buffer_name()
-        .expect("default buffer");
+    let scratch_name = app.current_buffer_name().expect("default buffer");
 
     app.insert_str("scratch data").expect("insert");
 
@@ -23,7 +27,8 @@ fn test_switch_buffer_via_api() {
     let file_path = temp_dir.path().join("sample.txt");
     fs::write(&file_path, "file buffer").unwrap();
 
-    app.open_file(file_path.to_str().unwrap()).expect("open file");
+    app.open_file(file_path.to_str().unwrap())
+        .expect("open file");
 
     let buffer_names = app.buffer_names();
     assert_eq!(buffer_names.len(), 2);
@@ -44,7 +49,8 @@ fn test_kill_buffer_removes_entry() {
     let file_path = temp_dir.path().join("remove.txt");
     fs::write(&file_path, "temporary").unwrap();
 
-    app.open_file(file_path.to_str().unwrap()).expect("open file");
+    app.open_file(file_path.to_str().unwrap())
+        .expect("open file");
     assert_eq!(app.buffer_names().len(), 2);
 
     app.kill_buffer(Some("remove.txt")).expect("kill buffer");
@@ -60,19 +66,28 @@ fn test_kill_buffer_removes_entry() {
 fn test_modern_keymap_buffer_actions() {
     let mut keymap = ModernKeyMap::new();
 
-    assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::PartialMatch);
+    assert_eq!(
+        keymap.process_key(Key::ctrl_x()),
+        KeyProcessResult::PartialMatch
+    );
     assert_eq!(
         keymap.process_key(plain_char('b')),
         KeyProcessResult::Action(Action::SwitchBuffer)
     );
 
-    assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::PartialMatch);
+    assert_eq!(
+        keymap.process_key(Key::ctrl_x()),
+        KeyProcessResult::PartialMatch
+    );
     assert_eq!(
         keymap.process_key(plain_char('k')),
         KeyProcessResult::Action(Action::KillBuffer)
     );
 
-    assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::PartialMatch);
+    assert_eq!(
+        keymap.process_key(Key::ctrl_x()),
+        KeyProcessResult::PartialMatch
+    );
     assert_eq!(
         keymap.process_key(Key::ctrl_b()),
         KeyProcessResult::Action(Action::ListBuffers)

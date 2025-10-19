@@ -177,9 +177,9 @@ fn test_position_to_line_column() {
     editor.insert_str("Hello\nWorld\n123").unwrap();
 
     // 各位置の行・列を確認
-    assert_eq!(editor.position_to_line_column(0), (0, 0));  // H
-    assert_eq!(editor.position_to_line_column(5), (0, 5));  // \n
-    assert_eq!(editor.position_to_line_column(6), (1, 0));  // W
+    assert_eq!(editor.position_to_line_column(0), (0, 0)); // H
+    assert_eq!(editor.position_to_line_column(5), (0, 5)); // \n
+    assert_eq!(editor.position_to_line_column(6), (1, 0)); // W
     assert_eq!(editor.position_to_line_column(11), (1, 5)); // \n
     assert_eq!(editor.position_to_line_column(12), (2, 0)); // 1
     assert_eq!(editor.position_to_line_column(13), (2, 1)); // 末尾

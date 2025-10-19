@@ -3,7 +3,9 @@
 //! ギャップバッファ上のカーソル移動を司る軽量ユーティリティ。
 
 use crate::buffer::cursor::CursorPosition;
-use crate::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig, LongLineStrategy};
+use crate::performance::{
+    LongLineStrategy, Operation, OptimizationConfig, PerformanceMonitor, PerformanceOptimizer,
+};
 use std::cmp::min;
 #[cfg(test)]
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -46,7 +48,11 @@ pub struct Position {
 
 impl Position {
     pub fn new(char_pos: usize, line: usize, column: usize) -> Self {
-        Self { char_pos, line, column }
+        Self {
+            char_pos,
+            line,
+            column,
+        }
     }
 }
 
@@ -78,7 +84,12 @@ struct SnapshotCache {
 
 impl SnapshotCache {
     fn new(ptr: *const u8, len: usize, tab_width: usize, snapshot: TextSnapshot) -> Self {
-        Self { ptr, len, tab_width, snapshot }
+        Self {
+            ptr,
+            len,
+            tab_width,
+            snapshot,
+        }
     }
 
     fn matches(&self, ptr: *const u8, len: usize, tab_width: usize) -> bool {
@@ -168,7 +179,7 @@ impl TextSnapshot {
 
         // char_pos以下の最大のline_startを見つける
         match self.line_starts.binary_search(&char_pos) {
-            Ok(index) => index, // 正確な一致
+            Ok(index) => index,                    // 正確な一致
             Err(index) => index.saturating_sub(1), // 挿入位置の前の要素
         }
     }
@@ -230,7 +241,11 @@ impl TextSnapshot {
 
     /// 長い行の最適化情報を取得または作成
     #[allow(dead_code)]
-    fn get_or_create_long_line_info(&mut self, line: usize, optimizer: &mut PerformanceOptimizer) -> &LongLineInfo {
+    fn get_or_create_long_line_info(
+        &mut self,
+        line: usize,
+        optimizer: &mut PerformanceOptimizer,
+    ) -> &LongLineInfo {
         if !self.long_line_cache.contains_key(&line) {
             if let Some(line_length) = self.line_length(line) {
                 let strategy = optimizer.determine_long_line_strategy(line_length, line);
@@ -262,11 +277,14 @@ impl TextSnapshot {
                 self.long_line_cache.insert(line, info);
             } else {
                 // 行が存在しない場合は通常戦略
-                self.long_line_cache.insert(line, LongLineInfo {
-                    strategy: LongLineStrategy::Normal,
-                    chunks: None,
-                    display_limit: None,
-                });
+                self.long_line_cache.insert(
+                    line,
+                    LongLineInfo {
+                        strategy: LongLineStrategy::Normal,
+                        chunks: None,
+                        display_limit: None,
+                    },
+                );
             }
         }
 
@@ -291,7 +309,12 @@ impl TextSnapshot {
 
     /// 長い行での安全なナビゲーション
     #[allow(dead_code)]
-    fn safe_navigate_long_line(&self, _line: usize, target_column: usize, info: &LongLineInfo) -> usize {
+    fn safe_navigate_long_line(
+        &self,
+        _line: usize,
+        target_column: usize,
+        info: &LongLineInfo,
+    ) -> usize {
         match info.strategy {
             LongLineStrategy::Normal => target_column,
             LongLineStrategy::Chunked => {
@@ -383,7 +406,9 @@ impl NavigationSystem {
             cursor: CursorPosition::new(),
             extended: ExtendedCursor::new(),
             performance_monitor: Some(PerformanceMonitor::new()),
-            optimizer: Some(PerformanceOptimizer::new(OptimizationConfig::high_performance())),
+            optimizer: Some(PerformanceOptimizer::new(
+                OptimizationConfig::high_performance(),
+            )),
             snapshot_cache: None,
         }
     }
@@ -422,14 +447,25 @@ impl NavigationSystem {
     }
 
     /// テキストとアクションに基づいてカーソルを移動する。
-    pub fn navigate(&mut self, text: &str, action: NavigationAction) -> Result<bool, NavigationError> {
+    pub fn navigate(
+        &mut self,
+        text: &str,
+        action: NavigationAction,
+    ) -> Result<bool, NavigationError> {
         self.navigate_with_tab_width(text, action, 4)
     }
 
     /// Tab幅を指定してカーソルを移動する。
-    pub fn navigate_with_tab_width(&mut self, text: &str, action: NavigationAction, tab_width: usize) -> Result<bool, NavigationError> {
+    pub fn navigate_with_tab_width(
+        &mut self,
+        text: &str,
+        action: NavigationAction,
+        tab_width: usize,
+    ) -> Result<bool, NavigationError> {
         // パフォーマンス監視を開始
-        let timer = self.performance_monitor.as_ref()
+        let timer = self
+            .performance_monitor
+            .as_ref()
             .map(|m| m.start_operation(Operation::Navigation));
 
         let ptr = text.as_ptr();
@@ -456,7 +492,8 @@ impl NavigationSystem {
             }
         }
 
-        let snapshot_ptr = self.snapshot_cache
+        let snapshot_ptr = self
+            .snapshot_cache
             .as_ref()
             .expect("snapshot cache must be initialized")
             .snapshot_ptr();
@@ -513,7 +550,9 @@ impl NavigationSystem {
         if self.cursor.char_pos >= snapshot.char_count() {
             return Ok(false); // Silent failure for boundary case
         }
-        let ch = snapshot.char_at(self.cursor.char_pos).ok_or_else(|| NavigationError::Internal("cursor out of bounds".into()))?;
+        let ch = snapshot
+            .char_at(self.cursor.char_pos)
+            .ok_or_else(|| NavigationError::Internal("cursor out of bounds".into()))?;
         self.cursor.char_pos += 1;
         if ch == '\n' {
             self.cursor.line += 1;
@@ -773,9 +812,13 @@ mod tests {
     fn char_movement() {
         let mut nav = NavigationSystem::new();
         let text = "Hello\nWorld";
-        assert!(nav.navigate(text, NavigationAction::MoveCharForward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveCharForward)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 1);
-        assert!(nav.navigate(text, NavigationAction::MoveCharBackward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveCharBackward)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 0);
     }
 
@@ -785,19 +828,29 @@ mod tests {
         let text = "foo  bar_baz qux";
 
         // move to middle of first word
-        assert!(nav.navigate(text, NavigationAction::MoveCharForward).unwrap());
-        assert!(nav.navigate(text, NavigationAction::MoveCharForward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveCharForward)
+            .unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveCharForward)
+            .unwrap());
 
         // forward word should land after "foo"
-        assert!(nav.navigate(text, NavigationAction::MoveWordForward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveWordForward)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 3);
 
         // second forward word should skip spaces and reach end of bar_baz
-        assert!(nav.navigate(text, NavigationAction::MoveWordForward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveWordForward)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 12);
 
         // backward word returns to start of bar_baz
-        assert!(nav.navigate(text, NavigationAction::MoveWordBackward).unwrap());
+        assert!(nav
+            .navigate(text, NavigationAction::MoveWordBackward)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 5);
     }
 
@@ -817,7 +870,9 @@ mod tests {
         let mut nav = NavigationSystem::new();
         let text = "Only one line";
         // Boundary navigation should return Ok(false) (silent failure, no movement)
-        assert!(!nav.navigate(text, NavigationAction::MoveCharBackward).unwrap());
+        assert!(!nav
+            .navigate(text, NavigationAction::MoveCharBackward)
+            .unwrap());
         assert!(nav.navigate(text, NavigationAction::MoveBufferEnd).unwrap());
         assert!(!nav.navigate(text, NavigationAction::MoveLineDown).unwrap());
     }
@@ -848,9 +903,13 @@ mod tests {
         let text = "a\tb";
 
         // Test with tab width 8
-        assert!(nav.navigate_with_tab_width(text, NavigationAction::MoveCharForward, 8).unwrap());
+        assert!(nav
+            .navigate_with_tab_width(text, NavigationAction::MoveCharForward, 8)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 1); // at tab character
-        assert!(nav.navigate_with_tab_width(text, NavigationAction::MoveCharForward, 8).unwrap());
+        assert!(nav
+            .navigate_with_tab_width(text, NavigationAction::MoveCharForward, 8)
+            .unwrap());
         assert_eq!(nav.cursor().char_pos, 2); // at 'b'
     }
 

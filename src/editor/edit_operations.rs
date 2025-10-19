@@ -2,7 +2,7 @@
 //!
 //! 様々な編集操作を統一的に扱うためのインターフェース
 
-use crate::buffer::{EditOperations as BaseEditOperations, CursorPosition};
+use crate::buffer::{CursorPosition, EditOperations as BaseEditOperations};
 use crate::error::{EditError, Result};
 use std::time::Instant;
 
@@ -115,7 +115,14 @@ impl EditContext {
     }
 
     /// 操作メトリクスを記録
-    pub fn record_metrics(&mut self, operation: &str, duration: std::time::Duration, chars_affected: usize, success: bool, error: Option<&str>) {
+    pub fn record_metrics(
+        &mut self,
+        operation: &str,
+        duration: std::time::Duration,
+        chars_affected: usize,
+        success: bool,
+        error: Option<&str>,
+    ) {
         if self.metrics_enabled {
             self.last_metrics = Some(EditMetrics {
                 operation: operation.to_string(),
@@ -144,9 +151,7 @@ impl EditContext {
 
     /// 選択範囲の長さを取得
     pub fn selection_length(&self) -> usize {
-        self.selection
-            .map(|(start, end)| end - start)
-            .unwrap_or(0)
+        self.selection.map(|(start, end)| end - start).unwrap_or(0)
     }
 }
 
@@ -355,7 +360,10 @@ pub mod utils {
     }
 
     /// パフォーマンス測定ラッパー
-    pub fn measure_operation<F, T>(operation_name: &str, operation: F) -> (Result<T>, std::time::Duration)
+    pub fn measure_operation<F, T>(
+        operation_name: &str,
+        operation: F,
+    ) -> (Result<T>, std::time::Duration)
     where
         F: FnOnce() -> Result<T>,
     {
@@ -365,8 +373,11 @@ pub mod utils {
 
         // 1ms超過の警告
         if duration.as_millis() > 1 {
-            eprintln!("Performance Warning: {} took {}ms (target: <1ms)",
-                     operation_name, duration.as_millis());
+            eprintln!(
+                "Performance Warning: {} took {}ms (target: <1ms)",
+                operation_name,
+                duration.as_millis()
+            );
         }
 
         (result, duration)
@@ -375,8 +386,8 @@ pub mod utils {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::utils::*;
+    use super::*;
 
     #[test]
     fn test_edit_context_creation() {
@@ -404,7 +415,13 @@ mod tests {
         let mut context = EditContext::new();
         context.enable_metrics();
 
-        context.record_metrics("test_op", std::time::Duration::from_millis(2), 5, true, None);
+        context.record_metrics(
+            "test_op",
+            std::time::Duration::from_millis(2),
+            5,
+            true,
+            None,
+        );
 
         let metrics = context.last_metrics.as_ref().unwrap();
         assert_eq!(metrics.operation, "test_op");
@@ -428,12 +445,12 @@ mod tests {
     fn test_line_boundaries() {
         let text = "line1\nline2\nline3";
 
-        assert_eq!(find_line_start(text, 0), 0);  // 最初の行
-        assert_eq!(find_line_start(text, 7), 6);  // 2行目
+        assert_eq!(find_line_start(text, 0), 0); // 最初の行
+        assert_eq!(find_line_start(text, 7), 6); // 2行目
         assert_eq!(find_line_start(text, 13), 12); // 3行目
 
-        assert_eq!(find_line_end(text, 0), 5);   // 最初の行の終端
-        assert_eq!(find_line_end(text, 7), 11);  // 2行目の終端
+        assert_eq!(find_line_end(text, 0), 5); // 最初の行の終端
+        assert_eq!(find_line_end(text, 7), 11); // 2行目の終端
         assert_eq!(find_line_end(text, 13), 17); // 3行目の終端（ファイル終端）
     }
 
@@ -441,11 +458,11 @@ mod tests {
     fn test_word_boundaries() {
         let text = "hello world test";
 
-        assert_eq!(find_word_start_backward(text, 10), 6);  // "world"の開始
-        assert_eq!(find_word_start_backward(text, 5), 0);   // "hello"の開始
+        assert_eq!(find_word_start_backward(text, 10), 6); // "world"の開始
+        assert_eq!(find_word_start_backward(text, 5), 0); // "hello"の開始
 
-        assert_eq!(find_word_end_forward(text, 0), 5);   // "hello"の終端
-        assert_eq!(find_word_end_forward(text, 6), 11);  // "world"の終端
+        assert_eq!(find_word_end_forward(text, 0), 5); // "hello"の終端
+        assert_eq!(find_word_end_forward(text, 6), 11); // "world"の終端
     }
 
     #[test]

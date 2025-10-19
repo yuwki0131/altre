@@ -4,8 +4,8 @@
 //! the response-time envelopes defined in QA.md and
 //! `docs/design/navigation_performance_tests.md`.
 
-use altre::buffer::{navigation::NavigationError, NavigationAction, NavigationSystem};
 use altre::buffer::cursor::CursorPosition;
+use altre::buffer::{navigation::NavigationError, NavigationAction, NavigationSystem};
 use std::cmp::min;
 use std::time::{Duration, Instant};
 
@@ -78,8 +78,7 @@ impl NavigationPerformanceTestHarness {
         let target_ms = target_as_millis(target);
         let mean_ok = stats.mean_millis <= target_ms * self.config.tolerance_factor;
         let median_ok = stats.median_millis <= target_ms * self.config.tolerance_factor;
-        let max_ok = stats.max_millis
-            <= target_ms * (self.config.tolerance_factor + 0.5);
+        let max_ok = stats.max_millis <= target_ms * (self.config.tolerance_factor + 0.5);
         let passed = mean_ok && median_ok && max_ok;
 
         NavigationPerformanceResult {
@@ -329,7 +328,10 @@ fn navigation_buffer_wide_operations_within_two_milliseconds() {
     }
 }
 
-#[cfg_attr(debug_assertions, ignore = "Navigation performance thresholds apply to release build")]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "Navigation performance thresholds apply to release build"
+)]
 #[test]
 fn navigation_tab_width_conversion_under_half_millisecond() {
     let harness = NavigationPerformanceTestHarness::new();

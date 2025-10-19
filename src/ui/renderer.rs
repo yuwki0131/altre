@@ -2,15 +2,15 @@
 //!
 //! 60fps描画、差分更新、画面更新最適化を実現
 
+use crate::buffer::TextEditor;
+use crate::minibuffer::MinibufferSystem;
+use crate::search::{SearchHighlight, SearchStatus, SearchUiState};
 use crate::ui::{
     layout::{AreaType, LayoutManager},
     text_area::TextAreaRenderer,
     theme::{ComponentType, ThemeManager},
     WindowManager,
 };
-use crate::buffer::TextEditor;
-use crate::minibuffer::MinibufferSystem;
-use crate::search::{SearchHighlight, SearchStatus, SearchUiState};
 use ratatui::{
     backend::Backend,
     layout::Rect,
@@ -20,8 +20,8 @@ use ratatui::{
     Frame, Terminal,
 };
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 use std::io;
+use std::time::{Duration, Instant};
 
 /// 画面領域の差分情報
 #[derive(Debug, Clone, PartialEq)]
@@ -279,8 +279,7 @@ impl AdvancedRenderer {
                 let divider_style = theme.style(&ComponentType::WindowDivider);
                 for divider in divider_rects {
                     frame.render_widget(Clear, divider);
-                    let widget = Paragraph::new(Line::from(""))
-                        .style(divider_style);
+                    let widget = Paragraph::new(Line::from("")).style(divider_style);
                     frame.render_widget(widget, divider);
                 }
             }
@@ -408,8 +407,7 @@ impl AdvancedRenderer {
             return None;
         }
 
-        let paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: true });
+        let paragraph = Paragraph::new(lines).wrap(Wrap { trim: true });
         frame.render_widget(paragraph, area);
 
         cursor_pos
@@ -418,7 +416,10 @@ impl AdvancedRenderer {
     fn search_line(area: Rect, search: &SearchUiState) -> (Line<'static>, Option<(u16, u16)>) {
         let prompt_text = format!("{}: ", search.prompt_label);
         let mut spans: Vec<Span<'static>> = Vec::new();
-        spans.push(Span::styled(prompt_text.clone(), Style::default().fg(Color::Cyan)));
+        spans.push(Span::styled(
+            prompt_text.clone(),
+            Style::default().fg(Color::Cyan),
+        ));
 
         let pattern_style = match search.status {
             SearchStatus::Active => Style::default().fg(Color::White),
@@ -487,8 +488,7 @@ impl AdvancedRenderer {
             format!("FPS: {:.1}", self.frame_stats.current_fps)
         );
 
-        let paragraph = Paragraph::new(status_text)
-            .style(theme.style(&ComponentType::StatusLine));
+        let paragraph = Paragraph::new(status_text).style(theme.style(&ComponentType::StatusLine));
 
         frame.render_widget(paragraph, area);
     }
@@ -515,15 +515,12 @@ impl AdvancedRenderer {
 
             let debug_widget = Paragraph::new(debug_text)
                 .style(Style::default().fg(ratatui::style::Color::Yellow))
-                .block(Block::default()
-                    .borders(Borders::ALL)
-                    .title("Debug"));
+                .block(Block::default().borders(Borders::ALL).title("Debug"));
 
             frame.render_widget(Clear, debug_area);
             frame.render_widget(debug_widget, debug_area);
         }
     }
-
 
     /// 差分計算
     fn calculate_diffs(
@@ -547,8 +544,9 @@ impl AdvancedRenderer {
     /// 領域の更新が必要かチェック
     #[allow(dead_code)]
     fn should_update_area(&self, area_type: &AreaType, diffs: &[AreaDiff]) -> bool {
-        diffs.iter().any(|diff| {
-            match (area_type, &diff.change_type) {
+        diffs
+            .iter()
+            .any(|diff| match (area_type, &diff.change_type) {
                 (AreaType::TextArea, ChangeType::Full) => true,
                 (AreaType::TextArea, ChangeType::Partial) => true,
                 (AreaType::StatusLine, ChangeType::Full) => true,
@@ -556,8 +554,7 @@ impl AdvancedRenderer {
                 (AreaType::Minibuffer, ChangeType::Full) => true,
                 (AreaType::Minibuffer, ChangeType::MinibufferOnly) => true,
                 _ => false,
-            }
-        })
+            })
     }
 
     /// フレームレート制御
@@ -583,7 +580,8 @@ impl AdvancedRenderer {
         // FPS計算
         if self.frame_times.len() > 1 {
             let duration = now.duration_since(self.frame_times[0]);
-            self.frame_stats.current_fps = (self.frame_times.len() - 1) as f64 / duration.as_secs_f64();
+            self.frame_stats.current_fps =
+                (self.frame_times.len() - 1) as f64 / duration.as_secs_f64();
         }
 
         // 統計更新
@@ -615,7 +613,8 @@ impl AdvancedRenderer {
 
         // 平均FPSの計算
         if self.render_stats.total_frames > 0 {
-            self.frame_stats.average_fps = self.frame_stats.current_fps * 0.1 + self.frame_stats.average_fps * 0.9;
+            self.frame_stats.average_fps =
+                self.frame_stats.current_fps * 0.1 + self.frame_stats.average_fps * 0.9;
         }
 
         self.last_frame_time = now;

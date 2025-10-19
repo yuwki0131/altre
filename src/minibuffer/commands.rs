@@ -353,8 +353,9 @@ impl CommandProcessor {
         };
 
         // コマンドの取得
-        let command_def = self.commands.get(&resolved_name)
-            .ok_or_else(|| AltreError::Application(format!("Unknown command: {}", resolved_name)))?;
+        let command_def = self.commands.get(&resolved_name).ok_or_else(|| {
+            AltreError::Application(format!("Unknown command: {}", resolved_name))
+        })?;
 
         // 実行可能性チェック
         if !(command_def.can_execute)(context) {
@@ -384,14 +385,18 @@ impl CommandProcessor {
                     Ok(CommandResult::Error("No filename specified".to_string()))
                 } else {
                     let path = PathBuf::from(args[0]);
-                    Ok(CommandResult::FileOperation(FileOperationType::Open { path }))
+                    Ok(CommandResult::FileOperation(FileOperationType::Open {
+                        path,
+                    }))
                 }
             }
             "save-buffer" => {
                 if context.current_file.is_some() {
                     Ok(CommandResult::FileOperation(FileOperationType::Save))
                 } else {
-                    Ok(CommandResult::Error("No file associated with buffer".to_string()))
+                    Ok(CommandResult::Error(
+                        "No file associated with buffer".to_string(),
+                    ))
                 }
             }
             "write-file" => {
@@ -399,7 +404,9 @@ impl CommandProcessor {
                     Ok(CommandResult::Error("No filename specified".to_string()))
                 } else {
                     let path = PathBuf::from(args[0]);
-                    Ok(CommandResult::FileOperation(FileOperationType::SaveAs { path }))
+                    Ok(CommandResult::FileOperation(FileOperationType::SaveAs {
+                        path,
+                    }))
                 }
             }
             "save-some-buffers" => {
@@ -415,7 +422,9 @@ impl CommandProcessor {
                     Ok(CommandResult::Error("No filename specified".to_string()))
                 } else {
                     let path = PathBuf::from(args[0]);
-                    Ok(CommandResult::FileOperation(FileOperationType::SaveAs { path }))
+                    Ok(CommandResult::FileOperation(FileOperationType::SaveAs {
+                        path,
+                    }))
                 }
             }
             "switch-to-buffer" => {
@@ -423,15 +432,17 @@ impl CommandProcessor {
                     Ok(CommandResult::BufferOperation(BufferOperationType::List))
                 } else {
                     // バッファ名からIDを解決（簡略化）
-                    Ok(CommandResult::BufferOperation(BufferOperationType::Switch { buffer_id: 0 }))
+                    Ok(CommandResult::BufferOperation(
+                        BufferOperationType::Switch { buffer_id: 0 },
+                    ))
                 }
             }
-            "list-buffers" => {
-                Ok(CommandResult::BufferOperation(BufferOperationType::List))
-            }
+            "list-buffers" => Ok(CommandResult::BufferOperation(BufferOperationType::List)),
             "kill-buffer" => {
                 if let Some(buffer_id) = context.current_buffer_id {
-                    Ok(CommandResult::BufferOperation(BufferOperationType::Delete { buffer_id }))
+                    Ok(CommandResult::BufferOperation(
+                        BufferOperationType::Delete { buffer_id },
+                    ))
                 } else {
                     Ok(CommandResult::Error("No buffer to kill".to_string()))
                 }
@@ -443,9 +454,10 @@ impl CommandProcessor {
                 // これらのコマンドはエディタ側で処理
                 Ok(CommandResult::Success(format!("Executed: {}", command)))
             }
-            _ => {
-                Ok(CommandResult::Error(format!("Command not implemented: {}", command)))
-            }
+            _ => Ok(CommandResult::Error(format!(
+                "Command not implemented: {}",
+                command
+            ))),
         }
     }
 
@@ -552,7 +564,7 @@ mod tests {
         let processor = CommandProcessor::new();
         assert!(processor.command_exists("ff")); // alias for find-file
         assert!(processor.command_exists("sb")); // alias for save-buffer
-        assert!(processor.command_exists("q"));  // alias for quit
+        assert!(processor.command_exists("q")); // alias for quit
     }
 
     #[test]
@@ -560,7 +572,9 @@ mod tests {
         let mut processor = CommandProcessor::new();
         let context = CommandContext::default();
 
-        let result = processor.execute_command("find-file test.txt", &context).unwrap();
+        let result = processor
+            .execute_command("find-file test.txt", &context)
+            .unwrap();
         match result {
             CommandResult::FileOperation(FileOperationType::Open { path }) => {
                 assert_eq!(path, PathBuf::from("test.txt"));
@@ -576,7 +590,10 @@ mod tests {
         context.current_file = Some(PathBuf::from("test.txt"));
 
         let result = processor.execute_command("save-buffer", &context).unwrap();
-        assert!(matches!(result, CommandResult::FileOperation(FileOperationType::Save)));
+        assert!(matches!(
+            result,
+            CommandResult::FileOperation(FileOperationType::Save)
+        ));
     }
 
     #[test]
@@ -585,7 +602,10 @@ mod tests {
         let context = CommandContext::default();
 
         let result = processor.execute_command("quit", &context).unwrap();
-        assert!(matches!(result, CommandResult::SystemOperation(SystemOperationType::Quit)));
+        assert!(matches!(
+            result,
+            CommandResult::SystemOperation(SystemOperationType::Quit)
+        ));
     }
 
     #[test]
@@ -604,8 +624,12 @@ mod tests {
         let mut processor = CommandProcessor::new();
         let context = CommandContext::default();
 
-        processor.execute_command("find-file test1.txt", &context).unwrap();
-        processor.execute_command("find-file test2.txt", &context).unwrap();
+        processor
+            .execute_command("find-file test1.txt", &context)
+            .unwrap();
+        processor
+            .execute_command("find-file test2.txt", &context)
+            .unwrap();
 
         let history = processor.get_history();
         assert_eq!(history.len(), 2);

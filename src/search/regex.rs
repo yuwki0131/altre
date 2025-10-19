@@ -152,13 +152,7 @@ mod tests {
 
     #[test]
     fn build_candidates_collects_ranges() {
-        let candidates = build_regex_candidates(
-            "(\\d+)",
-            "[$1]",
-            "id=42 and 100",
-            true,
-        )
-        .unwrap();
+        let candidates = build_regex_candidates("(\\d+)", "[$1]", "id=42 and 100", true).unwrap();
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].replacement, "[42]");
     }

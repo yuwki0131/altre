@@ -3,10 +3,10 @@
 //! 画面下部のミニバッファ描画機能
 
 use ratatui::{
-    widgets::{Block, Borders, Paragraph},
     layout::Rect,
-    text::Line,
     style::{Color, Style},
+    text::Line,
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
@@ -59,12 +59,18 @@ impl MinibufferRenderer {
 
     /// メッセージを表示
     pub fn set_message(&mut self, text: String) {
-        self.state = MinibufferState::Message { text, is_error: false };
+        self.state = MinibufferState::Message {
+            text,
+            is_error: false,
+        };
     }
 
     /// エラーメッセージを表示
     pub fn set_error(&mut self, text: String) {
-        self.state = MinibufferState::Message { text, is_error: true };
+        self.state = MinibufferState::Message {
+            text,
+            is_error: true,
+        };
     }
 
     /// キーシーケンスを表示
@@ -98,12 +104,8 @@ impl MinibufferRenderer {
             MinibufferState::Prompt { message, input } => {
                 Line::from(format!("{}{}", message, input))
             }
-            MinibufferState::Message { text, .. } => {
-                Line::from(text.clone())
-            }
-            MinibufferState::KeySequence { sequence } => {
-                Line::from(format!("キー: {}", sequence))
-            }
+            MinibufferState::Message { text, .. } => Line::from(text.clone()),
+            MinibufferState::KeySequence { sequence } => Line::from(format!("キー: {}", sequence)),
         }
     }
 
@@ -199,7 +201,8 @@ impl MinibufferUtils {
             let mut result = String::new();
             let mut count = 0;
             for ch in text.chars() {
-                if count + 3 >= max_width { // "..." のスペースを確保
+                if count + 3 >= max_width {
+                    // "..." のスペースを確保
                     result.push_str("...");
                     break;
                 }
@@ -223,9 +226,11 @@ impl MinibufferUtils {
         // 複数候補がある場合は共通プレフィックスを表示
         let common_prefix = Self::find_common_prefix(candidates);
         if !common_prefix.is_empty() {
-            format!("{}... ({} candidates)",
+            format!(
+                "{}... ({} candidates)",
                 Self::truncate_text(&common_prefix, max_width.saturating_sub(20)),
-                candidates.len())
+                candidates.len()
+            )
         } else {
             format!("{} candidates", candidates.len())
         }
@@ -311,10 +316,7 @@ mod tests {
         let prefix = MinibufferUtils::find_common_prefix(&strings);
         assert_eq!(prefix, "prefix_file");
 
-        let no_common = vec![
-            "file1.txt".to_string(),
-            "document.txt".to_string(),
-        ];
+        let no_common = vec!["file1.txt".to_string(), "document.txt".to_string()];
         let no_prefix = MinibufferUtils::find_common_prefix(&no_common);
         assert!(no_prefix.is_empty());
     }

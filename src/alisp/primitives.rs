@@ -1,6 +1,6 @@
 use crate::alisp::error::{EvalError, EvalErrorKind};
-use crate::alisp::runtime::{define_symbol, value_to_string, Function, RuntimeState, Value};
 use crate::alisp::runtime::EnvHandle;
+use crate::alisp::runtime::{define_symbol, value_to_string, Function, RuntimeState, Value};
 use crate::alisp::symbol::SymbolId;
 
 /// インタプリタ初期化時に登録した組込み関数のシンボルを保持する。
@@ -64,7 +64,10 @@ impl PrimitiveRegistry {
 fn ensure_arity(args: &[Value], expected: usize) -> Result<(), EvalError> {
     if args.len() != expected {
         return Err(EvalError::new(
-            EvalErrorKind::ArityMismatch { expected, found: args.len() },
+            EvalErrorKind::ArityMismatch {
+                expected,
+                found: args.len(),
+            },
             None,
             format!("引数の個数が一致しません: {} が必要です", expected),
         ));
@@ -75,7 +78,10 @@ fn ensure_arity(args: &[Value], expected: usize) -> Result<(), EvalError> {
 fn ensure_min_arity(args: &[Value], min: usize) -> Result<(), EvalError> {
     if args.len() < min {
         return Err(EvalError::new(
-            EvalErrorKind::ArityMismatch { expected: min, found: args.len() },
+            EvalErrorKind::ArityMismatch {
+                expected: min,
+                found: args.len(),
+            },
             None,
             format!("引数は最低 {} 個必要です", min),
         ));
@@ -88,7 +94,10 @@ fn expect_number(value: &Value) -> Result<Number, EvalError> {
         Value::Integer(i) => Ok(Number::Integer(*i)),
         Value::Float(f) => Ok(Number::Float(*f)),
         _ => Err(EvalError::new(
-            EvalErrorKind::TypeMismatch { expected: "number", found: value.type_name() },
+            EvalErrorKind::TypeMismatch {
+                expected: "number",
+                found: value.type_name(),
+            },
             None,
             "数値が必要です",
         )),
@@ -100,7 +109,10 @@ fn expect_string<'a>(runtime: &'a RuntimeState, value: &Value) -> Result<&'a str
         Ok(runtime.heap.string_ref(*handle))
     } else {
         Err(EvalError::new(
-            EvalErrorKind::TypeMismatch { expected: "string", found: value.type_name() },
+            EvalErrorKind::TypeMismatch {
+                expected: "string",
+                found: value.type_name(),
+            },
             None,
             "文字列が必要です",
         ))
@@ -161,16 +173,30 @@ fn numeric_fold(
     Ok(acc.to_value())
 }
 
-fn numeric_add(runtime: &mut RuntimeState, env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
-    numeric_fold(runtime, env, args, Some(Number::Integer(0)), |acc, rhs| match (acc, rhs) {
-        (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a + b)),
-        (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a + b)),
-        (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a + b as f64)),
-        (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 + b)),
-    })
+fn numeric_add(
+    runtime: &mut RuntimeState,
+    env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
+    numeric_fold(
+        runtime,
+        env,
+        args,
+        Some(Number::Integer(0)),
+        |acc, rhs| match (acc, rhs) {
+            (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a + b)),
+            (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a + b)),
+            (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a + b as f64)),
+            (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 + b)),
+        },
+    )
 }
 
-fn numeric_sub(runtime: &mut RuntimeState, env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn numeric_sub(
+    runtime: &mut RuntimeState,
+    env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_min_arity(args, 1)?;
     if args.len() == 1 {
         return match expect_number(&args[0])? {
@@ -179,24 +205,40 @@ fn numeric_sub(runtime: &mut RuntimeState, env: EnvHandle, args: &[Value]) -> Re
         };
     }
     let first = expect_number(&args[0])?;
-    numeric_fold(runtime, env, &args[1..], Some(first), |acc, rhs| match (acc, rhs) {
-        (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a - b)),
-        (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a - b)),
-        (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a - b as f64)),
-        (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 - b)),
+    numeric_fold(runtime, env, &args[1..], Some(first), |acc, rhs| {
+        match (acc, rhs) {
+            (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a - b)),
+            (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a - b)),
+            (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a - b as f64)),
+            (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 - b)),
+        }
     })
 }
 
-fn numeric_mul(runtime: &mut RuntimeState, env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
-    numeric_fold(runtime, env, args, Some(Number::Integer(1)), |acc, rhs| match (acc, rhs) {
-        (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a * b)),
-        (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a * b)),
-        (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a * b as f64)),
-        (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 * b)),
-    })
+fn numeric_mul(
+    runtime: &mut RuntimeState,
+    env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
+    numeric_fold(
+        runtime,
+        env,
+        args,
+        Some(Number::Integer(1)),
+        |acc, rhs| match (acc, rhs) {
+            (Number::Integer(a), Number::Integer(b)) => Ok(Number::Integer(a * b)),
+            (Number::Float(a), Number::Float(b)) => Ok(Number::Float(a * b)),
+            (Number::Float(a), Number::Integer(b)) => Ok(Number::Float(a * b as f64)),
+            (Number::Integer(a), Number::Float(b)) => Ok(Number::Float(a as f64 * b)),
+        },
+    )
 }
 
-fn numeric_div(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn numeric_div(
+    _runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_min_arity(args, 1)?;
     let mut iter = args.iter();
     let mut acc = if let Some(first) = iter.next() {
@@ -207,7 +249,11 @@ fn numeric_div(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> 
     for arg in iter {
         let rhs = expect_number(arg)?;
         if rhs.is_zero() {
-            return Err(EvalError::new(EvalErrorKind::DivisionByZero, None, "0 で除算できません"));
+            return Err(EvalError::new(
+                EvalErrorKind::DivisionByZero,
+                None,
+                "0 で除算できません",
+            ));
         }
         let (left, right) = acc.promote(rhs);
         acc = match (left, right) {
@@ -244,7 +290,11 @@ numeric_compare!(numeric_lte, <=);
 numeric_compare!(numeric_gt, >);
 numeric_compare!(numeric_gte, >=);
 
-fn numeric_abs(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn numeric_abs(
+    _runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     match expect_number(&args[0])? {
         Number::Integer(i) => Ok(Value::Integer(i.abs())),
@@ -252,7 +302,11 @@ fn numeric_abs(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> 
     }
 }
 
-fn numeric_floor(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn numeric_floor(
+    _runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     match expect_number(&args[0])? {
         Number::Integer(i) => Ok(Value::Integer(i)),
@@ -260,7 +314,11 @@ fn numeric_floor(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -
     }
 }
 
-fn numeric_ceil(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn numeric_ceil(
+    _runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     match expect_number(&args[0])? {
         Number::Integer(i) => Ok(Value::Integer(i)),
@@ -268,29 +326,52 @@ fn numeric_ceil(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) ->
     }
 }
 
-fn boolean_not(_runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn boolean_not(
+    _runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     if let Value::Boolean(b) = args[0] {
         Ok(Value::Boolean(!b))
     } else {
-        Err(EvalError::new(EvalErrorKind::TypeMismatch { expected: "boolean", found: args[0].type_name() }, None, "真偽値が必要です"))
+        Err(EvalError::new(
+            EvalErrorKind::TypeMismatch {
+                expected: "boolean",
+                found: args[0].type_name(),
+            },
+            None,
+            "真偽値が必要です",
+        ))
     }
 }
 
-fn primitive_print(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn primitive_print(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     let text = value_to_string(runtime, &args[0]);
     runtime.emit_message(text);
     Ok(Value::Unit)
 }
 
-fn primitive_type_of(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn primitive_type_of(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     let ty = args[0].type_name();
     Ok(runtime.alloc_string_value(ty.to_string()))
 }
 
-fn primitive_string_append(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn primitive_string_append(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_min_arity(args, 1)?;
     let mut result = String::new();
     for arg in args {
@@ -299,19 +380,31 @@ fn primitive_string_append(runtime: &mut RuntimeState, _env: EnvHandle, args: &[
     Ok(runtime.alloc_string_value(result))
 }
 
-fn primitive_string_length(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn primitive_string_length(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 1)?;
     let s = expect_string(runtime, &args[0])?;
     Ok(Value::Integer(s.chars().count() as i64))
 }
 
-fn primitive_bind_key(runtime: &mut RuntimeState, _env: EnvHandle, args: &[Value]) -> Result<Value, EvalError> {
+fn primitive_bind_key(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
     ensure_arity(args, 2)?;
     let key_sequence = expect_string(runtime, &args[0])?.to_string();
     let command_name = expect_string(runtime, &args[1])?.to_string();
-    let host = runtime
-        .host_mut()
-        .ok_or_else(|| EvalError::new(EvalErrorKind::Runtime("ホストが未設定です".into()), None, "ホストが未設定です"))?;
+    let host = runtime.host_mut().ok_or_else(|| {
+        EvalError::new(
+            EvalErrorKind::Runtime("ホストが未設定です".into()),
+            None,
+            "ホストが未設定です",
+        )
+    })?;
 
     host.bind_key(&key_sequence, &command_name)
         .map_err(|msg| EvalError::new(EvalErrorKind::Runtime(msg.clone()), None, msg))?;

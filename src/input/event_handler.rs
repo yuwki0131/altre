@@ -2,9 +2,9 @@
 //!
 //! キーボード入力やターミナルイベントの処理
 
-use crate::error::Result;
-use super::{CommandProcessor, CommandResult};
 use super::keybinding::{KeyProcessResult, ModernKeyMap};
+use super::{CommandProcessor, CommandResult};
+use crate::error::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 
@@ -100,11 +100,7 @@ impl InputHandler {
 
     /// 現在のキーシーケンス状態を取得
     pub fn current_key_sequence(&self) -> String {
-        self
-            .keymap
-            .current_prefix_label()
-            .unwrap_or("")
-            .to_string()
+        self.keymap.current_prefix_label().unwrap_or("").to_string()
     }
 
     /// キーマップをリセット
@@ -217,7 +213,9 @@ impl EventProcessor {
                     }
                 } else {
                     ProcessResult::Error {
-                        message: result.message.unwrap_or_else(|| "コマンドエラー".to_string())
+                        message: result
+                            .message
+                            .unwrap_or_else(|| "コマンドエラー".to_string()),
                     }
                 }
             }
@@ -311,7 +309,7 @@ mod tests {
     #[test]
     fn test_input_result_methods() {
         let cmd_result = InputResult::Command {
-            result: CommandResult::success()
+            result: CommandResult::success(),
         };
         assert!(cmd_result.has_command_result());
 
@@ -319,7 +317,7 @@ mod tests {
         assert!(prefix_result.is_prefix());
 
         let unbound_result = InputResult::Unbound {
-            key: "test".to_string()
+            key: "test".to_string(),
         };
         assert!(unbound_result.is_unbound());
     }

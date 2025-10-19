@@ -4,8 +4,8 @@
 
 use crate::error::Result;
 use crate::file::path::expand_path;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// 補完エンジンのトレイト
 pub trait CompletionEngine {
@@ -259,7 +259,8 @@ impl CompletionEngine for CommandCompletion {
             return Ok(self.commands.clone());
         }
 
-        let filtered: Vec<String> = self.commands
+        let filtered: Vec<String> = self
+            .commands
             .iter()
             .filter(|cmd| cmd.starts_with(input))
             .cloned()
@@ -280,8 +281,8 @@ impl CompletionEngine for CommandCompletion {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_path_completion_creation() {
@@ -343,13 +344,17 @@ mod tests {
     #[test]
     fn test_command_completion() {
         let mut completion = CommandCompletion::new();
-        assert!(completion.all_commands().contains(&"forward-char".to_string()));
+        assert!(completion
+            .all_commands()
+            .contains(&"forward-char".to_string()));
 
         let filtered = completion.complete("for").unwrap();
         assert!(filtered.contains(&"forward-char".to_string()));
 
         completion.add_command("custom-command".to_string());
-        assert!(completion.all_commands().contains(&"custom-command".to_string()));
+        assert!(completion
+            .all_commands()
+            .contains(&"custom-command".to_string()));
     }
 
     #[test]

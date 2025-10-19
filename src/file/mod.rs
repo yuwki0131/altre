@@ -7,17 +7,20 @@
 //! - 権限不足はエラー表示（エディタ継続）
 //! - 同時編集検出不要（MVP非対応）
 
-pub mod io;
-pub mod path;
-pub mod operations;
 pub mod completion;
+pub mod io;
 pub mod metadata;
+pub mod operations;
+pub mod path;
 
 // 基本公開API（既存互換）
-pub use io::{FileOperations, read_file, write_file};
-pub use path::{PathProcessor, expand_path, normalize_path};
+pub use io::{read_file, write_file, FileOperations};
+pub use path::{expand_path, normalize_path, PathProcessor};
 
 // 新しい公開API
-pub use operations::{FileOperationManager, FileBuffer, FileSaver, FileReader};
-pub use completion::{PathCompletion, CompletionResult, CompletionDisplay};
-pub use metadata::{FileInfo, FileMetadata, FileChangeTracker, LineEndingStyle, EncodingProcessor, LineEndingProcessor};
+pub use completion::{CompletionDisplay, CompletionResult, PathCompletion};
+pub use metadata::{
+    EncodingProcessor, FileChangeTracker, FileInfo, FileMetadata, LineEndingProcessor,
+    LineEndingStyle,
+};
+pub use operations::{FileBuffer, FileOperationManager, FileReader, FileSaver};

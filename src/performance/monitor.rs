@@ -64,7 +64,8 @@ impl PerformanceStats {
         }
 
         // 移動平均の計算
-        let total_nanos = self.avg.as_nanos() as u64 * (self.count - 1) as u64 + duration.as_nanos() as u64;
+        let total_nanos =
+            self.avg.as_nanos() as u64 * (self.count - 1) as u64 + duration.as_nanos() as u64;
         self.avg = Duration::from_nanos(total_nanos / self.count as u64);
 
         if duration > target {
@@ -112,7 +113,9 @@ impl PerformanceMetrics {
 
     /// 統計を取得または作成
     pub fn get_or_create_stats(&mut self, operation: Operation) -> &mut PerformanceStats {
-        self.stats.entry(operation).or_insert_with(PerformanceStats::new)
+        self.stats
+            .entry(operation)
+            .or_insert_with(PerformanceStats::new)
     }
 
     /// 全体的な健康度を計算
@@ -121,9 +124,7 @@ impl PerformanceMetrics {
             return 1.0;
         }
 
-        let total_score: f32 = self.stats.values()
-            .map(|stats| stats.success_rate())
-            .sum();
+        let total_score: f32 = self.stats.values().map(|stats| stats.success_rate()).sum();
 
         total_score / self.stats.len() as f32
     }
@@ -201,35 +202,47 @@ impl PerformanceMonitor {
 
         for (operation, stats) in &self.metrics.stats {
             if stats.success_rate() < 0.9 {
-                warnings.push((*operation, format!(
-                    "成功率が低下: {:.1}% (目標: 90%+)",
-                    stats.success_rate() * 100.0
-                )));
+                warnings.push((
+                    *operation,
+                    format!(
+                        "成功率が低下: {:.1}% (目標: 90%+)",
+                        stats.success_rate() * 100.0
+                    ),
+                ));
             }
 
             if stats.avg > operation.target_time() * 2 {
-                warnings.push((*operation, format!(
-                    "平均時間が目標の2倍を超過: {:.2}ms (目標: {:.2}ms)",
-                    stats.avg.as_secs_f64() * 1000.0,
-                    operation.target_time().as_secs_f64() * 1000.0
-                )));
+                warnings.push((
+                    *operation,
+                    format!(
+                        "平均時間が目標の2倍を超過: {:.2}ms (目標: {:.2}ms)",
+                        stats.avg.as_secs_f64() * 1000.0,
+                        operation.target_time().as_secs_f64() * 1000.0
+                    ),
+                ));
             }
         }
 
         // メモリ使用量チェック
         if self.metrics.memory_usage > 10 * 1024 * 1024 {
-            warnings.push((Operation::FileLoad, format!(
-                "メモリ使用量が目標を超過: {:.1}MB (目標: 10MB以下)",
-                self.metrics.memory_usage as f64 / (1024.0 * 1024.0)
-            )));
+            warnings.push((
+                Operation::FileLoad,
+                format!(
+                    "メモリ使用量が目標を超過: {:.1}MB (目標: 10MB以下)",
+                    self.metrics.memory_usage as f64 / (1024.0 * 1024.0)
+                ),
+            ));
         }
 
         // フレームレートチェック
         if self.metrics.frame_rate < 55.0 && self.metrics.frame_rate > 0.0 {
-            warnings.push((Operation::Render, format!(
-                "フレームレートが低下: {:.1}fps (目標: 60fps)",
-                self.metrics.frame_rate
-            )));
+            warnings.push((
+                Operation::Render,
+                format!(
+                    "フレームレートが低下: {:.1}fps (目標: 60fps)",
+                    self.metrics.frame_rate
+                ),
+            ));
         }
 
         warnings
@@ -241,9 +254,18 @@ impl PerformanceMonitor {
         report.push_str("=== パフォーマンスレポート ===\n\n");
 
         // 全体健康度
-        report.push_str(&format!("健康度: {:.1}%\n", self.metrics.health_score() * 100.0));
-        report.push_str(&format!("メモリ使用量: {:.2}MB\n", self.metrics.memory_usage as f64 / (1024.0 * 1024.0)));
-        report.push_str(&format!("フレームレート: {:.1}fps\n\n", self.metrics.frame_rate));
+        report.push_str(&format!(
+            "健康度: {:.1}%\n",
+            self.metrics.health_score() * 100.0
+        ));
+        report.push_str(&format!(
+            "メモリ使用量: {:.2}MB\n",
+            self.metrics.memory_usage as f64 / (1024.0 * 1024.0)
+        ));
+        report.push_str(&format!(
+            "フレームレート: {:.1}fps\n\n",
+            self.metrics.frame_rate
+        ));
 
         // 操作別統計
         report.push_str("=== 操作別統計 ===\n");

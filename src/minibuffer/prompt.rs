@@ -2,8 +2,8 @@
 //!
 //! ユーザーからの入力を受け付けるプロンプトシステム
 
-use crate::error::{AltreError, Result};
 use super::completion::{CompletionEngine, PathCompletion};
+use crate::error::{AltreError, Result};
 
 /// プロンプトの結果
 #[derive(Debug, Clone)]
@@ -116,7 +116,9 @@ impl PromptManager {
     /// 文字を追加
     pub fn add_char(&mut self, ch: char) -> Result<()> {
         if !self.active {
-            return Err(AltreError::Application("プロンプトがアクティブではありません".to_string()));
+            return Err(AltreError::Application(
+                "プロンプトがアクティブではありません".to_string(),
+            ));
         }
 
         self.input.push(ch);
@@ -127,7 +129,9 @@ impl PromptManager {
     /// 最後の文字を削除
     pub fn backspace(&mut self) -> Result<bool> {
         if !self.active {
-            return Err(AltreError::Application("プロンプトがアクティブではありません".to_string()));
+            return Err(AltreError::Application(
+                "プロンプトがアクティブではありません".to_string(),
+            ));
         }
 
         if self.input.is_empty() {
@@ -246,7 +250,9 @@ impl PromptUtils {
 
         // 危険な文字をチェック
         if path.contains('\0') {
-            return Err(AltreError::Path("ファイルパスに無効な文字が含まれています".to_string()));
+            return Err(AltreError::Path(
+                "ファイルパスに無効な文字が含まれています".to_string(),
+            ));
         }
 
         Ok(())
@@ -324,7 +330,7 @@ mod tests {
 
         let result = manager.cancel_input();
         match result {
-            PromptResult::Cancelled => {},
+            PromptResult::Cancelled => {}
             _ => panic!("Expected cancelled result"),
         }
 

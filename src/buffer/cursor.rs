@@ -134,11 +134,7 @@ impl CursorMover {
     /// * `cursor` - 更新するカーソル位置
     /// * `text` - 参照するテキスト内容
     /// * `movement` - 移動の種類
-    pub fn move_cursor(
-        cursor: &mut CursorPosition,
-        text: &str,
-        movement: CursorMovement,
-    ) -> bool {
+    pub fn move_cursor(cursor: &mut CursorPosition, text: &str, movement: CursorMovement) -> bool {
         match movement {
             CursorMovement::Forward => Self::move_forward(cursor, text),
             CursorMovement::Backward => Self::move_backward(cursor, text),
@@ -310,14 +306,22 @@ mod tests {
         let mut cursor = CursorPosition::new();
 
         // Forward movement
-        assert!(CursorMover::move_cursor(&mut cursor, text, CursorMovement::Forward));
+        assert!(CursorMover::move_cursor(
+            &mut cursor,
+            text,
+            CursorMovement::Forward
+        ));
         assert_eq!(cursor.char_pos, 1);
         assert_eq!(cursor.column, 1);
 
         // Move to newline
         cursor.char_pos = 5;
         cursor.column = 5;
-        assert!(CursorMover::move_cursor(&mut cursor, text, CursorMovement::Forward));
+        assert!(CursorMover::move_cursor(
+            &mut cursor,
+            text,
+            CursorMovement::Forward
+        ));
         assert_eq!(cursor.line, 1);
         assert_eq!(cursor.column, 0);
     }
@@ -328,12 +332,20 @@ mod tests {
         let mut cursor = CursorPosition::at(6, 0, 6); // "First " の後
 
         // Move down
-        assert!(CursorMover::move_cursor(&mut cursor, text, CursorMovement::Down));
+        assert!(CursorMover::move_cursor(
+            &mut cursor,
+            text,
+            CursorMovement::Down
+        ));
         assert_eq!(cursor.line, 1);
         assert_eq!(cursor.column, 6);
 
         // Move up
-        assert!(CursorMover::move_cursor(&mut cursor, text, CursorMovement::Up));
+        assert!(CursorMover::move_cursor(
+            &mut cursor,
+            text,
+            CursorMovement::Up
+        ));
         assert_eq!(cursor.line, 0);
         assert_eq!(cursor.column, 6);
     }

@@ -1,5 +1,5 @@
-use altre::alisp::Interpreter;
 use altre::alisp::integration::eval_in_minibuffer;
+use altre::alisp::Interpreter;
 
 #[test]
 fn eval_arithmetic() {
@@ -19,14 +19,18 @@ fn define_function_and_call() {
 #[test]
 fn let_scoping() {
     let mut interp = Interpreter::new();
-    let result = interp.eval("(let ((x 10) (y 5)) (begin (set! x (+ x y)) x))").unwrap();
+    let result = interp
+        .eval("(let ((x 10) (y 5)) (begin (set! x (+ x y)) x))")
+        .unwrap();
     assert_eq!(result.display, "15");
 }
 
 #[test]
 fn lambda_closure_captures_environment() {
     let mut interp = Interpreter::new();
-    interp.eval("(define make-adder (lambda (base) (lambda (x) (+ base x))))").unwrap();
+    interp
+        .eval("(define make-adder (lambda (base) (lambda (x) (+ base x))))")
+        .unwrap();
     interp.eval("(define add10 (make-adder 10))").unwrap();
     let result = interp.eval("(add10 5)").unwrap();
     assert_eq!(result.display, "15");

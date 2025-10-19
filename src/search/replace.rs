@@ -1,8 +1,8 @@
-use crate::buffer::TextEditor;
-use crate::error::Result;
 use super::matcher::{LiteralMatcher, StringMatcher};
 use super::regex::{build_regex_candidates, RegexError};
 use super::types::{HighlightKind, SearchHighlight};
+use crate::buffer::TextEditor;
+use crate::error::Result;
 
 /// クエリ置換の開始結果
 #[derive(Debug, Clone)]
@@ -93,7 +93,13 @@ impl QueryReplaceController {
         Some((candidate.start, candidate.end))
     }
 
-    pub fn start_literal(&mut self, text: &str, pattern: String, replacement: String, case_sensitive: bool) -> ReplaceStart {
+    pub fn start_literal(
+        &mut self,
+        text: &str,
+        pattern: String,
+        replacement: String,
+        case_sensitive: bool,
+    ) -> ReplaceStart {
         let matcher = LiteralMatcher::new();
         let matches = matcher.find_matches(text, &pattern, case_sensitive);
         let total = matches.len();
@@ -181,7 +187,9 @@ impl QueryReplaceController {
 
     pub fn highlights(&self, text: &str) -> Vec<SearchHighlight> {
         let mut highlights = Vec::new();
-        let Some(state) = &self.state else { return highlights; };
+        let Some(state) = &self.state else {
+            return highlights;
+        };
 
         for (idx, candidate) in state.candidates.iter().enumerate() {
             let (line, column) = line_column_at(text, candidate.start);
@@ -203,7 +211,12 @@ impl QueryReplaceController {
 
     pub fn accept_current(&mut self, editor: &mut TextEditor) -> Result<ReplaceProgress> {
         let Some(state) = self.state.as_mut() else {
-            return Ok(ReplaceProgress { replaced: 0, skipped: 0, remaining: 0, finished: true });
+            return Ok(ReplaceProgress {
+                replaced: 0,
+                skipped: 0,
+                remaining: 0,
+                finished: true,
+            });
         };
 
         if state.candidates.is_empty() || state.current_index >= state.candidates.len() {
@@ -217,7 +230,8 @@ impl QueryReplaceController {
 
         let candidate = state.candidates.remove(state.current_index);
         let replacement_len = candidate.replacement.chars().count();
-        let original = editor.replace_range_span(candidate.start, candidate.end, &candidate.replacement)?;
+        let original =
+            editor.replace_range_span(candidate.start, candidate.end, &candidate.replacement)?;
         let original_len = original.chars().count();
         let diff = replacement_len as isize - original_len as isize;
 
@@ -246,7 +260,12 @@ impl QueryReplaceController {
 
     pub fn skip_current(&mut self) -> ReplaceProgress {
         let Some(state) = self.state.as_mut() else {
-            return ReplaceProgress { replaced: 0, skipped: 0, remaining: 0, finished: true };
+            return ReplaceProgress {
+                replaced: 0,
+                skipped: 0,
+                remaining: 0,
+                finished: true,
+            };
         };
 
         if state.candidates.is_empty() || state.current_index >= state.candidates.len() {
@@ -414,7 +433,12 @@ mod tests {
     fn literal_start_and_accept() {
         let mut editor = TextEditor::from_str("hello world hello");
         let mut controller = QueryReplaceController::new();
-        let start = controller.start_literal(editor.to_string().as_str(), "hello".to_string(), "hi".to_string(), true);
+        let start = controller.start_literal(
+            editor.to_string().as_str(),
+            "hello".to_string(),
+            "hi".to_string(),
+            true,
+        );
         assert_eq!(start.total_matches, 2);
         assert!(controller.is_active());
 
@@ -433,7 +457,12 @@ mod tests {
     fn literal_skip() {
         let mut editor = TextEditor::from_str("abc abc");
         let mut controller = QueryReplaceController::new();
-        controller.start_literal(editor.to_string().as_str(), "abc".to_string(), "XYZ".to_string(), true);
+        controller.start_literal(
+            editor.to_string().as_str(),
+            "abc".to_string(),
+            "XYZ".to_string(),
+            true,
+        );
         let progress = controller.skip_current();
         assert_eq!(progress.skipped, 1);
         assert!(!progress.finished);
@@ -448,7 +477,12 @@ mod tests {
     fn cancel_restores_original_text() {
         let mut editor = TextEditor::from_str("one two one");
         let mut controller = QueryReplaceController::new();
-        controller.start_literal(editor.to_string().as_str(), "one".to_string(), "1".to_string(), true);
+        controller.start_literal(
+            editor.to_string().as_str(),
+            "one".to_string(),
+            "1".to_string(),
+            true,
+        );
         controller.accept_current(&mut editor).unwrap();
         let summary = controller.cancel(&mut editor).unwrap();
         assert!(summary.cancelled);
@@ -471,12 +505,14 @@ mod tests {
     fn regex_replacement_basic() {
         let mut editor = TextEditor::from_str("name: John\nname: Alice");
         let mut controller = QueryReplaceController::new();
-        let start = controller.start_regex(
-            editor.to_string().as_str(),
-            "name: (\\w+)".to_string(),
-            "user: $1".to_string(),
-            true,
-        ).unwrap();
+        let start = controller
+            .start_regex(
+                editor.to_string().as_str(),
+                "name: (\\w+)".to_string(),
+                "user: $1".to_string(),
+                true,
+            )
+            .unwrap();
         assert_eq!(start.total_matches, 2);
         controller.accept_current(&mut editor).unwrap();
         controller.accept_current(&mut editor).unwrap();

@@ -4,24 +4,26 @@
 
 use std::time::{Duration, Instant};
 
+pub mod commands;
 pub mod completion;
 pub mod history;
 pub mod prompt;
 pub mod system;
-pub mod commands;
 pub mod ui;
 
 // 公開API（既存）
-pub use completion::{CompletionEngine, PathCompletion, CommandCompletion};
+pub use completion::{CommandCompletion, CompletionEngine, PathCompletion};
 pub use prompt::{PromptManager, PromptResult};
 
 // 新しい公開API
-pub use system::{MinibufferSystem, MinibufferConfig, SystemState, SystemEvent, SystemResponse, FileOperation};
 pub use commands::{
-    CommandProcessor, CommandResult, CommandDefinition, CommandContext,
-    FileOperationType, BufferOperationType, SystemOperationType,
+    BufferOperationType, CommandContext, CommandDefinition, CommandProcessor, CommandResult,
+    FileOperationType, SystemOperationType,
 };
-pub use ui::{MinibufferRenderer, MinibufferUIConfig, MinibufferLayout, MinibufferStyles};
+pub use system::{
+    FileOperation, MinibufferConfig, MinibufferSystem, SystemEvent, SystemResponse, SystemState,
+};
+pub use ui::{MinibufferLayout, MinibufferRenderer, MinibufferStyles, MinibufferUIConfig};
 
 // 新しい公開API
 use crate::input::keybinding::{Key, KeyCode};
@@ -46,9 +48,15 @@ pub enum MinibufferMode {
     /// 保存確認
     SaveConfirmation,
     /// エラーメッセージ表示
-    ErrorDisplay { message: String, expires_at: Instant },
+    ErrorDisplay {
+        message: String,
+        expires_at: Instant,
+    },
     /// 情報メッセージ表示
-    InfoDisplay { message: String, expires_at: Option<Instant> },
+    InfoDisplay {
+        message: String,
+        expires_at: Option<Instant>,
+    },
     /// 置換パターン入力
     QueryReplacePattern,
     /// 置換後テキスト入力
@@ -194,7 +202,11 @@ pub enum MinibufferResult {
     /// 行番号入力結果
     GotoLine(usize),
     /// クエリ置換入力完了
-    QueryReplace { pattern: String, replacement: String, is_regex: bool },
+    QueryReplace {
+        pattern: String,
+        replacement: String,
+        is_regex: bool,
+    },
     /// キャンセル
     Cancel,
     /// 無効な操作
@@ -258,7 +270,11 @@ impl MinibufferError {
 /// コマンド実行者のトレイト
 pub trait CommandExecutor {
     /// コマンドを実行
-    fn execute_command(&mut self, command: &str, args: &[String]) -> std::result::Result<String, MinibufferError>;
+    fn execute_command(
+        &mut self,
+        command: &str,
+        args: &[String],
+    ) -> std::result::Result<String, MinibufferError>;
 
     /// 利用可能なコマンド一覧を取得
     fn get_available_commands(&self) -> Vec<String>;
@@ -271,7 +287,10 @@ pub enum MinibufferAction {
     ExecuteCommand,
     EvalExpression,
     SaveFile,
-    QueryReplace { is_regex: bool, initial: Option<String> },
+    QueryReplace {
+        is_regex: bool,
+        initial: Option<String>,
+    },
 }
 
 /// 新しいミニバッファコントローラー
@@ -294,7 +313,10 @@ impl std::fmt::Debug for ModernMinibuffer {
             .field("state", &self.state)
             .field("style", &self.style)
             .field("completion_engine", &"<CompletionEngine>")
-            .field("command_executor", &self.command_executor.as_ref().map(|_| "<CommandExecutor>"))
+            .field(
+                "command_executor",
+                &self.command_executor.as_ref().map(|_| "<CommandExecutor>"),
+            )
             .field("buffer_candidates", &self.buffer_candidates)
             .finish()
     }
@@ -402,7 +424,10 @@ impl ModernMinibuffer {
         self.state.pending_goto_line = Some(GotoLineState {
             default_line: normalized_default,
         });
-        self.state.status_message = Some(format!("行番号範囲: 1-{} (現在: {})", normalized_max, normalized_default));
+        self.state.status_message = Some(format!(
+            "行番号範囲: 1-{} (現在: {})",
+            normalized_max, normalized_default
+        ));
         self.state.completions.clear();
         self.state.selected_completion = None;
         self.state.history_index = None;
@@ -411,7 +436,10 @@ impl ModernMinibuffer {
     /// エラーメッセージを表示
     pub fn show_error(&mut self, message: String) {
         let expires_at = Instant::now() + Duration::from_secs(5); // QA.mdの回答
-        self.state.mode = MinibufferMode::ErrorDisplay { message, expires_at };
+        self.state.mode = MinibufferMode::ErrorDisplay {
+            message,
+            expires_at,
+        };
     }
 
     /// 情報メッセージを表示
@@ -422,7 +450,10 @@ impl ModernMinibuffer {
     /// 情報メッセージを表示（任意の表示時間）
     pub fn show_info_with_duration(&mut self, message: String, duration: Option<Duration>) {
         let expires_at = duration.map(|d| Instant::now() + d);
-        self.state.mode = MinibufferMode::InfoDisplay { message, expires_at };
+        self.state.mode = MinibufferMode::InfoDisplay {
+            message,
+            expires_at,
+        };
     }
 
     /// キー入力を処理
@@ -517,12 +548,8 @@ impl ModernMinibuffer {
                 self.update_completions();
                 MinibufferResult::Continue
             }
-            MinibufferEvent::Submit => {
-                self.submit()
-            }
-            MinibufferEvent::Cancel => {
-                self.cancel()
-            }
+            MinibufferEvent::Submit => self.submit(),
+            MinibufferEvent::Cancel => self.cancel(),
             MinibufferEvent::Complete => {
                 self.handle_completion();
                 MinibufferResult::Continue
@@ -562,8 +589,12 @@ impl ModernMinibuffer {
             KeyCode::Char('g') if key.modifiers.ctrl => MinibufferEvent::Cancel,
             KeyCode::Left => MinibufferEvent::MoveCursor(CursorDirection::Left),
             KeyCode::Right => MinibufferEvent::MoveCursor(CursorDirection::Right),
-            KeyCode::Char('a') if key.modifiers.ctrl => MinibufferEvent::MoveCursor(CursorDirection::Home),
-            KeyCode::Char('e') if key.modifiers.ctrl => MinibufferEvent::MoveCursor(CursorDirection::End),
+            KeyCode::Char('a') if key.modifiers.ctrl => {
+                MinibufferEvent::MoveCursor(CursorDirection::Home)
+            }
+            KeyCode::Char('e') if key.modifiers.ctrl => {
+                MinibufferEvent::MoveCursor(CursorDirection::End)
+            }
             KeyCode::Down => MinibufferEvent::CompletionNext,
             KeyCode::Up => MinibufferEvent::CompletionPrevious,
             KeyCode::Char('p') if key.modifiers.ctrl => MinibufferEvent::HistoryPrevious,
@@ -638,7 +669,8 @@ impl ModernMinibuffer {
     }
 
     fn cursor_byte_pos(&self) -> usize {
-        self.state.input
+        self.state
+            .input
             .char_indices()
             .nth(self.state.cursor_pos)
             .map(|(i, _)| i)
@@ -647,8 +679,10 @@ impl ModernMinibuffer {
 
     fn update_completions(&mut self) {
         // パス補完時のみ入力長による制限を適用
-        if matches!(self.state.mode, MinibufferMode::FindFile | MinibufferMode::WriteFile)
-            && self.state.input.len() < 2
+        if matches!(
+            self.state.mode,
+            MinibufferMode::FindFile | MinibufferMode::WriteFile
+        ) && self.state.input.len() < 2
         {
             self.state.completions.clear();
             self.state.selected_completion = None;
@@ -885,9 +919,7 @@ impl ModernMinibuffer {
                     .state
                     .pending_goto_line
                     .clone()
-                    .unwrap_or(GotoLineState {
-                        default_line: 1,
-                    });
+                    .unwrap_or(GotoLineState { default_line: 1 });
 
                 let trimmed = input.trim();
                 let line_value = if trimmed.is_empty() {
@@ -972,7 +1004,13 @@ mod tests {
         assert!(matches!(state.mode, MinibufferMode::QueryReplacePattern));
         assert_eq!(state.input, "foo");
         assert_eq!(state.cursor_pos, 3);
-        assert!(matches!(state.pending_replace, Some(ReplacePromptState { is_regex: false, .. })));
+        assert!(matches!(
+            state.pending_replace,
+            Some(ReplacePromptState {
+                is_regex: false,
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -987,7 +1025,10 @@ mod tests {
             minibuffer.state.status_message.as_deref(),
             Some("行番号範囲: 1-42 (現在: 5)")
         );
-        assert!(matches!(minibuffer.state.pending_goto_line, Some(GotoLineState { default_line: 5 })));
+        assert!(matches!(
+            minibuffer.state.pending_goto_line,
+            Some(GotoLineState { default_line: 5 })
+        ));
     }
 
     #[test]
@@ -1021,7 +1062,10 @@ mod tests {
         minibuffer.state.input = "abc".to_string();
         let result = minibuffer.submit();
         assert!(matches!(result, MinibufferResult::Continue));
-        assert!(matches!(minibuffer.state.mode, MinibufferMode::ErrorDisplay { .. }));
+        assert!(matches!(
+            minibuffer.state.mode,
+            MinibufferMode::ErrorDisplay { .. }
+        ));
     }
 }
 

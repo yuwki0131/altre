@@ -34,7 +34,9 @@ impl Reader {
 
     fn read_form(&mut self, interner: &mut SymbolInterner) -> Result<Expr, ReaderError> {
         self.skip_whitespace_and_comments();
-        let ch = self.peek_char().ok_or_else(|| self.error_here(ReaderErrorKind::UnexpectedEof, "入力が途中で終了しました"))?;
+        let ch = self.peek_char().ok_or_else(|| {
+            self.error_here(ReaderErrorKind::UnexpectedEof, "入力が途中で終了しました")
+        })?;
         if ch == '(' {
             self.consume_char();
             self.read_list(interner)
@@ -42,7 +44,9 @@ impl Reader {
             self.read_string()
         } else if ch == '#' {
             self.read_boolean()
-        } else if ch.is_ascii_digit() || (ch == '-' && self.peek_next().map_or(false, |c| c.is_ascii_digit())) {
+        } else if ch.is_ascii_digit()
+            || (ch == '-' && self.peek_next().map_or(false, |c| c.is_ascii_digit()))
+        {
             self.read_number()
         } else {
             self.read_symbol(interner)
@@ -63,7 +67,9 @@ impl Reader {
                     elements.push(form);
                 }
                 None => {
-                    return Err(self.error_here(ReaderErrorKind::UnexpectedEof, "')' が不足しています"));
+                    return Err(
+                        self.error_here(ReaderErrorKind::UnexpectedEof, "')' が不足しています")
+                    );
                 }
             }
         }
@@ -87,28 +93,50 @@ impl Reader {
                             '"' => '"',
                             '\\' => '\\',
                             other => {
-                                return Err(self.error_at(start, ReaderErrorKind::UnexpectedChar(other), format!("未対応のエスケープ: \\{}", other)));
+                                return Err(self.error_at(
+                                    start,
+                                    ReaderErrorKind::UnexpectedChar(other),
+                                    format!("未対応のエスケープ: \\{}", other),
+                                ));
                             }
                         };
                         buf.push(translated);
                     } else {
-                        return Err(self.error_at(start, ReaderErrorKind::UnterminatedString, "文字列リテラルが閉じられていません"));
+                        return Err(self.error_at(
+                            start,
+                            ReaderErrorKind::UnterminatedString,
+                            "文字列リテラルが閉じられていません",
+                        ));
                     }
                 }
                 other => buf.push(other),
             }
         }
-        Err(self.error_at(start, ReaderErrorKind::UnterminatedString, "文字列リテラルが閉じられていません"))
+        Err(self.error_at(
+            start,
+            ReaderErrorKind::UnterminatedString,
+            "文字列リテラルが閉じられていません",
+        ))
     }
 
     fn read_boolean(&mut self) -> Result<Expr, ReaderError> {
         let start = self.current_location();
         self.consume_char(); // '#'
-        let next = self.consume_char().ok_or_else(|| self.error_at(start, ReaderErrorKind::UnexpectedEof, "# の後に値がありません"))?;
+        let next = self.consume_char().ok_or_else(|| {
+            self.error_at(
+                start,
+                ReaderErrorKind::UnexpectedEof,
+                "# の後に値がありません",
+            )
+        })?;
         match next {
             't' | 'T' => Ok(Expr::Boolean(true)),
             'f' | 'F' => Ok(Expr::Boolean(false)),
-            other => Err(self.error_at(start, ReaderErrorKind::UnexpectedChar(other), "真偽値リテラルは #t / #f のみ対応しています")),
+            other => Err(self.error_at(
+                start,
+                ReaderErrorKind::UnexpectedChar(other),
+                "真偽値リテラルは #t / #f のみ対応しています",
+            )),
         }
     }
 
@@ -165,18 +193,30 @@ impl Reader {
                     }
                 }
                 if !has_digit {
-                    return Err(self.error_at(start, ReaderErrorKind::InvalidNumber(buf.clone()), "指数部に数字がありません"));
+                    return Err(self.error_at(
+                        start,
+                        ReaderErrorKind::InvalidNumber(buf.clone()),
+                        "指数部に数字がありません",
+                    ));
                 }
             }
         }
         if is_float {
-            buf.parse::<f64>()
-                .map(Expr::Float)
-                .map_err(|_| self.error_at(start, ReaderErrorKind::InvalidNumber(buf.clone()), "浮動小数の解析に失敗しました"))
+            buf.parse::<f64>().map(Expr::Float).map_err(|_| {
+                self.error_at(
+                    start,
+                    ReaderErrorKind::InvalidNumber(buf.clone()),
+                    "浮動小数の解析に失敗しました",
+                )
+            })
         } else {
-            buf.parse::<i64>()
-                .map(Expr::Integer)
-                .map_err(|_| self.error_at(start, ReaderErrorKind::InvalidNumber(buf.clone()), "整数の解析に失敗しました"))
+            buf.parse::<i64>().map(Expr::Integer).map_err(|_| {
+                self.error_at(
+                    start,
+                    ReaderErrorKind::InvalidNumber(buf.clone()),
+                    "整数の解析に失敗しました",
+                )
+            })
         }
     }
 
@@ -192,10 +232,18 @@ impl Reader {
             }
         }
         if buf.is_empty() {
-            return Err(self.error_at(start, ReaderErrorKind::UnexpectedToken(String::new()), "シンボルを解析できませんでした"));
+            return Err(self.error_at(
+                start,
+                ReaderErrorKind::UnexpectedToken(String::new()),
+                "シンボルを解析できませんでした",
+            ));
         }
         if buf == "nil" {
-            return Err(self.error_at(start, ReaderErrorKind::UnexpectedToken(buf), "nil は v0 では利用できません"));
+            return Err(self.error_at(
+                start,
+                ReaderErrorKind::UnexpectedToken(buf),
+                "nil は v0 では利用できません",
+            ));
         }
         let id = interner.intern(&buf);
         Ok(Expr::Symbol(id))
@@ -260,10 +308,19 @@ impl Reader {
 
     fn error_here(&self, kind: ReaderErrorKind, message: impl Into<String>) -> ReaderError {
         let loc = self.current_location();
-        ReaderError::new(kind, SourceSpan::single_point(loc.line, loc.column), message)
+        ReaderError::new(
+            kind,
+            SourceSpan::single_point(loc.line, loc.column),
+            message,
+        )
     }
 
-    fn error_at(&self, start: SourceLocation, kind: ReaderErrorKind, message: impl Into<String>) -> ReaderError {
+    fn error_at(
+        &self,
+        start: SourceLocation,
+        kind: ReaderErrorKind,
+        message: impl Into<String>,
+    ) -> ReaderError {
         let end = self.current_location();
         ReaderError::new(kind, SourceSpan { start, end }, message)
     }

@@ -90,11 +90,7 @@ impl Logger {
         }
 
         if let Some(path) = &self.output_file {
-            if let Ok(mut file) = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-            {
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
                 let _ = writeln!(file, "{}", message);
             }
         }
@@ -168,7 +164,9 @@ mod tests {
         assert!(logger.should_log(LogLevel::Debug));
         assert!(logger.should_log(LogLevel::Error));
 
-        let info_logger = Logger::for_development().with_level(LogLevel::Info).without_stderr();
+        let info_logger = Logger::for_development()
+            .with_level(LogLevel::Info)
+            .without_stderr();
         assert!(!info_logger.should_log(LogLevel::Debug));
         assert!(info_logger.should_log(LogLevel::Warning));
     }

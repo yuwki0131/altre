@@ -3,8 +3,8 @@
 //! エディタコマンドの定義と実行
 
 use crate::buffer::{EditOperations, NavigationAction, TextEditor};
-use crate::editor::{KillRing, edit_utils};
-use crate::file::{FileOperationManager, FileBuffer, expand_path};
+use crate::editor::{edit_utils, KillRing};
+use crate::file::{expand_path, FileBuffer, FileOperationManager};
 /// コマンド実行の結果
 #[derive(Debug, Clone)]
 pub struct CommandResult {
@@ -131,13 +131,13 @@ pub enum Command {
     // ファイル操作
     FindFile,
     SaveBuffer,
-    WriteFile,        // C-x C-w (別名保存)
-    SaveAllBuffers,   // C-x s (全バッファ保存)
+    WriteFile,      // C-x C-w (別名保存)
+    SaveAllBuffers, // C-x s (全バッファ保存)
 
     // バッファ操作
-    SwitchToBuffer,   // C-x b
-    KillBuffer,       // C-x k
-    ListBuffers,      // C-x C-b
+    SwitchToBuffer, // C-x b
+    KillBuffer,     // C-x k
+    ListBuffers,    // C-x C-b
 
     // ウィンドウ操作
     SplitWindowBelow,   // C-x 2
@@ -478,7 +478,9 @@ impl CommandProcessor {
             Command::MoveLineEnd => self.navigate(NavigationAction::MoveLineEnd),
             Command::MoveBufferStart => self.navigate(NavigationAction::MoveBufferStart),
             Command::MoveBufferEnd => self.navigate(NavigationAction::MoveBufferEnd),
-            Command::Undo | Command::Redo => CommandResult::error("このコマンドはアプリ側で処理します".to_string()),
+            Command::Undo | Command::Redo => {
+                CommandResult::error("このコマンドはアプリ側で処理します".to_string())
+            }
             Command::Unknown(cmd) => CommandResult::error(format!("不明なコマンド: {}", cmd)),
         }
     }
@@ -541,7 +543,8 @@ impl CommandProcessor {
             let cursor = *self.editor.cursor();
             let text = self.editor.to_string();
             let line_content = text.split('\n').nth(cursor.line).unwrap_or("");
-            let spaces = edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
+            let spaces =
+                edit_utils::spaces_to_next_tab_stop(line_content, cursor.column, DEFAULT_TAB_WIDTH);
             " ".repeat(spaces)
         };
 
@@ -605,7 +608,11 @@ impl CommandProcessor {
         }
     }
 
-    fn handle_kill(&mut self, result: crate::error::Result<String>, join: KillJoin) -> CommandResult {
+    fn handle_kill(
+        &mut self,
+        result: crate::error::Result<String>,
+        join: KillJoin,
+    ) -> CommandResult {
         match result {
             Ok(text) => {
                 if text.is_empty() {
@@ -707,23 +714,28 @@ impl CommandProcessor {
             Ok(buffer) => {
                 self.set_current_buffer(buffer);
 
-                CommandResult::success_with_message(
-                    format!("ファイルを開きました: {}", expanded_path.display())
-                )
-            },
+                CommandResult::success_with_message(format!(
+                    "ファイルを開きました: {}",
+                    expanded_path.display()
+                ))
+            }
             Err(_err) => {
                 // 新規ファイルの場合
-                match self.file_manager.create_new_file_buffer(expanded_path.clone()) {
+                match self
+                    .file_manager
+                    .create_new_file_buffer(expanded_path.clone())
+                {
                     Ok(buffer) => {
                         self.set_current_buffer(buffer);
 
-                        CommandResult::success_with_message(
-                            format!("新規ファイルを作成しました: {}", expanded_path.display())
-                        )
-                    },
-                    Err(create_err) => CommandResult::error(
-                        format!("ファイル操作エラー: {}", create_err)
-                    ),
+                        CommandResult::success_with_message(format!(
+                            "新規ファイルを作成しました: {}",
+                            expanded_path.display()
+                        ))
+                    }
+                    Err(create_err) => {
+                        CommandResult::error(format!("ファイル操作エラー: {}", create_err))
+                    }
                 }
             }
         }
@@ -742,13 +754,14 @@ impl CommandProcessor {
 
             // 保存実行
             match self.file_manager.save_buffer(buffer) {
-                Ok(_) => CommandResult::success_with_message(
-                    format!("バッファを保存しました: {}",
-                        buffer.path.as_ref()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|| "未名".to_string())
-                    )
-                ),
+                Ok(_) => CommandResult::success_with_message(format!(
+                    "バッファを保存しました: {}",
+                    buffer
+                        .path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_else(|| "未名".to_string())
+                )),
                 Err(err) => CommandResult::error(format!("保存エラー: {}", err)),
             }
         } else {
@@ -768,7 +781,9 @@ impl CommandProcessor {
             if buffer.path.is_some() {
                 return self.execute_save_buffer();
             } else {
-                return CommandResult::success_with_message("保存すべき変更がありません".to_string());
+                return CommandResult::success_with_message(
+                    "保存すべき変更がありません".to_string(),
+                );
             }
         }
         CommandResult::error("保存するバッファがありません".to_string())
@@ -784,16 +799,24 @@ impl CommandProcessor {
         if let Some(ref mut buffer) = self.current_buffer {
             buffer.content = self.editor.to_string();
 
-        match self.file_manager.save_buffer_as(buffer, expanded_path.clone()) {
-                Ok(_) => CommandResult::success_with_message(
-                    format!("保存しました: {}", expanded_path.display())
-                ),
+            match self
+                .file_manager
+                .save_buffer_as(buffer, expanded_path.clone())
+            {
+                Ok(_) => CommandResult::success_with_message(format!(
+                    "保存しました: {}",
+                    expanded_path.display()
+                )),
                 Err(err) => {
                     // より詳細なエラー情報を提供
                     eprintln!("保存エラーの詳細: {:?}", err);
                     eprintln!("保存先パス: {}", expanded_path.display());
-                    CommandResult::error(format!("保存エラー: {} (パス: {})", err, expanded_path.display()))
-                },
+                    CommandResult::error(format!(
+                        "保存エラー: {} (パス: {})",
+                        err,
+                        expanded_path.display()
+                    ))
+                }
             }
         } else {
             CommandResult::error("保存するバッファがありません".to_string())
@@ -812,7 +835,9 @@ impl CommandProcessor {
 
     fn execute_eval_expression(&mut self) -> CommandResult {
         self.reset_command_context();
-        CommandResult::success_with_message("eval-expression はミニバッファで処理されます".to_string())
+        CommandResult::success_with_message(
+            "eval-expression はミニバッファで処理されます".to_string(),
+        )
     }
 }
 
@@ -867,7 +892,7 @@ mod tests {
     fn test_command_from_string() {
         let cmd = Command::from_string("forward-char");
         match cmd {
-            Command::ForwardChar => {},
+            Command::ForwardChar => {}
             _ => panic!("Expected ForwardChar"),
         }
 
@@ -877,20 +902,62 @@ mod tests {
             _ => panic!("Expected Unknown"),
         }
 
-        assert!(matches!(Command::from_string("scroll-up"), Command::ScrollPageDown));
-        assert!(matches!(Command::from_string("scroll-down"), Command::ScrollPageUp));
-        assert!(matches!(Command::from_string("recenter-top-bottom"), Command::Recenter));
-        assert!(matches!(Command::from_string("scroll-left"), Command::ScrollLeft));
-        assert!(matches!(Command::from_string("scroll-right"), Command::ScrollRight));
-        assert!(matches!(Command::from_string("set-mark-command"), Command::SetMark));
-        assert!(matches!(Command::from_string("kill-region"), Command::KillRegion));
-        assert!(matches!(Command::from_string("copy-region-as-kill"), Command::CopyRegion));
-        assert!(matches!(Command::from_string("exchange-point-and-mark"), Command::ExchangePointAndMark));
-        assert!(matches!(Command::from_string("mark-whole-buffer"), Command::MarkBuffer));
-        assert!(matches!(Command::from_string("indent-for-tab-command"), Command::IndentForTab));
-        assert!(matches!(Command::from_string("newline-and-indent"), Command::NewlineAndIndent));
-        assert!(matches!(Command::from_string("open-line"), Command::OpenLine));
-        assert!(matches!(Command::from_string("goto-line"), Command::GotoLine));
+        assert!(matches!(
+            Command::from_string("scroll-up"),
+            Command::ScrollPageDown
+        ));
+        assert!(matches!(
+            Command::from_string("scroll-down"),
+            Command::ScrollPageUp
+        ));
+        assert!(matches!(
+            Command::from_string("recenter-top-bottom"),
+            Command::Recenter
+        ));
+        assert!(matches!(
+            Command::from_string("scroll-left"),
+            Command::ScrollLeft
+        ));
+        assert!(matches!(
+            Command::from_string("scroll-right"),
+            Command::ScrollRight
+        ));
+        assert!(matches!(
+            Command::from_string("set-mark-command"),
+            Command::SetMark
+        ));
+        assert!(matches!(
+            Command::from_string("kill-region"),
+            Command::KillRegion
+        ));
+        assert!(matches!(
+            Command::from_string("copy-region-as-kill"),
+            Command::CopyRegion
+        ));
+        assert!(matches!(
+            Command::from_string("exchange-point-and-mark"),
+            Command::ExchangePointAndMark
+        ));
+        assert!(matches!(
+            Command::from_string("mark-whole-buffer"),
+            Command::MarkBuffer
+        ));
+        assert!(matches!(
+            Command::from_string("indent-for-tab-command"),
+            Command::IndentForTab
+        ));
+        assert!(matches!(
+            Command::from_string("newline-and-indent"),
+            Command::NewlineAndIndent
+        ));
+        assert!(matches!(
+            Command::from_string("open-line"),
+            Command::OpenLine
+        ));
+        assert!(matches!(
+            Command::from_string("goto-line"),
+            Command::GotoLine
+        ));
     }
 
     #[test]

@@ -2,19 +2,21 @@
 //!
 //! テキストデータの管理、編集操作、カーソル位置管理を提供
 
-pub mod gap_buffer;
 pub mod cursor;
+pub mod editor;
+pub mod gap_buffer;
 pub mod navigation;
 pub mod operations;
-pub mod editor;
 
 // 公開API
-pub use gap_buffer::GapBuffer;
-pub use cursor::CursorPosition;
-pub use navigation::{NavigationSystem, NavigationAction, NavigationError, Position as NavigationPosition};
-pub use operations::EditOperation;
-pub use editor::{TextEditor, EditOperations, ChangeEvent, ChangeListener};
 pub use crate::error::EditError;
+pub use cursor::CursorPosition;
+pub use editor::{ChangeEvent, ChangeListener, EditOperations, TextEditor};
+pub use gap_buffer::GapBuffer;
+pub use navigation::{
+    NavigationAction, NavigationError, NavigationSystem, Position as NavigationPosition,
+};
+pub use operations::EditOperation;
 
 use crate::error::Result;
 use std::collections::HashMap;
@@ -116,14 +118,12 @@ impl BufferManager {
 
     /// 現在のバッファへの参照を取得
     pub fn current_buffer(&self) -> Option<&Buffer> {
-        self.current_buffer
-            .and_then(|id| self.buffers.get(&id))
+        self.current_buffer.and_then(|id| self.buffers.get(&id))
     }
 
     /// 現在のバッファへの可変参照を取得
     pub fn current_buffer_mut(&mut self) -> Option<&mut Buffer> {
-        self.current_buffer
-            .and_then(|id| self.buffers.get_mut(&id))
+        self.current_buffer.and_then(|id| self.buffers.get_mut(&id))
     }
 
     /// 指定されたIDのバッファへの参照を取得
@@ -143,7 +143,7 @@ impl BufferManager {
             Ok(())
         } else {
             Err(crate::error::AltreError::Buffer(
-                crate::error::BufferError::Empty
+                crate::error::BufferError::Empty,
             ))
         }
     }

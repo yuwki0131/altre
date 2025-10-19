@@ -474,9 +474,10 @@ impl ErrorDisplay {
             AltreError::Buffer(BufferError::Overflow) => {
                 Some(catalog.compose("buffer_overflow", None))
             }
-            AltreError::Buffer(BufferError::Empty) => {
-                Some(catalog.compose("buffer_invalid_cursor", Some("バッファが空です".to_string())))
-            }
+            AltreError::Buffer(BufferError::Empty) => Some(catalog.compose(
+                "buffer_invalid_cursor",
+                Some("バッファが空です".to_string()),
+            )),
             AltreError::System(SystemError::OutOfMemory) => {
                 Some(catalog.compose("system_out_of_memory", None))
             }
@@ -519,12 +520,8 @@ impl ErrorDisplay {
             AltreError::Application(message) => {
                 Some(catalog.compose("application", Some(message.clone())))
             }
-            AltreError::Path(message) => {
-                Some(catalog.compose("path", Some(message.clone())))
-            }
-            AltreError::Edit(message) => {
-                Some(catalog.compose("edit", Some(message.clone())))
-            }
+            AltreError::Path(message) => Some(catalog.compose("path", Some(message.clone()))),
+            AltreError::Edit(message) => Some(catalog.compose("edit", Some(message.clone()))),
             AltreError::Navigation(error) => {
                 Some(catalog.compose("navigation_error", Some(error.to_string())))
             }
@@ -584,16 +581,19 @@ pub fn handle_fatal_error(error: &AltreError, context: &str) -> ! {
     let logger = Logger::for_development();
     log_error_internal(&logger, error, Some(context));
 
-    logger.log(LogLevel::Fatal, "FATAL: Application will terminate immediately");
+    logger.log(
+        LogLevel::Fatal,
+        "FATAL: Application will terminate immediately",
+    );
     std::process::exit(1);
 }
 
 /// パニックハンドラの設定
 pub fn setup_panic_handler() {
     std::panic::set_hook(Box::new(|panic_info| {
-        let location = panic_info.location().unwrap_or_else(|| {
-            std::panic::Location::caller()
-        });
+        let location = panic_info
+            .location()
+            .unwrap_or_else(|| std::panic::Location::caller());
 
         let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
             s
@@ -605,10 +605,7 @@ pub fn setup_panic_handler() {
 
         let logger = Logger::for_development();
         let context = format!("{}:{}", location.file(), location.line());
-        logger.log_fatal_with_trace(
-            format!("PANIC: {}", message),
-            Some(&context),
-        );
+        logger.log_fatal_with_trace(format!("PANIC: {}", message), Some(&context));
 
         // 致命的エラーとして即座に終了（QA Q11の回答）
         std::process::exit(1);
@@ -681,11 +678,7 @@ impl ErrorReport {
              Stack Trace:\n{}\n\
              System Info:\n{:?}\n\
              ================================",
-            self.timestamp,
-            self.context,
-            self.error,
-            self.stack_trace,
-            self.system_info
+            self.timestamp, self.context, self.error, self.stack_trace, self.system_info
         )
     }
 }
@@ -765,7 +758,9 @@ impl From<BufferError> for EditError {
 // std::io::Error から AltreError への変換
 impl From<std::io::Error> for AltreError {
     fn from(error: std::io::Error) -> Self {
-        AltreError::File(FileError::Io { message: error.to_string() })
+        AltreError::File(FileError::Io {
+            message: error.to_string(),
+        })
     }
 }
 
@@ -773,7 +768,7 @@ impl From<std::io::Error> for AltreError {
 impl From<std::str::Utf8Error> for AltreError {
     fn from(error: std::str::Utf8Error) -> Self {
         AltreError::Buffer(BufferError::Utf8Boundary {
-            position: error.valid_up_to()
+            position: error.valid_up_to(),
         })
     }
 }
@@ -785,7 +780,7 @@ mod tests {
     #[test]
     fn test_error_display_creation() {
         let error = AltreError::File(FileError::NotFound {
-            path: "test.txt".to_string()
+            path: "test.txt".to_string(),
         });
         let display = ErrorDisplay::new(&error);
 
@@ -797,7 +792,7 @@ mod tests {
     #[test]
     fn test_error_display_expiry() {
         let error = AltreError::File(FileError::NotFound {
-            path: "test.txt".to_string()
+            path: "test.txt".to_string(),
         });
         let mut display = ErrorDisplay::new(&error);
 
@@ -834,7 +829,7 @@ mod tests {
     #[test]
     fn test_error_message_catalog_permission_denied() {
         let error = AltreError::File(FileError::PermissionDenied {
-            path: "/tmp/test".to_string()
+            path: "/tmp/test".to_string(),
         });
         let display = ErrorDisplay::new(&error);
 

@@ -23,7 +23,10 @@ pub struct SourceSpan {
 impl SourceSpan {
     pub fn single_point(line: usize, column: usize) -> Self {
         let loc = SourceLocation::new(line, column);
-        Self { start: loc.clone(), end: loc }
+        Self {
+            start: loc.clone(),
+            end: loc,
+        }
     }
 }
 
@@ -46,13 +49,21 @@ pub struct ReaderError {
 
 impl ReaderError {
     pub fn new(kind: ReaderErrorKind, span: SourceSpan, message: impl Into<String>) -> Self {
-        Self { kind, span, message: message.into() }
+        Self {
+            kind,
+            span,
+            message: message.into(),
+        }
     }
 }
 
 impl fmt::Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "reader error at {}:{} - {}", self.span.start.line, self.span.start.column, self.message)
+        write!(
+            f,
+            "reader error at {}:{} - {}",
+            self.span.start.line, self.span.start.column, self.message
+        )
     }
 }
 
@@ -61,8 +72,14 @@ impl std::error::Error for ReaderError {}
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvalErrorKind {
     NameNotFound(SymbolId),
-    ArityMismatch { expected: usize, found: usize },
-    TypeMismatch { expected: &'static str, found: &'static str },
+    ArityMismatch {
+        expected: usize,
+        found: usize,
+    },
+    TypeMismatch {
+        expected: &'static str,
+        found: &'static str,
+    },
     DivisionByZero,
     InvalidLetBinding,
     InvalidDefineTarget,
@@ -79,18 +96,30 @@ pub struct EvalError {
 
 impl EvalError {
     pub fn new(kind: EvalErrorKind, span: Option<SourceSpan>, message: impl Into<String>) -> Self {
-        Self { kind, span, message: message.into() }
+        Self {
+            kind,
+            span,
+            message: message.into(),
+        }
     }
 
     pub fn from_reader(err: ReaderError) -> Self {
-        Self::new(EvalErrorKind::Reader(err.clone()), Some(err.span.clone()), err.message)
+        Self::new(
+            EvalErrorKind::Reader(err.clone()),
+            Some(err.span.clone()),
+            err.message,
+        )
     }
 }
 
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.span {
-            Some(span) => write!(f, "{}:{}: {}", span.start.line, span.start.column, self.message),
+            Some(span) => write!(
+                f,
+                "{}:{}: {}",
+                span.start.line, span.start.column, self.message
+            ),
             None => write!(f, "{}", self.message),
         }
     }

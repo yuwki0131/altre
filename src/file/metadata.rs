@@ -3,9 +3,9 @@
 //! ファイル情報の追跡と管理システム
 
 use crate::error::{AltreError, FileError, Result};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use std::io::ErrorKind;
 
 /// ファイル情報
 #[derive(Debug, Clone)]
@@ -38,24 +38,33 @@ impl FileInfo {
                     modified: SystemTime::UNIX_EPOCH,
                 });
             }
-            Err(e) => return Err(AltreError::File(FileError::Io { message: e.to_string() })),
+            Err(e) => {
+                return Err(AltreError::File(FileError::Io {
+                    message: e.to_string(),
+                }))
+            }
         };
 
         // シンボリックリンク処理（QA Q18: 基本対応）
         let (actual_path, is_symlink) = if metadata.is_symlink() {
             match path.canonicalize() {
                 Ok(target) => (target, true),
-                Err(_) => return Err(AltreError::File(FileError::InvalidPath {
-                    path: format!("Broken symlink: {}", path.display())
-                })),
+                Err(_) => {
+                    return Err(AltreError::File(FileError::InvalidPath {
+                        path: format!("Broken symlink: {}", path.display()),
+                    }))
+                }
             }
         } else {
             (path.to_path_buf(), false)
         };
 
         // 実際のファイルメタデータ取得
-        let file_metadata = actual_path.metadata()
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+        let file_metadata = actual_path.metadata().map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         Ok(FileInfo {
             path: actual_path.clone(),
@@ -112,7 +121,7 @@ impl FileInfo {
                 Ok(Self::test_writable(parent))
             } else {
                 Err(AltreError::File(FileError::InvalidPath {
-                    path: format!("Parent directory does not exist: {}", parent.display())
+                    path: format!("Parent directory does not exist: {}", parent.display()),
                 }))
             }
         } else {
@@ -174,11 +183,11 @@ impl FileChangeTracker {
 /// 改行コードスタイル
 #[derive(Debug, PartialEq, Clone)]
 pub enum LineEndingStyle {
-    Lf,     // \n (Unix)
-    Crlf,   // \r\n (Windows)
-    Cr,     // \r (Classic Mac)
-    Mixed,  // 混在
-    None,   // 改行なし
+    Lf,    // \n (Unix)
+    Crlf,  // \r\n (Windows)
+    Cr,    // \r (Classic Mac)
+    Mixed, // 混在
+    None,  // 改行なし
 }
 
 /// 改行コード処理
@@ -234,7 +243,10 @@ impl EncodingProcessor {
             Err(utf8_error) => {
                 // UTF-8でない場合はエラー
                 Err(AltreError::File(FileError::Encoding {
-                    message: format!("ファイルはUTF-8エンコーディングである必要があります: {}", utf8_error)
+                    message: format!(
+                        "ファイルはUTF-8エンコーディングである必要があります: {}",
+                        utf8_error
+                    ),
                 }))
             }
         }
@@ -261,11 +273,17 @@ pub struct FileMetadata {
 
 impl FileMetadata {
     pub fn from_file(path: &Path) -> Result<Self> {
-        let metadata = path.metadata()
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+        let metadata = path.metadata().map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
-        let symlink_metadata = path.symlink_metadata()
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+        let symlink_metadata = path.symlink_metadata().map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         Ok(FileMetadata {
             path: path.to_path_buf(),
@@ -273,7 +291,7 @@ impl FileMetadata {
             modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
             permissions: metadata.permissions(),
             is_symlink: symlink_metadata.is_symlink(),
-            encoding: "UTF-8".to_string(), // 強制UTF-8
+            encoding: "UTF-8".to_string(),    // 強制UTF-8
             line_ending: LineEndingStyle::Lf, // 強制LF
         })
     }
@@ -285,16 +303,15 @@ impl FileMetadata {
         }
 
         let current_metadata = FileMetadata::from_file(&self.path)?;
-        Ok(current_metadata.modified != self.modified ||
-           current_metadata.size != self.size)
+        Ok(current_metadata.modified != self.modified || current_metadata.size != self.size)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_line_ending_normalization() {

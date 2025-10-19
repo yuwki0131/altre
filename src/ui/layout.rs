@@ -3,11 +3,11 @@
 //! ratatuiベースの画面レイアウト計算と管理
 //! QA回答に基づく設計：60x15最小サイズ、16色対応、日本語基本対応
 
+use crate::error::{AltreError, UiError};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Color;
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
-use crate::error::{AltreError, UiError};
+use std::time::{Duration, Instant};
 
 /// 画面領域の種類
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -90,8 +90,8 @@ impl LayoutManager {
     /// 新しいレイアウトマネージャーを作成（QA回答反映）
     pub fn new() -> Self {
         Self {
-            min_width: 60,   // QA Q13の回答
-            min_height: 15,  // QA Q13の回答
+            min_width: 60,  // QA Q13の回答
+            min_height: 15, // QA Q13の回答
             current_size: (0, 0),
             render_state: RenderState::new(),
         }
@@ -113,7 +113,7 @@ impl LayoutManager {
         if area.width < self.min_width || area.height < self.min_height {
             return Err(AltreError::Ui(UiError::ScreenTooSmall {
                 width: area.width,
-                height: area.height
+                height: area.height,
             }));
         }
 
@@ -246,7 +246,9 @@ impl RenderState {
         }
 
         // 指定エリアと重複する汚れた領域があるか
-        self.dirty_regions.iter().any(|dirty| dirty.intersects(area))
+        self.dirty_regions
+            .iter()
+            .any(|dirty| dirty.intersects(area))
     }
 
     pub fn clear_dirty(&mut self) {
@@ -263,12 +265,10 @@ impl RenderState {
     }
 
     pub fn get_frame_stats(&self) -> Option<FrameStats> {
-        self.last_frame_time.map(|start| {
-            FrameStats {
-                frame_time: start.elapsed(),
-                frame_number: self.frame_count,
-                dirty_regions_count: self.dirty_regions.len(),
-            }
+        self.last_frame_time.map(|start| FrameStats {
+            frame_time: start.elapsed(),
+            frame_number: self.frame_count,
+            dirty_regions_count: self.dirty_regions.len(),
         })
     }
 }
@@ -345,9 +345,7 @@ pub fn char_width(ch: char) -> usize {
         '\u{FF01}'..='\u{FF60}' => 2,
 
         // その他は unicode-width を使用
-        _ => {
-            unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1)
-        }
+        _ => unicode_width::UnicodeWidthChar::width(ch).unwrap_or(1),
     }
 }
 
@@ -432,8 +430,8 @@ mod tests {
 
         assert_eq!(layout.total, area);
         assert_eq!(layout.minibuffer.height, 1); // ミニバッファは固定1行（上部）
-        assert_eq!(layout.modeline.height, 1);   // モードライン（下部）
-        assert_eq!(layout.editor.height, 23);    // エディタ（中央）: 25 - 1 - 1
+        assert_eq!(layout.modeline.height, 1); // モードライン（下部）
+        assert_eq!(layout.editor.height, 23); // エディタ（中央）: 25 - 1 - 1
 
         // ミニバッファが上部に配置されることを確認
         assert_eq!(layout.minibuffer.y, 0);
@@ -449,8 +447,8 @@ mod tests {
 
         assert_eq!(layout.total, area);
         assert_eq!(layout.minibuffer.height, 1); // ミニバッファは固定1行（上部）
-        assert_eq!(layout.modeline.height, 1);   // モードライン（下部）
-        assert_eq!(layout.editor.height, 13);    // エディタ（中央）: 15 - 1 - 1
+        assert_eq!(layout.modeline.height, 1); // モードライン（下部）
+        assert_eq!(layout.editor.height, 13); // エディタ（中央）: 15 - 1 - 1
 
         // ミニバッファが上部に配置されることを確認
         assert_eq!(layout.minibuffer.y, 0);

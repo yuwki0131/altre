@@ -35,7 +35,11 @@ impl PathCompletion {
         let candidates = self.scan_directory(&directory, &partial_name)?;
 
         Ok(CompletionResult {
-            candidates: candidates.clone().into_iter().take(self.max_candidates).collect(),
+            candidates: candidates
+                .clone()
+                .into_iter()
+                .take(self.max_candidates)
+                .collect(),
             common_prefix: self.find_common_prefix(&candidates),
             is_directory_completion: directory.is_dir(),
         })
@@ -48,13 +52,19 @@ impl PathCompletion {
             if let Some(home) = dirs::home_dir() {
                 Ok(home.join(&input[2..]))
             } else {
-                Err(AltreError::File(FileError::InvalidPath { path: input.to_string() }))
+                Err(AltreError::File(FileError::InvalidPath {
+                    path: input.to_string(),
+                }))
             }
         } else if input.starts_with('/') {
             Ok(PathBuf::from(input))
         } else {
             Ok(std::env::current_dir()
-                .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?
+                .map_err(|e| {
+                    AltreError::File(FileError::Io {
+                        message: e.to_string(),
+                    })
+                })?
                 .join(input))
         }
     }
@@ -64,10 +74,12 @@ impl PathCompletion {
         if path.is_dir() && path.to_string_lossy().ends_with('/') {
             (path.to_path_buf(), String::new())
         } else {
-            let parent = path.parent()
+            let parent = path
+                .parent()
                 .unwrap_or_else(|| Path::new("/"))
                 .to_path_buf();
-            let filename = path.file_name()
+            let filename = path
+                .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
@@ -77,13 +89,20 @@ impl PathCompletion {
 
     /// ディレクトリ内容をスキャン
     fn scan_directory(&self, dir: &Path, partial: &str) -> Result<Vec<String>> {
-        let entries = std::fs::read_dir(dir)
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+        let entries = std::fs::read_dir(dir).map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         let mut candidates = Vec::new();
 
         for entry in entries {
-            let entry = entry.map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+            let entry = entry.map_err(|e| {
+                AltreError::File(FileError::Io {
+                    message: e.to_string(),
+                })
+            })?;
             let filename = entry.file_name().to_string_lossy().to_string();
 
             // 隠しファイルフィルタ
@@ -97,9 +116,15 @@ impl PathCompletion {
             }
 
             // ディレクトリには / サフィックス追加
-            let display_name = if entry.file_type()
-                .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?
-                .is_dir() {
+            let display_name = if entry
+                .file_type()
+                .map_err(|e| {
+                    AltreError::File(FileError::Io {
+                        message: e.to_string(),
+                    })
+                })?
+                .is_dir()
+            {
                 format!("{}/", filename)
             } else {
                 filename
@@ -128,9 +153,10 @@ impl PathCompletion {
         let mut common_len = 0;
 
         for (i, ch) in first.char_indices() {
-            if candidates.iter().all(|candidate| {
-                candidate.chars().nth(i).map_or(false, |c| c == ch)
-            }) {
+            if candidates
+                .iter()
+                .all(|candidate| candidate.chars().nth(i).map_or(false, |c| c == ch))
+            {
                 common_len = i + ch.len_utf8();
             } else {
                 break;
@@ -177,8 +203,8 @@ impl CompletionResult {
 
     /// 完全マッチかどうか
     pub fn is_exact_match(&self, input: &str) -> bool {
-        self.candidates.len() == 1 &&
-        self.candidates[0].trim_end_matches('/') == input.trim_end_matches('/')
+        self.candidates.len() == 1
+            && self.candidates[0].trim_end_matches('/') == input.trim_end_matches('/')
     }
 }
 
@@ -207,16 +233,20 @@ impl CompletionDisplay {
 
         // 候補数表示
         if result.candidates.len() > self.max_display_candidates {
-            lines.push(format!("[{} candidates (showing {})]",
+            lines.push(format!(
+                "[{} candidates (showing {})]",
                 result.candidates.len(),
                 self.max_display_candidates
             ));
         }
 
         // 候補一覧
-        for (i, candidate) in result.candidates.iter()
+        for (i, candidate) in result
+            .candidates
+            .iter()
             .take(self.max_display_candidates)
-            .enumerate() {
+            .enumerate()
+        {
             let prefix = if Some(i) == self.selected_index {
                 "► "
             } else {
@@ -288,7 +318,7 @@ impl PathExpander {
                 Ok(home.join(&path[2..]).to_string_lossy().to_string())
             } else {
                 Err(AltreError::File(FileError::InvalidPath {
-                    path: "Cannot determine home directory".to_string()
+                    path: "Cannot determine home directory".to_string(),
                 }))
             }
         } else if path == "~" {
@@ -296,7 +326,7 @@ impl PathExpander {
                 Ok(home.to_string_lossy().to_string())
             } else {
                 Err(AltreError::File(FileError::InvalidPath {
-                    path: "Cannot determine home directory".to_string()
+                    path: "Cannot determine home directory".to_string(),
                 }))
             }
         } else {
@@ -327,8 +357,8 @@ impl PathExpander {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_path_completion_basic() {

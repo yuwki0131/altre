@@ -2,12 +2,12 @@
 //!
 //! ratatuiを使用したミニバッファの描画とレイアウト統合
 
+use super::{MinibufferMode, MinibufferState};
 use ratatui::{
     prelude::*,
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     style::{Color, Modifier, Style},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
 };
-use super::{MinibufferState, MinibufferMode};
 
 /// ミニバッファのUI設定
 #[derive(Debug, Clone)]
@@ -38,22 +38,17 @@ impl Default for MinibufferUIConfig {
             show_border: true,
             completion_max_height: 10,
             completion_limit: 50,
-            error_style: Style::default()
-                .fg(Color::Red)
-                .add_modifier(Modifier::BOLD),
-            info_style: Style::default()
-                .fg(Color::Green),
+            error_style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            info_style: Style::default().fg(Color::Green),
             prompt_style: Style::default()
                 .fg(Color::Blue)
                 .add_modifier(Modifier::BOLD),
-            input_style: Style::default()
-                .fg(Color::White),
+            input_style: Style::default().fg(Color::White),
             selected_completion_style: Style::default()
                 .bg(Color::Blue)
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
-            completion_style: Style::default()
-                .fg(Color::Gray),
+            completion_style: Style::default().fg(Color::Gray),
         }
     }
 }
@@ -183,7 +178,8 @@ impl MinibufferRenderer {
             return;
         }
 
-        let items: Vec<ListItem<'_>> = state.completions
+        let items: Vec<ListItem<'_>> = state
+            .completions
             .iter()
             .take(self.config.completion_limit)
             .enumerate()
@@ -198,12 +194,8 @@ impl MinibufferRenderer {
             })
             .collect();
 
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Completions")
-            );
+        let list =
+            List::new(items).block(Block::default().borders(Borders::ALL).title("Completions"));
 
         frame.render_widget(list, area);
     }
@@ -271,12 +263,12 @@ impl MinibufferLayout {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(1),   // ミニバッファ領域（上部）
-                    Constraint::Min(1),      // メイン領域（下部）
+                    Constraint::Length(1), // ミニバッファ領域（上部）
+                    Constraint::Min(1),    // メイン領域（下部）
                 ])
                 .split(terminal_area);
 
-            (chunks[1], chunks[0])  // (メイン領域, ミニバッファ領域)の順序で返す
+            (chunks[1], chunks[0]) // (メイン領域, ミニバッファ領域)の順序で返す
         } else {
             // ミニバッファが非アクティブの場合は全領域をメインに
             (terminal_area, Rect::default())
@@ -347,19 +339,16 @@ impl MinibufferStyles {
             error_style: Style::default()
                 .fg(Color::LightRed)
                 .add_modifier(Modifier::BOLD),
-            info_style: Style::default()
-                .fg(Color::LightGreen),
+            info_style: Style::default().fg(Color::LightGreen),
             prompt_style: Style::default()
                 .fg(Color::LightBlue)
                 .add_modifier(Modifier::BOLD),
-            input_style: Style::default()
-                .fg(Color::White),
+            input_style: Style::default().fg(Color::White),
             selected_completion_style: Style::default()
                 .bg(Color::Blue)
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
-            completion_style: Style::default()
-                .fg(Color::DarkGray),
+            completion_style: Style::default().fg(Color::DarkGray),
         }
     }
 
@@ -369,22 +358,17 @@ impl MinibufferStyles {
             show_border: true,
             completion_max_height: 10,
             completion_limit: 50,
-            error_style: Style::default()
-                .fg(Color::Red)
-                .add_modifier(Modifier::BOLD),
-            info_style: Style::default()
-                .fg(Color::Green),
+            error_style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            info_style: Style::default().fg(Color::Green),
             prompt_style: Style::default()
                 .fg(Color::Blue)
                 .add_modifier(Modifier::BOLD),
-            input_style: Style::default()
-                .fg(Color::Black),
+            input_style: Style::default().fg(Color::Black),
             selected_completion_style: Style::default()
                 .bg(Color::LightBlue)
                 .fg(Color::Black)
                 .add_modifier(Modifier::BOLD),
-            completion_style: Style::default()
-                .fg(Color::Gray),
+            completion_style: Style::default().fg(Color::Gray),
         }
     }
 
@@ -399,22 +383,17 @@ impl MinibufferStyles {
             show_border: true,
             completion_max_height: 10,
             completion_limit: 50,
-            error_style: Style::default()
-                .fg(Color::Red)
-                .add_modifier(Modifier::BOLD),
-            info_style: Style::default()
-                .fg(Color::Green),
+            error_style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            info_style: Style::default().fg(Color::Green),
             prompt_style: Style::default()
                 .fg(primary_color)
                 .add_modifier(Modifier::BOLD),
-            input_style: Style::default()
-                .fg(text_color),
+            input_style: Style::default().fg(text_color),
             selected_completion_style: Style::default()
                 .bg(primary_color)
                 .fg(background_color)
                 .add_modifier(Modifier::BOLD),
-            completion_style: Style::default()
-                .fg(secondary_color),
+            completion_style: Style::default().fg(secondary_color),
         }
     }
 }
@@ -461,12 +440,17 @@ mod tests {
         let terminal_area = Rect::new(0, 0, 80, 24);
 
         // アクティブな場合
-        let (main_area, minibuffer_area) = MinibufferLayout::calculate_main_layout(terminal_area, true);
-        assert_eq!(main_area.height + minibuffer_area.height, terminal_area.height);
+        let (main_area, minibuffer_area) =
+            MinibufferLayout::calculate_main_layout(terminal_area, true);
+        assert_eq!(
+            main_area.height + minibuffer_area.height,
+            terminal_area.height
+        );
         assert_eq!(minibuffer_area.height, 1); // 修正：ミニバッファは1行固定
 
         // 非アクティブな場合
-        let (main_area, minibuffer_area) = MinibufferLayout::calculate_main_layout(terminal_area, false);
+        let (main_area, minibuffer_area) =
+            MinibufferLayout::calculate_main_layout(terminal_area, false);
         assert_eq!(main_area, terminal_area);
         assert_eq!(minibuffer_area, Rect::default());
     }
@@ -516,9 +500,21 @@ mod tests {
     fn test_mode_title() {
         let renderer = MinibufferRenderer::new();
 
-        assert_eq!(renderer.get_mode_title(&MinibufferMode::FindFile), "Find File");
-        assert_eq!(renderer.get_mode_title(&MinibufferMode::ExecuteCommand), "M-x");
-        assert_eq!(renderer.get_mode_title(&MinibufferMode::EvalExpression), "Eval");
-        assert_eq!(renderer.get_mode_title(&MinibufferMode::SaveConfirmation), "Save");
+        assert_eq!(
+            renderer.get_mode_title(&MinibufferMode::FindFile),
+            "Find File"
+        );
+        assert_eq!(
+            renderer.get_mode_title(&MinibufferMode::ExecuteCommand),
+            "M-x"
+        );
+        assert_eq!(
+            renderer.get_mode_title(&MinibufferMode::EvalExpression),
+            "Eval"
+        );
+        assert_eq!(
+            renderer.get_mode_title(&MinibufferMode::SaveConfirmation),
+            "Save"
+        );
     }
 }

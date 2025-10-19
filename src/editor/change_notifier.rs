@@ -51,9 +51,7 @@ pub enum ExtendedChangeEvent {
     },
 
     /// 保存状態変更
-    SaveStateChanged {
-        is_modified: bool,
-    },
+    SaveStateChanged { is_modified: bool },
 
     /// 選択範囲変更
     SelectionChanged {
@@ -84,7 +82,13 @@ pub struct ViewportInfo {
 }
 
 impl ViewportInfo {
-    pub fn new(start_line: usize, end_line: usize, scroll_x: usize, width: usize, height: usize) -> Self {
+    pub fn new(
+        start_line: usize,
+        end_line: usize,
+        scroll_x: usize,
+        width: usize,
+        height: usize,
+    ) -> Self {
         Self {
             start_line,
             end_line,
@@ -206,7 +210,10 @@ impl AdvancedChangeNotifier {
     }
 
     /// 拡張リスナーを追加
-    pub fn add_extended_listener(&mut self, listener: Box<dyn ExtendedChangeListener>) -> ListenerId {
+    pub fn add_extended_listener(
+        &mut self,
+        listener: Box<dyn ExtendedChangeListener>,
+    ) -> ListenerId {
         let id = self.next_listener_id.fetch_add(1, Ordering::SeqCst);
         let priority = listener.priority();
         self.extended_listeners.insert(id, (listener, priority));
@@ -368,7 +375,12 @@ impl AdvancedChangeNotifier {
     }
 
     /// パフォーマンス警告を通知
-    pub fn notify_performance_warning(&mut self, operation: String, duration: Duration, threshold: Duration) {
+    pub fn notify_performance_warning(
+        &mut self,
+        operation: String,
+        duration: Duration,
+        threshold: Duration,
+    ) {
         let event = ExtendedChangeEvent::PerformanceWarning {
             operation,
             duration,
@@ -409,10 +421,8 @@ impl AdvancedChangeNotifier {
         }
 
         // 優先度順にソートされたリスナーリストを取得
-        let mut sorted_listeners: Vec<_> = self.extended_listeners
-            .iter_mut()
-            .collect();
-        sorted_listeners.sort_by(|a, b| b.1.1.cmp(&a.1.1)); // 優先度の降順
+        let mut sorted_listeners: Vec<_> = self.extended_listeners.iter_mut().collect();
+        sorted_listeners.sort_by(|a, b| b.1 .1.cmp(&a.1 .1)); // 優先度の降順
 
         // リスナーに配信
         for (_, (listener, _)) in sorted_listeners {
@@ -427,9 +437,11 @@ impl AdvancedChangeNotifier {
 
         // タイムアウト警告
         if dispatch_time > self.dispatch_timeout {
-            eprintln!("Warning: Event dispatch took {}ms (timeout: {}ms)",
-                     dispatch_time.as_millis(),
-                     self.dispatch_timeout.as_millis());
+            eprintln!(
+                "Warning: Event dispatch took {}ms (timeout: {}ms)",
+                dispatch_time.as_millis(),
+                self.dispatch_timeout.as_millis()
+            );
         }
 
         self.last_dispatch_time = Instant::now();
@@ -625,9 +637,7 @@ mod tests {
         let _id = notifier.add_extended_listener(Box::new(listener));
 
         // エラーイベントのみを通すフィルターを設定
-        notifier.set_event_filter(|event| {
-            matches!(event, ExtendedChangeEvent::Error { .. })
-        });
+        notifier.set_event_filter(|event| matches!(event, ExtendedChangeEvent::Error { .. }));
 
         // 通常イベント（フィルターされる）
         notifier.notify_extended(ExtendedChangeEvent::BulkChangeStart);

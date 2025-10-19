@@ -3,8 +3,8 @@
 //! テキストバッファに対する各種編集操作を定義
 
 // use crate::error::{AltreError, Result};  // 将来使用予定
+use super::cursor::{CursorMovement, CursorMover};
 use super::{Buffer, CursorPosition};
-use super::cursor::{CursorMover, CursorMovement};
 
 /// 編集操作の種類
 #[derive(Debug, Clone)]
@@ -63,21 +63,11 @@ impl EditEngine {
     /// 編集操作をバッファに適用
     pub fn apply_operation(buffer: &mut Buffer, operation: EditOperation) -> EditResult {
         match operation {
-            EditOperation::InsertChar { pos, ch } => {
-                Self::insert_char(buffer, pos, ch)
-            }
-            EditOperation::InsertString { pos, text } => {
-                Self::insert_string(buffer, pos, &text)
-            }
-            EditOperation::DeleteChar { pos } => {
-                Self::delete_char(buffer, pos)
-            }
-            EditOperation::DeleteRange { start, end } => {
-                Self::delete_range(buffer, start, end)
-            }
-            EditOperation::MoveCursor { movement } => {
-                Self::move_cursor(buffer, movement)
-            }
+            EditOperation::InsertChar { pos, ch } => Self::insert_char(buffer, pos, ch),
+            EditOperation::InsertString { pos, text } => Self::insert_string(buffer, pos, &text),
+            EditOperation::DeleteChar { pos } => Self::delete_char(buffer, pos),
+            EditOperation::DeleteRange { start, end } => Self::delete_range(buffer, start, end),
+            EditOperation::MoveCursor { movement } => Self::move_cursor(buffer, movement),
         }
     }
 

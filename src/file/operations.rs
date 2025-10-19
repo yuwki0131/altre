@@ -3,7 +3,7 @@
 //! ファイルオープン、保存、バッファ管理の実装
 
 use crate::error::{AltreError, FileError, Result};
-use crate::file::metadata::{FileInfo, FileChangeTracker, LineEndingProcessor, EncodingProcessor};
+use crate::file::metadata::{EncodingProcessor, FileChangeTracker, FileInfo, LineEndingProcessor};
 use std::path::{Path, PathBuf};
 
 /// ファイル操作用デバッグマクロ
@@ -35,20 +35,23 @@ impl FileReader {
         // ファイル種別チェック
         if !file_info.is_file {
             return Err(AltreError::File(FileError::InvalidPath {
-                path: format!("Not a regular file: {}", path.display())
+                path: format!("Not a regular file: {}", path.display()),
             }));
         }
 
         // 権限チェック（QA Q19: エラー表示）
         if !file_info.is_readable {
             return Err(AltreError::File(FileError::PermissionDenied {
-                path: path.display().to_string()
+                path: path.display().to_string(),
             }));
         }
 
         // ファイル読み込み
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))?;
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         // BOM除去
         let without_bom = EncodingProcessor::remove_bom(&content);
@@ -127,23 +130,30 @@ impl FileSaver {
 
         // 一時ファイルに書き込み
         file_debug_log!(self, "atomic_save: writing to temp file");
-        std::fs::write(&temp_path, content.as_bytes())
-            .map_err(|e| {
-                file_debug_log!(self, "atomic_save: write to temp failed: {}", e);
-                AltreError::File(FileError::Io { message: e.to_string() })
-            })?;
+        std::fs::write(&temp_path, content.as_bytes()).map_err(|e| {
+            file_debug_log!(self, "atomic_save: write to temp failed: {}", e);
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         file_debug_log!(self, "atomic_save: temp file written successfully");
 
         // 原子的にリネーム
-        file_debug_log!(self, "atomic_save: renaming {} to {}", temp_path.display(), path.display());
-        std::fs::rename(&temp_path, path)
-            .map_err(|e| {
-                file_debug_log!(self, "atomic_save: rename failed: {}", e);
-                // 一時ファイル削除を試行
-                let _ = std::fs::remove_file(&temp_path);
-                AltreError::File(FileError::Io { message: e.to_string() })
-            })?;
+        file_debug_log!(
+            self,
+            "atomic_save: renaming {} to {}",
+            temp_path.display(),
+            path.display()
+        );
+        std::fs::rename(&temp_path, path).map_err(|e| {
+            file_debug_log!(self, "atomic_save: rename failed: {}", e);
+            // 一時ファイル削除を試行
+            let _ = std::fs::remove_file(&temp_path);
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })?;
 
         file_debug_log!(self, "atomic_save: rename completed successfully");
         Ok(())
@@ -151,24 +161,28 @@ impl FileSaver {
 
     /// 直接保存
     fn direct_save_impl(&self, path: &Path, content: &str) -> Result<()> {
-        std::fs::write(path, content.as_bytes())
-            .map_err(|e| AltreError::File(FileError::Io { message: e.to_string() }))
+        std::fs::write(path, content.as_bytes()).map_err(|e| {
+            AltreError::File(FileError::Io {
+                message: e.to_string(),
+            })
+        })
     }
 
     fn generate_temp_path(&self, original: &Path) -> Result<PathBuf> {
-        let parent = original.parent().ok_or_else(|| AltreError::File(FileError::InvalidPath {
-            path: original.display().to_string()
-        }))?;
+        let parent = original.parent().ok_or_else(|| {
+            AltreError::File(FileError::InvalidPath {
+                path: original.display().to_string(),
+            })
+        })?;
 
-        let filename = original.file_name().ok_or_else(|| AltreError::File(FileError::InvalidPath {
-            path: original.display().to_string()
-        }))?;
+        let filename = original.file_name().ok_or_else(|| {
+            AltreError::File(FileError::InvalidPath {
+                path: original.display().to_string(),
+            })
+        })?;
 
         // 一意な一時ファイル名生成
-        let temp_name = format!(".{}_{}",
-            filename.to_string_lossy(),
-            std::process::id()
-        );
+        let temp_name = format!(".{}_{}", filename.to_string_lossy(), std::process::id());
 
         Ok(parent.join(temp_name))
     }
@@ -255,9 +269,11 @@ impl FileBuffer {
 
     /// 保存処理
     pub fn save(&mut self) -> Result<()> {
-        let path = self.path.as_ref().ok_or_else(|| AltreError::File(FileError::InvalidPath {
-            path: "No file associated with buffer".to_string()
-        }))?;
+        let path = self.path.as_ref().ok_or_else(|| {
+            AltreError::File(FileError::InvalidPath {
+                path: "No file associated with buffer".to_string(),
+            })
+        })?;
 
         // 保存実行
         FileSaver::new().save_file(path, &self.content)?;
@@ -304,7 +320,7 @@ impl NewFileHandler {
                 // 親ディレクトリが存在しない場合は作成を試みる
                 if let Err(_) = std::fs::create_dir_all(parent) {
                     return Err(AltreError::File(FileError::InvalidPath {
-                        path: format!("Cannot create directory: {}", parent.display())
+                        path: format!("Cannot create directory: {}", parent.display()),
                     }));
                 }
             }
@@ -312,7 +328,7 @@ impl NewFileHandler {
             // 簡略化した書き込み権限確認
             if !parent.exists() || !parent.is_dir() {
                 return Err(AltreError::File(FileError::PermissionDenied {
-                    path: parent.display().to_string()
+                    path: parent.display().to_string(),
                 }));
             }
         }
@@ -393,8 +409,8 @@ impl Default for FileOperationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_file_reader_new_file() {

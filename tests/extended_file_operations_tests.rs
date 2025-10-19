@@ -1,7 +1,7 @@
 // extended_file_operations_tests.rs - 拡張ファイル操作機能のテスト
 
-use altre::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
 use altre::input::commands::{Command, CommandProcessor};
+use altre::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
 
 #[test]
 fn test_write_file_keybinding() {
@@ -33,7 +33,11 @@ fn test_save_all_buffers_keybinding() {
     // s を押してsave-some-buffersアクションを確認
     assert_eq!(
         keymap.process_key(Key {
-            modifiers: altre::input::keybinding::KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: altre::input::keybinding::KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false
+            },
             code: altre::input::keybinding::KeyCode::Char('s'),
         }),
         KeyProcessResult::Action(Action::SaveAllBuffers)
@@ -43,10 +47,7 @@ fn test_save_all_buffers_keybinding() {
 #[test]
 fn test_write_file_action_to_command() {
     // WriteFileアクションが正しいコマンドに変換されることを確認
-    assert_eq!(
-        Action::WriteFile.to_command(),
-        Some(Command::WriteFile)
-    );
+    assert_eq!(Action::WriteFile.to_command(), Some(Command::WriteFile));
 }
 
 #[test]
@@ -61,10 +62,7 @@ fn test_save_all_buffers_action_to_command() {
 #[test]
 fn test_command_from_string() {
     // 文字列からコマンドが正しく作成されることを確認
-    assert_eq!(
-        Command::from_string("write-file"),
-        Command::WriteFile
-    );
+    assert_eq!(Command::from_string("write-file"), Command::WriteFile);
 
     assert_eq!(
         Command::from_string("save-some-buffers"),
@@ -75,10 +73,7 @@ fn test_command_from_string() {
 #[test]
 fn test_command_description() {
     // コマンドの説明が正しく取得できることを確認
-    assert_eq!(
-        Command::WriteFile.description(),
-        "別名でファイルを保存"
-    );
+    assert_eq!(Command::WriteFile.description(), "別名でファイルを保存");
 
     assert_eq!(
         Command::SaveAllBuffers.description(),
@@ -129,7 +124,10 @@ fn test_cx_prefix_maintains_state() {
 
     // C-w でwrite-fileアクション
     let result = keymap.process_key(Key::ctrl_w());
-    assert!(matches!(result, KeyProcessResult::Action(Action::WriteFile)));
+    assert!(matches!(
+        result,
+        KeyProcessResult::Action(Action::WriteFile)
+    ));
 
     // プレフィックス状態がリセットされていることを確認
     assert!(!keymap.is_partial_match());

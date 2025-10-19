@@ -3,8 +3,8 @@
 //! ファイルパスの正規化、展開、検証機能
 
 use crate::error::{AltreError, Result};
-use std::path::{Path, PathBuf, Component};
 use std::env;
+use std::path::{Component, Path, PathBuf};
 
 /// パス処理のトレイト
 pub trait PathProcessor {
@@ -42,7 +42,7 @@ impl PathProcessor for DefaultPathProcessor {
                     // .. は一つ前のコンポーネントを削除
                     if components.is_empty() {
                         return Err(AltreError::Path(
-                            "パスが不正です: ルートを超えた親ディレクトリ参照".to_string()
+                            "パスが不正です: ルートを超えた親ディレクトリ参照".to_string(),
                         ));
                     }
                     components.pop();
@@ -68,9 +68,7 @@ impl PathProcessor for DefaultPathProcessor {
         if path_str.starts_with('~') {
             let home_dir = env::var("HOME")
                 .or_else(|_| env::var("USERPROFILE"))
-                .map_err(|_| AltreError::Path(
-                    "ホームディレクトリが取得できません".to_string()
-                ))?;
+                .map_err(|_| AltreError::Path("ホームディレクトリが取得できません".to_string()))?;
 
             let expanded = if path_str == "~" {
                 home_dir
@@ -79,7 +77,7 @@ impl PathProcessor for DefaultPathProcessor {
             } else {
                 // ~user形式は未サポート
                 return Err(AltreError::Path(
-                    "~user形式のパス展開は未サポートです".to_string()
+                    "~user形式のパス展開は未サポートです".to_string(),
                 ));
             };
 
@@ -94,9 +92,7 @@ impl PathProcessor for DefaultPathProcessor {
 
         match shellexpand::env(&path_str) {
             Ok(expanded) => Ok(PathBuf::from(expanded.as_ref())),
-            Err(e) => Err(AltreError::Path(
-                format!("環境変数展開エラー: {}", e)
-            )),
+            Err(e) => Err(AltreError::Path(format!("環境変数展開エラー: {}", e))),
         }
     }
 
@@ -106,10 +102,9 @@ impl PathProcessor for DefaultPathProcessor {
         if path.is_absolute() {
             Ok(path.to_path_buf())
         } else {
-            let current_dir = env::current_dir()
-                .map_err(|e| AltreError::Path(
-                    format!("現在のディレクトリが取得できません: {}", e)
-                ))?;
+            let current_dir = env::current_dir().map_err(|e| {
+                AltreError::Path(format!("現在のディレクトリが取得できません: {}", e))
+            })?;
             Ok(current_dir.join(path))
         }
     }
@@ -127,7 +122,8 @@ impl PathProcessor for DefaultPathProcessor {
                 Component::Normal(name) => {
                     let name_str = name.to_string_lossy();
                     // 危険な文字の検出
-                    if name_str.contains('\0') || name_str.contains('\r') || name_str.contains('\n') {
+                    if name_str.contains('\0') || name_str.contains('\r') || name_str.contains('\n')
+                    {
                         return false;
                     }
                 }

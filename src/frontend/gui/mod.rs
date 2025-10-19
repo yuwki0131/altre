@@ -1,7 +1,9 @@
 #![cfg(feature = "gui")]
 
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::{Backend, RenderMetadata};
@@ -11,8 +13,14 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use slint::private_unstable_api::re_exports::KeyEvent as SlintKeyEvent;
 use slint::{ComponentHandle, ModelRc, SharedString, Timer, TimerMode, VecModel};
 
+mod debug;
+
+use debug::{current_timestamp, truncate_for_log, DebugEvent, DebugLogger, DebugState};
+
 mod components;
-use components::{AppWindow, CursorData, EditorData, MinibufferData, MinibufferVisual, ModeLineData};
+use components::{
+    AppWindow, CursorData, EditorData, MinibufferData, MinibufferVisual, ModeLineData,
+};
 
 const KEY_ESCAPE: char = '\u{001b}';
 const KEY_BACKSPACE: char = '\u{0008}';
@@ -41,18 +49,49 @@ const KEY_F10: char = '\u{F70D}';
 const KEY_F11: char = '\u{F70E}';
 const KEY_F12: char = '\u{F70F}';
 
+#[derive(Default, Clone)]
+pub struct GuiRunOptions {
+    pub debug_log: Option<PathBuf>,
+}
+
 pub struct GuiApplication {
     backend: Rc<RefCell<Backend>>,
     window: AppWindow,
     timer: Timer,
+    debug_logger: Option<Arc<DebugLogger>>,
 }
 
 impl GuiApplication {
     pub fn new() -> Result<Self> {
+        Self::with_options(GuiRunOptions::default())
+    }
+
+    pub fn with_options(options: GuiRunOptions) -> Result<Self> {
         let backend = Rc::new(RefCell::new(Backend::new()?));
         let window = AppWindow::new().map_err(gui_error)?;
         let timer = Timer::default();
-        Ok(Self { backend, window, timer })
+
+        let debug_logger = if let Some(path) = options.debug_log {
+            let logger = DebugLogger::new(&path).map_err(AltreError::from)?;
+            let arc = Arc::new(logger);
+            arc.log_message(
+                "info",
+                format!(
+                    "GUI debug logging initialized: {}",
+                    arc.log_path().display()
+                ),
+            );
+            Some(arc)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            backend,
+            window,
+            timer,
+            debug_logger,
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -68,15 +107,42 @@ impl GuiApplication {
     fn setup_callbacks(&mut self) {
         let backend_rc = self.backend.clone();
         let window_weak = self.window.as_weak();
+        let debug_logger = self.debug_logger.clone();
 
         self.window.on_key_event(move |event| {
+            if let Some(logger) = debug_logger.as_ref() {
+                let detail = format!(
+                    "text='{}', event_type={:?}, modifiers={:?}, repeat={}",
+                    event.text.as_str(),
+                    event.event_type,
+                    event.modifiers,
+                    event.repeat
+                );
+                logger.log_event(DebugEvent {
+                    timestamp: current_timestamp(),
+                    event: "slint_key_event".to_string(),
+                    detail,
+                });
+            }
+
             if let Some(mut backend) = backend_rc.try_borrow_mut().ok() {
                 if let Some(key_event) = slint_to_crossterm(&event) {
+                    if let Some(logger) = debug_logger.as_ref() {
+                        logger.log_event(DebugEvent {
+                            timestamp: current_timestamp(),
+                            event: "dispatch_key_event".to_string(),
+                            detail: format!("{:?}", key_event),
+                        });
+                    }
                     if let Err(err) = backend.handle_key_event(key_event) {
+                        if let Some(logger) = debug_logger.as_ref() {
+                            logger.log_message("error", format!("GUI key handling error: {}", err));
+                        }
                         eprintln!("GUI key handling error: {}", err);
                     }
                 }
-                update_view(&window_weak, &mut backend);
+                let logger_ref = debug_logger.as_deref();
+                update_view(&window_weak, &mut backend, logger_ref);
             }
         });
     }
@@ -84,35 +150,50 @@ impl GuiApplication {
     fn start_timer(&mut self) {
         let backend_rc = self.backend.clone();
         let window_weak = self.window.as_weak();
+        let debug_logger = self.debug_logger.clone();
 
-        self.timer.start(TimerMode::Repeated, Duration::from_millis(80), move || {
-            if let Some(mut backend) = backend_rc.try_borrow_mut().ok() {
-                backend.process_minibuffer_timer();
-                let running = backend.is_running();
-                update_view(&window_weak, &mut backend);
-                if !running {
-                    slint::quit_event_loop().ok();
+        self.timer
+            .start(TimerMode::Repeated, Duration::from_millis(80), move || {
+                if let Some(mut backend) = backend_rc.try_borrow_mut().ok() {
+                    backend.process_minibuffer_timer();
+                    let running = backend.is_running();
+                    let logger_ref = debug_logger.as_deref();
+                    update_view(&window_weak, &mut backend, logger_ref);
+                    if !running {
+                        slint::quit_event_loop().ok();
+                    }
                 }
-            }
-        });
+            });
     }
 
     fn refresh_view(&mut self) {
         if let Some(mut backend) = self.backend.try_borrow_mut().ok() {
-            update_view(&self.window.as_weak(), &mut backend);
+            let logger_ref = self.debug_logger.as_deref();
+            update_view(&self.window.as_weak(), &mut backend, logger_ref);
         }
     }
 }
 
-fn update_view(window: &slint::Weak<AppWindow>, backend: &mut Backend) {
-    let Some(app) = window.upgrade() else { return; };
+fn update_view(
+    window: &slint::Weak<AppWindow>,
+    backend: &mut Backend,
+    debug_logger: Option<&DebugLogger>,
+) {
+    let Some(app) = window.upgrade() else {
+        return;
+    };
 
     let metadata: RenderMetadata = backend.render_metadata();
     let view = backend.render_view();
 
     let buffer_text = view.editor.to_string();
     let lines_vec: Vec<SharedString> = buffer_text.lines().map(SharedString::from).collect();
-    let total_lines = if lines_vec.is_empty() { 1 } else { lines_vec.len() } as i32;
+    let displayed_lines = lines_vec.len();
+    let total_lines = if displayed_lines == 0 {
+        1
+    } else {
+        displayed_lines
+    } as i32;
     let editor_data = EditorData {
         lines: ModelRc::new(VecModel::from(lines_vec)),
         cursor: CursorData {
@@ -123,8 +204,15 @@ fn update_view(window: &slint::Weak<AppWindow>, backend: &mut Backend) {
     app.set_editor(editor_data);
 
     let mini_state = view.minibuffer.minibuffer_state().clone();
-    let completion_vec: Vec<SharedString> =
-        mini_state.completions.into_iter().map(SharedString::from).collect();
+    let minibuffer_prompt = mini_state.prompt.clone();
+    let minibuffer_input = mini_state.input.clone();
+    let minibuffer_message = mini_state.status_message.clone().unwrap_or_default();
+    let completion_strings: Vec<String> = mini_state.completions.clone();
+    let completion_vec: Vec<SharedString> = completion_strings
+        .iter()
+        .cloned()
+        .map(SharedString::from)
+        .collect();
 
     let minibuffer_data = MinibufferData {
         style: match mini_state.mode {
@@ -133,9 +221,9 @@ fn update_view(window: &slint::Weak<AppWindow>, backend: &mut Backend) {
             MinibufferMode::InfoDisplay { .. } => MinibufferVisual::Info,
             _ => MinibufferVisual::Input,
         },
-        prompt: SharedString::from(mini_state.prompt),
-        input: SharedString::from(mini_state.input),
-        message: SharedString::from(mini_state.status_message.unwrap_or_default()),
+        prompt: SharedString::from(minibuffer_prompt.clone()),
+        input: SharedString::from(minibuffer_input.clone()),
+        message: SharedString::from(minibuffer_message.clone()),
         completions: ModelRc::new(VecModel::from(completion_vec)),
     };
     app.set_minibuffer(minibuffer_data);
@@ -148,6 +236,26 @@ fn update_view(window: &slint::Weak<AppWindow>, backend: &mut Backend) {
         is_modified: metadata.is_modified,
     };
     app.set_modeline(mode_line);
+
+    if let Some(logger) = debug_logger {
+        let cursor = view.editor.cursor();
+        let state = DebugState {
+            timestamp: current_timestamp(),
+            status_label: metadata.status_label.clone(),
+            is_modified: metadata.is_modified,
+            buffer_len: buffer_text.len(),
+            buffer_sample: truncate_for_log(&buffer_text, 2000),
+            cursor_line: cursor.line as usize,
+            cursor_column: cursor.column as usize,
+            displayed_lines,
+            minibuffer_prompt,
+            minibuffer_input,
+            minibuffer_mode: format!("{:?}", mini_state.mode),
+            minibuffer_message,
+            minibuffer_completions: completion_strings,
+        };
+        logger.log_state(state);
+    }
 }
 
 fn slint_to_crossterm(event: &SlintKeyEvent) -> Option<KeyEvent> {
@@ -193,16 +301,37 @@ fn slint_to_crossterm(event: &SlintKeyEvent) -> Option<KeyEvent> {
         KEY_F10 => KeyCode::F(10),
         KEY_F11 => KeyCode::F(11),
         KEY_F12 => KeyCode::F(12),
-        ch => {
-            if ch < ' ' && chars.clone().next().is_none() {
-                // Control characters without printable mapping are ignored.
-                return None;
-            }
-            KeyCode::Char(ch)
-        }
+        ch => KeyCode::Char(resolve_character(ch, modifiers)),
     };
 
     Some(KeyEvent::new(key_code, modifiers))
+}
+
+fn resolve_character(ch: char, modifiers: KeyModifiers) -> char {
+    if ch >= ' ' || !modifiers.contains(KeyModifiers::CONTROL) {
+        return ch;
+    }
+
+    match ch {
+        '\u{0000}' => ' ',
+        '\u{0001}'..='\u{001A}' => {
+            // Map control codes 1..=26 to lowercase alphabet.
+            let offset = (ch as u32) - 1;
+            char::from_u32(b'a' as u32 + offset).unwrap_or(ch)
+        }
+        '\u{001B}' => '\u{001B}', // Escape handled earlier, keep fallback
+        '\u{001C}'..='\u{001F}' => {
+            // ASCII control chars outside alphabet range - map to symbols commonly used.
+            match ch {
+                '\u{001C}' => '\\',
+                '\u{001D}' => ']',
+                '\u{001E}' => '^',
+                '\u{001F}' => '_',
+                _ => ch,
+            }
+        }
+        _ => ch,
+    }
 }
 
 fn gui_error(err: impl std::fmt::Display) -> AltreError {

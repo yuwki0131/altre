@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BatchSize};
-use altre::buffer::{NavigationSystem, NavigationAction};
+use altre::buffer::{NavigationAction, NavigationSystem};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use std::time::Duration;
 
 /// 基本的なカーソル移動のベンチマーク
@@ -28,7 +28,8 @@ fn bench_cursor_movement(c: &mut Criterion) {
             || NavigationSystem::new(),
             |mut nav| {
                 for _ in 0..100 {
-                    let _ = nav.navigate(black_box(&medium_text), NavigationAction::MoveCharForward);
+                    let _ =
+                        nav.navigate(black_box(&medium_text), NavigationAction::MoveCharForward);
                 }
             },
             BatchSize::SmallInput,
@@ -42,7 +43,10 @@ fn bench_cursor_movement(c: &mut Criterion) {
             || NavigationSystem::new(),
             |mut nav| {
                 for _ in 0..10 {
-                    let _ = nav.navigate(black_box(&long_line_text), NavigationAction::MoveCharForward);
+                    let _ = nav.navigate(
+                        black_box(&long_line_text),
+                        NavigationAction::MoveCharForward,
+                    );
                 }
             },
             BatchSize::SmallInput,
@@ -64,7 +68,10 @@ fn bench_high_performance_navigation(c: &mut Criterion) {
             || NavigationSystem::new(),
             |mut nav| {
                 for _ in 0..10 {
-                    let _ = nav.navigate(black_box(&long_line_text), NavigationAction::MoveCharForward);
+                    let _ = nav.navigate(
+                        black_box(&long_line_text),
+                        NavigationAction::MoveCharForward,
+                    );
                 }
             },
             BatchSize::SmallInput,
@@ -76,7 +83,10 @@ fn bench_high_performance_navigation(c: &mut Criterion) {
             || NavigationSystem::with_high_performance(),
             |mut nav| {
                 for _ in 0..10 {
-                    let _ = nav.navigate(black_box(&long_line_text), NavigationAction::MoveCharForward);
+                    let _ = nav.navigate(
+                        black_box(&long_line_text),
+                        NavigationAction::MoveCharForward,
+                    );
                 }
             },
             BatchSize::SmallInput,
@@ -108,7 +118,8 @@ fn bench_line_navigation(c: &mut Criterion) {
                 // 上下移動を繰り返す
                 for _ in 0..50 {
                     let _ = nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineUp);
-                    let _ = nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineDown);
+                    let _ =
+                        nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineDown);
                 }
             },
             BatchSize::SmallInput,
@@ -120,8 +131,10 @@ fn bench_line_navigation(c: &mut Criterion) {
             || NavigationSystem::with_performance_monitoring(),
             |mut nav| {
                 for _ in 0..100 {
-                    let _ = nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineStart);
-                    let _ = nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineEnd);
+                    let _ =
+                        nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineStart);
+                    let _ =
+                        nav.navigate(black_box(&multi_line_text), NavigationAction::MoveLineEnd);
                 }
             },
             BatchSize::SmallInput,
@@ -137,7 +150,9 @@ fn bench_buffer_navigation(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     // 大きなファイルをシミュレート
-    let large_file: String = (0..5000).map(|i| format!("Line {} with some content here\n", i)).collect();
+    let large_file: String = (0..5000)
+        .map(|i| format!("Line {} with some content here\n", i))
+        .collect();
 
     group.bench_function("buffer_start_end", |b| {
         b.iter_batched(
@@ -168,7 +183,11 @@ fn bench_tab_navigation(c: &mut Criterion) {
             || NavigationSystem::with_performance_monitoring(),
             |mut nav| {
                 for _ in 0..100 {
-                    let _ = nav.navigate_with_tab_width(black_box(&tab_text), NavigationAction::MoveCharForward, 4);
+                    let _ = nav.navigate_with_tab_width(
+                        black_box(&tab_text),
+                        NavigationAction::MoveCharForward,
+                        4,
+                    );
                 }
             },
             BatchSize::SmallInput,
@@ -180,7 +199,11 @@ fn bench_tab_navigation(c: &mut Criterion) {
             || NavigationSystem::with_performance_monitoring(),
             |mut nav| {
                 for _ in 0..100 {
-                    let _ = nav.navigate_with_tab_width(black_box(&tab_text), NavigationAction::MoveCharForward, 8);
+                    let _ = nav.navigate_with_tab_width(
+                        black_box(&tab_text),
+                        NavigationAction::MoveCharForward,
+                        8,
+                    );
                 }
             },
             BatchSize::SmallInput,
@@ -226,7 +249,10 @@ fn bench_performance_targets(c: &mut Criterion) {
         b.iter_batched(
             || NavigationSystem::with_high_performance(),
             |mut nav| {
-                let _ = nav.navigate(black_box(&very_long_line), NavigationAction::MoveCharForward);
+                let _ = nav.navigate(
+                    black_box(&very_long_line),
+                    NavigationAction::MoveCharForward,
+                );
             },
             BatchSize::SmallInput,
         )

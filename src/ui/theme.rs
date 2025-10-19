@@ -209,134 +209,248 @@ impl Theme {
 
     fn set_light_colors(&mut self) {
         // ライトテーマのカラー設定
-        self.set_color(ComponentType::TextArea,
-            ColorScheme::new(Color::Black, Color::White));
-        self.set_color(ComponentType::LineNumber,
-            ColorScheme::new(Color::DarkGray, Color::Gray));
-        self.set_color(ComponentType::LineNumberActive,
-            ColorScheme::new(Color::Blue, Color::LightYellow));
-        self.set_color(ComponentType::Cursor,
-            ColorScheme::new(Color::White, Color::Blue));
-        self.set_color(ComponentType::Selection,
-            ColorScheme::new(Color::White, Color::Blue));
-        self.set_color(ComponentType::Minibuffer,
-            ColorScheme::new(Color::Black, Color::Gray));
-        self.set_color(ComponentType::StatusLine,
-            ColorScheme::new(Color::White, Color::Blue));
-        self.set_color(ComponentType::Border,
-            ColorScheme::new(Color::DarkGray, Color::White));
-        self.set_color(ComponentType::Error,
-            ColorScheme::new(Color::Red, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Warning,
-            ColorScheme::new(Color::Yellow, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Info,
-            ColorScheme::new(Color::Green, Color::White));
-        self.set_color(ComponentType::Completion,
-            ColorScheme::new(Color::Black, Color::Gray));
-        self.set_color(ComponentType::CompletionSelected,
-            ColorScheme::new(Color::White, Color::Blue).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::WindowDivider,
-            ColorScheme::new(Color::Gray, Color::Gray));
+        self.set_color(
+            ComponentType::TextArea,
+            ColorScheme::new(Color::Black, Color::White),
+        );
+        self.set_color(
+            ComponentType::LineNumber,
+            ColorScheme::new(Color::DarkGray, Color::Gray),
+        );
+        self.set_color(
+            ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Blue, Color::LightYellow),
+        );
+        self.set_color(
+            ComponentType::Cursor,
+            ColorScheme::new(Color::White, Color::Blue),
+        );
+        self.set_color(
+            ComponentType::Selection,
+            ColorScheme::new(Color::White, Color::Blue),
+        );
+        self.set_color(
+            ComponentType::Minibuffer,
+            ColorScheme::new(Color::Black, Color::Gray),
+        );
+        self.set_color(
+            ComponentType::StatusLine,
+            ColorScheme::new(Color::White, Color::Blue),
+        );
+        self.set_color(
+            ComponentType::Border,
+            ColorScheme::new(Color::DarkGray, Color::White),
+        );
+        self.set_color(
+            ComponentType::Error,
+            ColorScheme::new(Color::Red, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Warning,
+            ColorScheme::new(Color::Yellow, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Info,
+            ColorScheme::new(Color::Green, Color::White),
+        );
+        self.set_color(
+            ComponentType::Completion,
+            ColorScheme::new(Color::Black, Color::Gray),
+        );
+        self.set_color(
+            ComponentType::CompletionSelected,
+            ColorScheme::new(Color::White, Color::Blue).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::WindowDivider,
+            ColorScheme::new(Color::Gray, Color::Gray),
+        );
 
         // シンタックスハイライト
-        self.set_color(ComponentType::SyntaxKeyword,
-            ColorScheme::new(Color::Blue, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::SyntaxString,
-            ColorScheme::new(Color::Green, Color::White));
-        self.set_color(ComponentType::SyntaxComment,
-            ColorScheme::new(Color::Gray, Color::White).with_modifier(Modifier::ITALIC));
-        self.set_color(ComponentType::SyntaxNumber,
-            ColorScheme::new(Color::Magenta, Color::White));
-        self.set_color(ComponentType::SyntaxOperator,
-            ColorScheme::new(Color::Red, Color::White));
+        self.set_color(
+            ComponentType::SyntaxKeyword,
+            ColorScheme::new(Color::Blue, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::SyntaxString,
+            ColorScheme::new(Color::Green, Color::White),
+        );
+        self.set_color(
+            ComponentType::SyntaxComment,
+            ColorScheme::new(Color::Gray, Color::White).with_modifier(Modifier::ITALIC),
+        );
+        self.set_color(
+            ComponentType::SyntaxNumber,
+            ColorScheme::new(Color::Magenta, Color::White),
+        );
+        self.set_color(
+            ComponentType::SyntaxOperator,
+            ColorScheme::new(Color::Red, Color::White),
+        );
     }
 
     fn set_dark_colors(&mut self) {
         // ダークテーマのカラー設定
-        self.set_color(ComponentType::TextArea,
-            ColorScheme::new(Color::White, Color::Black));
-        self.set_color(ComponentType::LineNumber,
-            ColorScheme::new(Color::Gray, Color::DarkGray));
-        self.set_color(ComponentType::LineNumberActive,
-            ColorScheme::new(Color::Black, Color::Gray));
-        self.set_color(ComponentType::Cursor,
-            ColorScheme::new(Color::Black, Color::White));
-        self.set_color(ComponentType::Selection,
-            ColorScheme::new(Color::White, Color::Blue));
-        self.set_color(ComponentType::Minibuffer,
-            ColorScheme::new(Color::White, Color::DarkGray));
-        self.set_color(ComponentType::StatusLine,
-            ColorScheme::new(Color::Black, Color::Gray));
-        self.set_color(ComponentType::Border,
-            ColorScheme::new(Color::Gray, Color::Black));
-        self.set_color(ComponentType::Error,
-            ColorScheme::new(Color::LightRed, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Warning,
-            ColorScheme::new(Color::LightYellow, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Info,
-            ColorScheme::new(Color::LightGreen, Color::Black));
-        self.set_color(ComponentType::Completion,
-            ColorScheme::new(Color::White, Color::DarkGray));
-        self.set_color(ComponentType::CompletionSelected,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::WindowDivider,
-            ColorScheme::new(Color::Black, Color::DarkGray));
+        self.set_color(
+            ComponentType::TextArea,
+            ColorScheme::new(Color::White, Color::Black),
+        );
+        self.set_color(
+            ComponentType::LineNumber,
+            ColorScheme::new(Color::Gray, Color::DarkGray),
+        );
+        self.set_color(
+            ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::Gray),
+        );
+        self.set_color(
+            ComponentType::Cursor,
+            ColorScheme::new(Color::Black, Color::White),
+        );
+        self.set_color(
+            ComponentType::Selection,
+            ColorScheme::new(Color::White, Color::Blue),
+        );
+        self.set_color(
+            ComponentType::Minibuffer,
+            ColorScheme::new(Color::White, Color::DarkGray),
+        );
+        self.set_color(
+            ComponentType::StatusLine,
+            ColorScheme::new(Color::Black, Color::Gray),
+        );
+        self.set_color(
+            ComponentType::Border,
+            ColorScheme::new(Color::Gray, Color::Black),
+        );
+        self.set_color(
+            ComponentType::Error,
+            ColorScheme::new(Color::LightRed, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Warning,
+            ColorScheme::new(Color::LightYellow, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Info,
+            ColorScheme::new(Color::LightGreen, Color::Black),
+        );
+        self.set_color(
+            ComponentType::Completion,
+            ColorScheme::new(Color::White, Color::DarkGray),
+        );
+        self.set_color(
+            ComponentType::CompletionSelected,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::WindowDivider,
+            ColorScheme::new(Color::Black, Color::DarkGray),
+        );
 
         // シンタックスハイライト
-        self.set_color(ComponentType::SyntaxKeyword,
-            ColorScheme::new(Color::LightBlue, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::SyntaxString,
-            ColorScheme::new(Color::LightGreen, Color::Black));
-        self.set_color(ComponentType::SyntaxComment,
-            ColorScheme::new(Color::DarkGray, Color::Black).with_modifier(Modifier::ITALIC));
-        self.set_color(ComponentType::SyntaxNumber,
-            ColorScheme::new(Color::LightMagenta, Color::Black));
-        self.set_color(ComponentType::SyntaxOperator,
-            ColorScheme::new(Color::LightRed, Color::Black));
+        self.set_color(
+            ComponentType::SyntaxKeyword,
+            ColorScheme::new(Color::LightBlue, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::SyntaxString,
+            ColorScheme::new(Color::LightGreen, Color::Black),
+        );
+        self.set_color(
+            ComponentType::SyntaxComment,
+            ColorScheme::new(Color::DarkGray, Color::Black).with_modifier(Modifier::ITALIC),
+        );
+        self.set_color(
+            ComponentType::SyntaxNumber,
+            ColorScheme::new(Color::LightMagenta, Color::Black),
+        );
+        self.set_color(
+            ComponentType::SyntaxOperator,
+            ColorScheme::new(Color::LightRed, Color::Black),
+        );
     }
 
     fn set_high_contrast_colors(&mut self) {
         // ハイコントラストテーマのカラー設定
-        self.set_color(ComponentType::TextArea,
-            ColorScheme::new(Color::White, Color::Black));
-        self.set_color(ComponentType::LineNumber,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::LineNumberActive,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Cursor,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Selection,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Minibuffer,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::StatusLine,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Border,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Error,
-            ColorScheme::new(Color::White, Color::Red).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Warning,
-            ColorScheme::new(Color::Black, Color::Yellow).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Info,
-            ColorScheme::new(Color::Black, Color::Green).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::Completion,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::CompletionSelected,
-            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::WindowDivider,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
+        self.set_color(
+            ComponentType::TextArea,
+            ColorScheme::new(Color::White, Color::Black),
+        );
+        self.set_color(
+            ComponentType::LineNumber,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::LineNumberActive,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Cursor,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Selection,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Minibuffer,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::StatusLine,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Border,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Error,
+            ColorScheme::new(Color::White, Color::Red).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Warning,
+            ColorScheme::new(Color::Black, Color::Yellow).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Info,
+            ColorScheme::new(Color::Black, Color::Green).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::Completion,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::CompletionSelected,
+            ColorScheme::new(Color::Black, Color::White).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::WindowDivider,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
 
         // シンタックスハイライト - ハイコントラストでは色分けを最小限に
-        self.set_color(ComponentType::SyntaxKeyword,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
-        self.set_color(ComponentType::SyntaxString,
-            ColorScheme::new(Color::White, Color::Black));
-        self.set_color(ComponentType::SyntaxComment,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::ITALIC));
-        self.set_color(ComponentType::SyntaxNumber,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::UNDERLINED));
-        self.set_color(ComponentType::SyntaxOperator,
-            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD));
+        self.set_color(
+            ComponentType::SyntaxKeyword,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
+        self.set_color(
+            ComponentType::SyntaxString,
+            ColorScheme::new(Color::White, Color::Black),
+        );
+        self.set_color(
+            ComponentType::SyntaxComment,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::ITALIC),
+        );
+        self.set_color(
+            ComponentType::SyntaxNumber,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::UNDERLINED),
+        );
+        self.set_color(
+            ComponentType::SyntaxOperator,
+            ColorScheme::new(Color::White, Color::Black).with_modifier(Modifier::BOLD),
+        );
     }
 }
 
@@ -377,12 +491,14 @@ impl ThemeManager {
 
         // ハイコントラストテーマ
         let high_contrast_theme = Theme::new("high_contrast".to_string(), ThemeType::HighContrast);
-        self.themes.insert("high_contrast".to_string(), high_contrast_theme);
+        self.themes
+            .insert("high_contrast".to_string(), high_contrast_theme);
     }
 
     /// 現在のテーマを取得
     pub fn current_theme(&self) -> &Theme {
-        self.themes.get(&self.current_theme)
+        self.themes
+            .get(&self.current_theme)
             .unwrap_or_else(|| self.themes.get("dark").unwrap())
     }
 
@@ -451,8 +567,7 @@ mod tests {
 
     #[test]
     fn test_color_scheme() {
-        let scheme = ColorScheme::new(Color::Red, Color::Blue)
-            .with_modifier(Modifier::BOLD);
+        let scheme = ColorScheme::new(Color::Red, Color::Blue).with_modifier(Modifier::BOLD);
 
         assert_eq!(scheme.foreground, Color::Red);
         assert_eq!(scheme.background, Color::Blue);
@@ -499,7 +614,10 @@ mod tests {
     #[test]
     fn test_custom_theme() {
         let mut manager = ThemeManager::new();
-        let custom_theme = Theme::new("custom".to_string(), ThemeType::Custom("my_theme".to_string()));
+        let custom_theme = Theme::new(
+            "custom".to_string(),
+            ThemeType::Custom("my_theme".to_string()),
+        );
 
         manager.add_custom_theme(custom_theme);
         assert!(manager.available_themes().contains(&&"custom".to_string()));

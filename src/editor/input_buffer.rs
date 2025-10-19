@@ -41,7 +41,9 @@ impl InputBuffer {
     pub fn add_char(&mut self, ch: char) -> Result<(), InputBufferError> {
         // メモリ保護：バッファサイズ制限チェック
         if self.pending_chars.len() + ch.len_utf8() > self.max_buffer_size {
-            return Err(InputBufferError::BufferOverflow { max_size: self.max_buffer_size });
+            return Err(InputBufferError::BufferOverflow {
+                max_size: self.max_buffer_size,
+            });
         }
 
         self.pending_chars.push(ch);
@@ -52,7 +54,9 @@ impl InputBuffer {
     /// 文字列を入力バッファに追加
     pub fn add_str(&mut self, s: &str) -> Result<(), InputBufferError> {
         if self.pending_chars.len() + s.len() > self.max_buffer_size {
-            return Err(InputBufferError::BufferOverflow { max_size: self.max_buffer_size });
+            return Err(InputBufferError::BufferOverflow {
+                max_size: self.max_buffer_size,
+            });
         }
 
         self.pending_chars.push_str(s);
@@ -62,8 +66,7 @@ impl InputBuffer {
 
     /// バッファの内容をフラッシュすべきかチェック
     pub fn should_flush(&self) -> bool {
-        !self.pending_chars.is_empty() &&
-        self.last_input_time.elapsed() > self.buffer_timeout
+        !self.pending_chars.is_empty() && self.last_input_time.elapsed() > self.buffer_timeout
     }
 
     /// バッファの内容を強制的にフラッシュすべきかチェック
@@ -199,7 +202,7 @@ mod tests {
 
         assert!(result.is_err());
         match result {
-            Err(InputBufferError::BufferOverflow { .. }) => {},
+            Err(InputBufferError::BufferOverflow { .. }) => {}
             _ => panic!("Expected BufferOverflow error"),
         }
     }

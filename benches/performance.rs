@@ -1,6 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BatchSize};
-use altre::buffer::{GapBuffer, TextEditor, EditOperations};
-use altre::performance::{PerformanceMonitor, Operation, PerformanceOptimizer, OptimizationConfig};
+use altre::buffer::{EditOperations, GapBuffer, TextEditor};
+use altre::performance::{Operation, OptimizationConfig, PerformanceMonitor, PerformanceOptimizer};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use std::time::Duration;
 
 /// ギャップバッファのパフォーマンステスト
@@ -66,7 +66,9 @@ fn bench_text_editor_operations(c: &mut Criterion) {
             || TextEditor::new(),
             |mut editor| {
                 for i in 0..100 {
-                    editor.insert_char(black_box(((i % 26) as u8 + b'a') as char)).unwrap();
+                    editor
+                        .insert_char(black_box(((i % 26) as u8 + b'a') as char))
+                        .unwrap();
                     if i % 10 == 0 {
                         editor.insert_char('\n').unwrap();
                     }

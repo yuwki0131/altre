@@ -1,7 +1,7 @@
 //! インクリメンタル検索の状態管理
 
-use crate::buffer::CursorPosition;
 use super::types::{SearchDirection, SearchMatch};
+use crate::buffer::CursorPosition;
 
 /// インクリメンタル検索の内部状態
 #[derive(Debug, Clone)]

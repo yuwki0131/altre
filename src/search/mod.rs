@@ -13,9 +13,9 @@ use matcher::{LiteralMatcher, StringMatcher};
 use state::SearchState;
 use types::SearchMatch;
 
-pub use types::{HighlightKind, SearchDirection, SearchHighlight, SearchStatus, SearchUiState};
-pub use replace::{QueryReplaceController, ReplaceProgress, ReplaceStart, ReplaceSummary};
 pub use regex::RegexError;
+pub use replace::{QueryReplaceController, ReplaceProgress, ReplaceStart, ReplaceSummary};
+pub use types::{HighlightKind, SearchDirection, SearchHighlight, SearchStatus, SearchUiState};
 
 /// 検索制御インターフェース
 #[derive(Debug)]
@@ -295,9 +295,9 @@ impl<M: StringMatcher> SearchController<M> {
 
     fn recompute_matches(&mut self, text: &str) {
         self.text_cache = text.to_string();
-        self.state.matches = self
-            .matcher
-            .find_matches(text, &self.state.pattern, self.case_sensitive);
+        self.state.matches =
+            self.matcher
+                .find_matches(text, &self.state.pattern, self.case_sensitive);
         self.state.current_index = None;
         self.state.failed = self.state.matches.is_empty();
         self.state.wrapped = false;
@@ -328,12 +328,7 @@ impl<M: StringMatcher> SearchController<M> {
 
     fn highlight_span(&self, m: &SearchMatch) -> usize {
         let mut count = 0usize;
-        for ch in self
-            .text_cache
-            .chars()
-            .skip(m.start)
-            .take(m.len())
-        {
+        for ch in self.text_cache.chars().skip(m.start).take(m.len()) {
             if ch == '\n' {
                 break;
             }

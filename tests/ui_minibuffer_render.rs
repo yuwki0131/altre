@@ -1,12 +1,12 @@
-use altre::ui::AdvancedRenderer;
-use altre::ui::window_manager::WindowManager;
 use altre::buffer::TextEditor;
-use altre::minibuffer::{MinibufferSystem, MinibufferAction, SystemEvent};
+use altre::minibuffer::{MinibufferAction, MinibufferSystem, SystemEvent};
 use altre::ui::layout::LayoutManager;
 use altre::ui::renderer::StatusLineInfo;
+use altre::ui::window_manager::WindowManager;
+use altre::ui::AdvancedRenderer;
 use ratatui::backend::TestBackend;
-use ratatui::Terminal;
 use ratatui::layout::Rect;
+use ratatui::Terminal;
 
 #[test]
 fn query_replace_prompt_is_rendered() {
@@ -36,7 +36,10 @@ fn query_replace_prompt_is_rendered() {
 
     let layout = LayoutManager::new();
     let area_map = layout.calculate_areas(Rect::new(0, 0, 80, 20), minibuffer.is_active(), true);
-    let minibuffer_rect = area_map.get(&altre::ui::layout::AreaType::Minibuffer).copied().unwrap();
+    let minibuffer_rect = area_map
+        .get(&altre::ui::layout::AreaType::Minibuffer)
+        .copied()
+        .unwrap();
 
     renderer
         .render(
@@ -59,7 +62,8 @@ fn query_replace_prompt_is_rendered() {
     // ミニバッファはレイアウトが返した位置に描画される想定
     let width = minibuffer_rect.width as usize;
     let mut minibuffer_line = String::new();
-    let start = (minibuffer_rect.y as usize) * (buffer.area().width as usize) + minibuffer_rect.x as usize;
+    let start =
+        (minibuffer_rect.y as usize) * (buffer.area().width as usize) + minibuffer_rect.x as usize;
     for cell in &buffer.content()[start..start + width] {
         minibuffer_line.push_str(cell.symbol());
     }

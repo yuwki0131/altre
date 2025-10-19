@@ -2,8 +2,10 @@ use crate::core::{Backend, RenderMetadata, RenderView};
 use crate::error::{AltreError, Result, UiError};
 use crate::ui::{AdvancedRenderer, StatusLineInfo};
 use crossterm::event::{self, Event};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::execute;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io::stdout;
 use std::time::Duration;
@@ -24,23 +26,33 @@ impl TuiApplication {
         enter_terminal()?;
 
         let backend = CrosstermBackend::new(stdout());
-        let mut terminal = Terminal::new(backend).map_err(|err| terminal_error("terminal init", err))?;
-        terminal.hide_cursor().map_err(|err| terminal_error("hide cursor", err))?;
+        let mut terminal =
+            Terminal::new(backend).map_err(|err| terminal_error("terminal init", err))?;
+        terminal
+            .hide_cursor()
+            .map_err(|err| terminal_error("hide cursor", err))?;
 
         let loop_result = self.event_loop(&mut terminal);
-        let show_cursor_result = terminal.show_cursor().map_err(|err| terminal_error("show cursor", err));
+        let show_cursor_result = terminal
+            .show_cursor()
+            .map_err(|err| terminal_error("show cursor", err));
         drop(terminal);
         let cleanup_result = leave_terminal();
 
         loop_result.and(show_cursor_result).and(cleanup_result)
     }
 
-    fn event_loop<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
+    fn event_loop<B: ratatui::backend::Backend>(
+        &mut self,
+        terminal: &mut Terminal<B>,
+    ) -> Result<()> {
         while self.backend.is_running() {
             self.backend.process_minibuffer_timer();
             self.render(terminal)?;
 
-            if event::poll(Duration::from_millis(16)).map_err(|err| terminal_error("event poll", err))? {
+            if event::poll(Duration::from_millis(16))
+                .map_err(|err| terminal_error("event poll", err))?
+            {
                 match event::read().map_err(|err| terminal_error("event read", err))? {
                     Event::Key(key_event) => self.backend.handle_key_event(key_event)?,
                     Event::Resize(_, _) => {}
@@ -78,13 +90,15 @@ impl TuiApplication {
 fn enter_terminal() -> Result<()> {
     enable_raw_mode().map_err(|err| terminal_error("enable raw mode", err))?;
     let mut out = stdout();
-    execute!(out, EnterAlternateScreen).map_err(|err| terminal_error("enter alternate screen", err))?;
+    execute!(out, EnterAlternateScreen)
+        .map_err(|err| terminal_error("enter alternate screen", err))?;
     Ok(())
 }
 
 fn leave_terminal() -> Result<()> {
     let mut out = stdout();
-    execute!(out, LeaveAlternateScreen).map_err(|err| terminal_error("leave alternate screen", err))?;
+    execute!(out, LeaveAlternateScreen)
+        .map_err(|err| terminal_error("leave alternate screen", err))?;
     disable_raw_mode().map_err(|err| terminal_error("disable raw mode", err))?;
     Ok(())
 }

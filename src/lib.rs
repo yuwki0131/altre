@@ -6,10 +6,10 @@
 pub mod alisp;
 
 // コアモジュール
-pub mod error;
-pub mod logging;
 pub mod core;
+pub mod error;
 pub mod frontend;
+pub mod logging;
 
 // データ層
 pub mod buffer;
@@ -31,7 +31,7 @@ pub mod performance;
 
 // 公開API
 pub use core::Backend;
-#[cfg(feature = "gui")]
-pub use frontend::GuiApplication;
-pub use frontend::TuiApplication;
 pub use error::{AltreError, Result};
+pub use frontend::TuiApplication;
+#[cfg(feature = "gui")]
+pub use frontend::{GuiApplication, GuiRunOptions};

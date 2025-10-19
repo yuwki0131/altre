@@ -1,9 +1,9 @@
 // global_cancel_tests.rs - C-g グローバルキャンセル機能のテスト
 
-use altre::input::keybinding::{ModernKeyMap, KeyProcessResult, Action, Key};
-use altre::search::{SearchController, SearchDirection};
 use altre::buffer::editor::TextEditor;
 use altre::editor::EditOperations;
+use altre::input::keybinding::{Action, Key, KeyProcessResult, ModernKeyMap};
+use altre::search::{SearchController, SearchDirection};
 
 #[test]
 fn test_ctrl_g_basic_keybinding() {
@@ -152,18 +152,30 @@ fn test_ctrl_g_always_available() {
 
     // 通常状態
     let result = keymap.process_key(Key::ctrl_g());
-    assert!(matches!(result, KeyProcessResult::Action(Action::KeyboardQuit)));
+    assert!(matches!(
+        result,
+        KeyProcessResult::Action(Action::KeyboardQuit)
+    ));
 
     // プレフィックス状態
     keymap.process_key(Key::ctrl_x());
     let result = keymap.process_key(Key::ctrl_g());
-    assert!(matches!(result, KeyProcessResult::Action(Action::KeyboardQuit)));
+    assert!(matches!(
+        result,
+        KeyProcessResult::Action(Action::KeyboardQuit)
+    ));
 
     // 複数回連続
     let result1 = keymap.process_key(Key::ctrl_g());
     let result2 = keymap.process_key(Key::ctrl_g());
-    assert!(matches!(result1, KeyProcessResult::Action(Action::KeyboardQuit)));
-    assert!(matches!(result2, KeyProcessResult::Action(Action::KeyboardQuit)));
+    assert!(matches!(
+        result1,
+        KeyProcessResult::Action(Action::KeyboardQuit)
+    ));
+    assert!(matches!(
+        result2,
+        KeyProcessResult::Action(Action::KeyboardQuit)
+    ));
 }
 
 #[test]

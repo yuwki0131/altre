@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::buffer::{ChangeEvent, ChangeListener, CursorPosition, TextEditor};
 use crate::buffer::editor::EditOperations;
+use crate::buffer::{ChangeEvent, ChangeListener, CursorPosition, TextEditor};
 use crate::error::Result;
 
 /// コマンド種別（履歴管理用）
@@ -90,7 +90,15 @@ impl HistoryEntry {
             (HistoryCommandKind::InsertChar, HistoryCommandKind::InsertChar) => {
                 let prev_op = self.operations.first_mut().expect("insert op");
                 let other_op = other.operations.first().expect("insert op");
-                if let (AtomicEdit::Insert { text: prev_text, .. }, AtomicEdit::Insert { text: other_text, .. }) = (prev_op, other_op) {
+                if let (
+                    AtomicEdit::Insert {
+                        text: prev_text, ..
+                    },
+                    AtomicEdit::Insert {
+                        text: other_text, ..
+                    },
+                ) = (prev_op, other_op)
+                {
                     prev_text.push_str(other_text);
                 }
                 self.cursor_after = other.cursor_after;
@@ -98,7 +106,17 @@ impl HistoryEntry {
             (HistoryCommandKind::DeleteBackward, HistoryCommandKind::DeleteBackward) => {
                 let prev_op = self.operations.first_mut().expect("delete op");
                 let other_op = other.operations.first().expect("delete op");
-                if let (AtomicEdit::Delete { position: prev_pos, text: prev_text }, AtomicEdit::Delete { position: other_pos, text: other_text }) = (prev_op, other_op) {
+                if let (
+                    AtomicEdit::Delete {
+                        position: prev_pos,
+                        text: prev_text,
+                    },
+                    AtomicEdit::Delete {
+                        position: other_pos,
+                        text: other_text,
+                    },
+                ) = (prev_op, other_op)
+                {
                     *prev_pos = *other_pos;
                     let mut combined = other_text.clone();
                     combined.push_str(prev_text);

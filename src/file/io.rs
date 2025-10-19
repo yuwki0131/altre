@@ -34,14 +34,14 @@ impl FileOperations for DefaultFileOperations {
         // ファイル存在チェック
         if !path.exists() {
             return Err(AltreError::File(FileError::NotFound {
-                path: path.display().to_string()
+                path: path.display().to_string(),
             }));
         }
 
         // ディレクトリではないことを確認
         if path.is_dir() {
             return Err(AltreError::File(FileError::InvalidPath {
-                path: path.display().to_string()
+                path: path.display().to_string(),
             }));
         }
 
@@ -51,8 +51,7 @@ impl FileOperations for DefaultFileOperations {
         // UTF-8検証（read_to_stringで既に行われるが明示的に）
         if !content.is_empty() && content.as_bytes().iter().any(|&b| b > 127) {
             // 非ASCII文字が含まれている場合、UTF-8として有効かチェック
-            std::str::from_utf8(content.as_bytes())
-                .map_err(AltreError::from)?;
+            std::str::from_utf8(content.as_bytes()).map_err(AltreError::from)?;
         }
 
         Ok(content)
@@ -144,7 +143,7 @@ pub fn create_backup<P: AsRef<Path>>(path: P) -> Result<PathBuf> {
 
     if !DefaultFileOperations::file_exists(path) {
         return Err(AltreError::File(FileError::NotFound {
-            path: path.display().to_string()
+            path: path.display().to_string(),
         }));
     }
 
@@ -166,14 +165,14 @@ fn generate_backup_path(path: &Path) -> PathBuf {
         .as_secs();
 
     if let Some(extension) = path.extension() {
-        let new_extension = format!("{}.bak.{}",
-            extension.to_string_lossy(),
-            timestamp);
+        let new_extension = format!("{}.bak.{}", extension.to_string_lossy(), timestamp);
         backup_path.set_extension(new_extension);
     } else {
-        let new_name = format!("{}.bak.{}",
+        let new_name = format!(
+            "{}.bak.{}",
             path.file_name().unwrap_or_default().to_string_lossy(),
-            timestamp);
+            timestamp
+        );
         backup_path.set_file_name(new_name);
     }
 
@@ -193,7 +192,7 @@ pub fn detect_encoding<P: AsRef<Path>>(path: P) -> Result<String> {
     match std::str::from_utf8(&content) {
         Ok(_) => Ok("UTF-8".to_string()),
         Err(_) => Err(AltreError::Application(
-            "ファイルがUTF-8エンコーディングではありません".to_string()
+            "ファイルがUTF-8エンコーディングではありません".to_string(),
         )),
     }
 }
@@ -232,7 +231,12 @@ mod tests {
     #[test]
     fn test_create_parent_dirs() {
         let temp_dir = tempdir().unwrap();
-        let nested_path = temp_dir.path().join("a").join("b").join("c").join("file.txt");
+        let nested_path = temp_dir
+            .path()
+            .join("a")
+            .join("b")
+            .join("c")
+            .join("file.txt");
 
         assert!(DefaultFileOperations::create_parent_dirs(&nested_path).is_ok());
         assert!(nested_path.parent().unwrap().exists());

@@ -165,7 +165,11 @@ impl PerformanceOptimizer {
     }
 
     /// 長い行に対する最適化戦略を決定
-    pub fn determine_long_line_strategy(&mut self, line_length: usize, line_number: usize) -> LongLineStrategy {
+    pub fn determine_long_line_strategy(
+        &mut self,
+        line_length: usize,
+        line_number: usize,
+    ) -> LongLineStrategy {
         if !self.enabled {
             return LongLineStrategy::Normal;
         }
@@ -196,7 +200,11 @@ impl PerformanceOptimizer {
     }
 
     /// ギャップバッファサイズを最適化
-    pub fn optimize_gap_buffer_size(&self, current_content_size: usize, recent_growth: usize) -> usize {
+    pub fn optimize_gap_buffer_size(
+        &self,
+        current_content_size: usize,
+        recent_growth: usize,
+    ) -> usize {
         if !self.enabled {
             return self.config.gap_buffer_initial_size;
         }
@@ -238,7 +246,11 @@ impl PerformanceOptimizer {
     }
 
     /// 描画最適化の推奨設定を取得
-    pub fn get_render_optimizations(&self, _viewport_size: (usize, usize), content_size: usize) -> Vec<RenderOptimization> {
+    pub fn get_render_optimizations(
+        &self,
+        _viewport_size: (usize, usize),
+        content_size: usize,
+    ) -> Vec<RenderOptimization> {
         if !self.enabled {
             return Vec::new();
         }
@@ -437,12 +449,10 @@ mod tests {
 
     #[test]
     fn test_render_optimizations() {
-        let optimizer = PerformanceOptimizer::new(
-            OptimizationConfig {
-                render_optimization_level: RenderOptimizationLevel::Aggressive,
-                ..OptimizationConfig::new()
-            }
-        );
+        let optimizer = PerformanceOptimizer::new(OptimizationConfig {
+            render_optimization_level: RenderOptimizationLevel::Aggressive,
+            ..OptimizationConfig::new()
+        });
 
         let optimizations = optimizer.get_render_optimizations((80, 24), 200_000);
         assert!(optimizations.contains(&RenderOptimization::ViewportCulling));

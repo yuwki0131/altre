@@ -1,11 +1,16 @@
-use altre::search::QueryReplaceController;
 use altre::buffer::TextEditor;
+use altre::search::QueryReplaceController;
 
 #[test]
 fn query_replace_literal_flow() {
     let mut editor = TextEditor::from_str("foo bar foo");
     let mut controller = QueryReplaceController::new();
-    let start = controller.start_literal(editor.to_string().as_str(), "foo".to_string(), "baz".to_string(), true);
+    let start = controller.start_literal(
+        editor.to_string().as_str(),
+        "foo".to_string(),
+        "baz".to_string(),
+        true,
+    );
     assert_eq!(start.total_matches, 2);
 
     let progress = controller.accept_current(&mut editor).unwrap();
@@ -48,7 +53,12 @@ fn query_replace_regex_captures() {
 fn query_replace_cancel_restores_text() {
     let mut editor = TextEditor::from_str("abc def abc");
     let mut controller = QueryReplaceController::new();
-    controller.start_literal(editor.to_string().as_str(), "abc".to_string(), "X".to_string(), true);
+    controller.start_literal(
+        editor.to_string().as_str(),
+        "abc".to_string(),
+        "X".to_string(),
+        true,
+    );
     controller.accept_current(&mut editor).unwrap();
     assert_eq!(editor.to_string(), "X def abc");
 

@@ -44,16 +44,17 @@ impl ProfileResult {
 
     /// 総実行時間を計算（子関数を含む）
     pub fn total_duration(&self) -> Duration {
-        self.duration + self.children.iter()
-            .map(|child| child.total_duration())
-            .sum::<Duration>()
+        self.duration
+            + self
+                .children
+                .iter()
+                .map(|child| child.total_duration())
+                .sum::<Duration>()
     }
 
     /// 自身の実行時間を計算（子関数を除く）
     pub fn self_duration(&self) -> Duration {
-        let children_duration: Duration = self.children.iter()
-            .map(|child| child.duration)
-            .sum();
+        let children_duration: Duration = self.children.iter().map(|child| child.duration).sum();
         self.duration.saturating_sub(children_duration)
     }
 }
@@ -67,13 +68,16 @@ impl fmt::Display for ProfileResult {
 impl ProfileResult {
     fn format_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
         let indent_str = "  ".repeat(indent);
-        writeln!(f, "{}{}({}): {:.3}ms (self: {:.3}ms) [{}回]",
-                 indent_str,
-                 self.function_name,
-                 self.call_count,
-                 self.total_duration().as_secs_f64() * 1000.0,
-                 self.self_duration().as_secs_f64() * 1000.0,
-                 self.call_count)?;
+        writeln!(
+            f,
+            "{}{}({}): {:.3}ms (self: {:.3}ms) [{}回]",
+            indent_str,
+            self.function_name,
+            self.call_count,
+            self.total_duration().as_secs_f64() * 1000.0,
+            self.self_duration().as_secs_f64() * 1000.0,
+            self.call_count
+        )?;
 
         for child in &self.children {
             child.format_with_indent(f, indent + 1)?;
@@ -160,7 +164,8 @@ impl ProfilerManager {
                 parent.add_child(profile);
             } else {
                 // ルートレベルの関数
-                self.state.completed_profiles
+                self.state
+                    .completed_profiles
                     .entry(function_name.to_string())
                     .or_insert_with(Vec::new)
                     .push(profile);
@@ -187,19 +192,15 @@ impl ProfilerManager {
         let mut function_stats: HashMap<String, (Duration, u32)> = HashMap::new();
 
         for (function_name, results) in &self.state.completed_profiles {
-            let total_duration: Duration = results.iter()
-                .map(|r| r.total_duration())
-                .sum();
-            let total_calls: u32 = results.iter()
-                .map(|r| r.call_count)
-                .sum();
+            let total_duration: Duration = results.iter().map(|r| r.total_duration()).sum();
+            let total_calls: u32 = results.iter().map(|r| r.call_count).sum();
 
             function_stats.insert(function_name.clone(), (total_duration, total_calls));
         }
 
         // 実行時間順にソート
         let mut sorted_functions: Vec<_> = function_stats.iter().collect();
-        sorted_functions.sort_by(|a, b| b.1.0.cmp(&a.1.0));
+        sorted_functions.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
 
         report.push_str("関数別実行時間（降順）:\n");
         for (function_name, (duration, calls)) in sorted_functions {
@@ -229,9 +230,7 @@ impl ProfilerManager {
         let mut hotspots = Vec::new();
 
         for (function_name, results) in &self.state.completed_profiles {
-            let total_duration: Duration = results.iter()
-                .map(|r| r.total_duration())
-                .sum();
+            let total_duration: Duration = results.iter().map(|r| r.total_duration()).sum();
 
             if total_duration.as_secs_f64() * 1000.0 > threshold_ms {
                 hotspots.push((function_name.clone(), total_duration));
@@ -321,7 +320,8 @@ impl ProfileAggregator {
 
     /// プロファイル結果を追加
     pub fn add_profile(&mut self, result: &ProfileResult) {
-        let entry = self.aggregated_results
+        let entry = self
+            .aggregated_results
             .entry(result.function_name.clone())
             .or_insert_with(|| AggregatedProfile::new(result.function_name.clone()));
 
@@ -392,22 +392,24 @@ impl AggregatedProfile {
             self.max_duration = duration;
         }
 
-        self.avg_duration = Duration::from_nanos(
-            self.total_duration.as_nanos() as u64 / self.sample_count as u64
-        );
+        self.avg_duration =
+            Duration::from_nanos(self.total_duration.as_nanos() as u64 / self.sample_count as u64);
     }
 }
 
 impl fmt::Display for AggregatedProfile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: total {:.3}ms, avg {:.3}ms, min {:.3}ms, max {:.3}ms ({} samples, {} total calls)",
-               self.function_name,
-               self.total_duration.as_secs_f64() * 1000.0,
-               self.avg_duration.as_secs_f64() * 1000.0,
-               self.min_duration.as_secs_f64() * 1000.0,
-               self.max_duration.as_secs_f64() * 1000.0,
-               self.sample_count,
-               self.total_calls)
+        write!(
+            f,
+            "{}: total {:.3}ms, avg {:.3}ms, min {:.3}ms, max {:.3}ms ({} samples, {} total calls)",
+            self.function_name,
+            self.total_duration.as_secs_f64() * 1000.0,
+            self.avg_duration.as_secs_f64() * 1000.0,
+            self.min_duration.as_secs_f64() * 1000.0,
+            self.max_duration.as_secs_f64() * 1000.0,
+            self.sample_count,
+            self.total_calls
+        )
     }
 }
 

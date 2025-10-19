@@ -4,5 +4,5 @@ pub mod tui;
 pub mod gui;
 
 #[cfg(feature = "gui")]
-pub use gui::GuiApplication;
+pub use gui::{GuiApplication, GuiRunOptions};
 pub use tui::TuiApplication;

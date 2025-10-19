@@ -64,7 +64,13 @@ impl Interpreter {
         if let Ok(dir) = std::env::current_dir() {
             load_paths.push(dir);
         }
-        Self { runtime, global_env, specials, _primitives: primitives, load_paths }
+        Self {
+            runtime,
+            global_env,
+            specials,
+            _primitives: primitives,
+            load_paths,
+        }
     }
 
     pub fn set_load_root<P: Into<PathBuf>>(&mut self, root: P) {
@@ -92,7 +98,10 @@ impl Interpreter {
             )
         })?;
 
-        let parent = resolved.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        let parent = resolved
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
         self.load_paths.push(parent);
         let _ = self.eval_source(&source)?;
         self.load_paths.pop();
@@ -112,7 +121,8 @@ impl Interpreter {
     }
 
     fn eval_source(&mut self, source: &str) -> Result<EvalOutcome, EvalError> {
-        let forms = reader::parse(source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
+        let forms =
+            reader::parse(source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
         self.eval_forms(forms, self.global_env)
     }
 
@@ -124,7 +134,11 @@ impl Interpreter {
         let display = value_to_string(&self.runtime, &last_value);
         let messages = self.runtime.drain_messages();
         collect(&mut self.runtime, &[last_value.clone()], &[self.global_env]);
-        Ok(EvalOutcome { value: last_value, display, messages })
+        Ok(EvalOutcome {
+            value: last_value,
+            display,
+            messages,
+        })
     }
 
     fn eval_expr(&mut self, expr: &Expr, env: EnvHandle) -> Result<Value, EvalError> {
@@ -133,8 +147,16 @@ impl Interpreter {
             Expr::Float(f) => Ok(Value::Float(*f)),
             Expr::Boolean(b) => Ok(Value::Boolean(*b)),
             Expr::String(s) => Ok(self.runtime.alloc_string_value(s.clone())),
-            Expr::Symbol(sym) => lookup_env(&self.runtime, env, *sym)
-                .ok_or_else(|| EvalError::new(EvalErrorKind::NameNotFound(*sym), None, format!("未定義のシンボル: {}", self.runtime.resolve(*sym).unwrap_or("<unknown>")))),
+            Expr::Symbol(sym) => lookup_env(&self.runtime, env, *sym).ok_or_else(|| {
+                EvalError::new(
+                    EvalErrorKind::NameNotFound(*sym),
+                    None,
+                    format!(
+                        "未定義のシンボル: {}",
+                        self.runtime.resolve(*sym).unwrap_or("<unknown>")
+                    ),
+                )
+            }),
             Expr::List(list) => self.eval_list(list, env),
         }
     }
@@ -178,12 +200,20 @@ impl Interpreter {
 
     fn eval_define(&mut self, tail: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if tail.is_empty() {
-            return Err(EvalError::new(EvalErrorKind::InvalidDefineTarget, None, "define の書式が不正です"));
+            return Err(EvalError::new(
+                EvalErrorKind::InvalidDefineTarget,
+                None,
+                "define の書式が不正です",
+            ));
         }
         match &tail[0] {
             Expr::Symbol(name) => {
                 if tail.len() != 2 {
-                    return Err(EvalError::new(EvalErrorKind::InvalidDefineTarget, None, "define は1つの式を受け取ります"));
+                    return Err(EvalError::new(
+                        EvalErrorKind::InvalidDefineTarget,
+                        None,
+                        "define は1つの式を受け取ります",
+                    ));
                 }
                 let value = self.eval_expr(&tail[1], env)?;
                 define_symbol(&mut self.runtime, env, *name, value);
@@ -192,29 +222,52 @@ impl Interpreter {
             Expr::List(items) if !items.is_empty() => {
                 let fn_name = match &items[0] {
                     Expr::Symbol(sym) => *sym,
-                    _ => return Err(EvalError::new(EvalErrorKind::InvalidDefineTarget, None, "関数名が不正です")),
+                    _ => {
+                        return Err(EvalError::new(
+                            EvalErrorKind::InvalidDefineTarget,
+                            None,
+                            "関数名が不正です",
+                        ))
+                    }
                 };
                 let mut params = Vec::new();
                 for param in &items[1..] {
                     match param {
                         Expr::Symbol(sym) => params.push(*sym),
                         _ => {
-                            return Err(EvalError::new(EvalErrorKind::InvalidDefineTarget, None, "引数名はシンボルである必要があります"));
+                            return Err(EvalError::new(
+                                EvalErrorKind::InvalidDefineTarget,
+                                None,
+                                "引数名はシンボルである必要があります",
+                            ));
                         }
                     }
                 }
                 let body: Vec<Expr> = tail[1..].to_vec();
                 let closure = make_closure(&mut self.runtime, params, body, env);
-                define_symbol(&mut self.runtime, env, fn_name, Value::Function(Function::Lambda(closure)));
+                define_symbol(
+                    &mut self.runtime,
+                    env,
+                    fn_name,
+                    Value::Function(Function::Lambda(closure)),
+                );
                 Ok(Value::Unit)
             }
-            _ => Err(EvalError::new(EvalErrorKind::InvalidDefineTarget, None, "define の左辺が不正です")),
+            _ => Err(EvalError::new(
+                EvalErrorKind::InvalidDefineTarget,
+                None,
+                "define の左辺が不正です",
+            )),
         }
     }
 
     fn eval_lambda(&mut self, tail: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if tail.len() < 2 {
-            return Err(EvalError::new(EvalErrorKind::Runtime("lambda の書式が不正です".into()), None, "lambda の書式が不正です"));
+            return Err(EvalError::new(
+                EvalErrorKind::Runtime("lambda の書式が不正です".into()),
+                None,
+                "lambda の書式が不正です",
+            ));
         }
         let params_expr = &tail[0];
         let body = tail[1..].to_vec();
@@ -224,12 +277,20 @@ impl Interpreter {
                 match item {
                     Expr::Symbol(sym) => params.push(*sym),
                     _ => {
-                        return Err(EvalError::new(EvalErrorKind::Runtime("引数名はシンボルである必要があります".into()), None, "引数名はシンボルである必要があります"));
+                        return Err(EvalError::new(
+                            EvalErrorKind::Runtime("引数名はシンボルである必要があります".into()),
+                            None,
+                            "引数名はシンボルである必要があります",
+                        ));
                     }
                 }
             }
         } else {
-            return Err(EvalError::new(EvalErrorKind::Runtime("lambda の引数がリストではありません".into()), None, "lambda の引数がリストではありません"));
+            return Err(EvalError::new(
+                EvalErrorKind::Runtime("lambda の引数がリストではありません".into()),
+                None,
+                "lambda の引数がリストではありません",
+            ));
         }
         let closure = make_closure(&mut self.runtime, params, body, env);
         Ok(Value::Function(Function::Lambda(closure)))
@@ -237,7 +298,11 @@ impl Interpreter {
 
     fn eval_let(&mut self, tail: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if tail.is_empty() {
-            return Err(EvalError::new(EvalErrorKind::InvalidLetBinding, None, "let の書式が不正です"));
+            return Err(EvalError::new(
+                EvalErrorKind::InvalidLetBinding,
+                None,
+                "let の書式が不正です",
+            ));
         }
         let bindings_expr = &tail[0];
         let body_exprs = &tail[1..];
@@ -249,19 +314,31 @@ impl Interpreter {
                         let name = match &pair[0] {
                             Expr::Symbol(sym) => *sym,
                             _ => {
-                                return Err(EvalError::new(EvalErrorKind::InvalidLetBinding, None, "let の変数名が不正です"));
+                                return Err(EvalError::new(
+                                    EvalErrorKind::InvalidLetBinding,
+                                    None,
+                                    "let の変数名が不正です",
+                                ));
                             }
                         };
                         let value = self.eval_expr(&pair[1], env)?;
                         bindings.push((name, value));
                     }
                     _ => {
-                        return Err(EvalError::new(EvalErrorKind::InvalidLetBinding, None, "let の束縛形式が不正です"));
+                        return Err(EvalError::new(
+                            EvalErrorKind::InvalidLetBinding,
+                            None,
+                            "let の束縛形式が不正です",
+                        ));
                     }
                 }
             }
         } else {
-            return Err(EvalError::new(EvalErrorKind::InvalidLetBinding, None, "let の束縛部はリストである必要があります"));
+            return Err(EvalError::new(
+                EvalErrorKind::InvalidLetBinding,
+                None,
+                "let の束縛部はリストである必要があります",
+            ));
         }
         let new_env = extend_env(&mut self.runtime, env, bindings);
         self.eval_begin(body_exprs, new_env)
@@ -269,7 +346,11 @@ impl Interpreter {
 
     fn eval_if(&mut self, tail: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if tail.len() != 3 {
-            return Err(EvalError::new(EvalErrorKind::Runtime("if の書式が不正です".into()), None, "if の書式が不正です"));
+            return Err(EvalError::new(
+                EvalErrorKind::Runtime("if の書式が不正です".into()),
+                None,
+                "if の書式が不正です",
+            ));
         }
         let cond = self.eval_expr(&tail[0], env)?;
         if cond.is_truthy() {
@@ -289,11 +370,21 @@ impl Interpreter {
 
     fn eval_set(&mut self, tail: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if tail.len() != 2 {
-            return Err(EvalError::new(EvalErrorKind::Runtime("set! の書式が不正です".into()), None, "set! の書式が不正です"));
+            return Err(EvalError::new(
+                EvalErrorKind::Runtime("set! の書式が不正です".into()),
+                None,
+                "set! の書式が不正です",
+            ));
         }
         let symbol = match &tail[0] {
             Expr::Symbol(sym) => *sym,
-            _ => return Err(EvalError::new(EvalErrorKind::Runtime("set! の対象はシンボルである必要があります".into()), None, "set! の対象はシンボルである必要があります")),
+            _ => {
+                return Err(EvalError::new(
+                    EvalErrorKind::Runtime("set! の対象はシンボルである必要があります".into()),
+                    None,
+                    "set! の対象はシンボルである必要があります",
+                ))
+            }
         };
         let value = self.eval_expr(&tail[1], env)?;
         set_symbol(&mut self.runtime, env, symbol, value)?;
@@ -324,7 +415,10 @@ impl Interpreter {
     fn eval_load(&mut self, exprs: &[Expr], env: EnvHandle) -> Result<Value, EvalError> {
         if exprs.len() != 1 {
             return Err(EvalError::new(
-                EvalErrorKind::ArityMismatch { expected: 1, found: exprs.len() },
+                EvalErrorKind::ArityMismatch {
+                    expected: 1,
+                    found: exprs.len(),
+                },
                 None,
                 "load は1つの引数が必要です",
             ));
@@ -336,8 +430,7 @@ impl Interpreter {
         let resolved = if candidate.is_absolute() {
             candidate
         } else {
-            self
-                .load_paths
+            self.load_paths
                 .last()
                 .cloned()
                 .unwrap_or_else(|| PathBuf::from("."))
@@ -352,9 +445,13 @@ impl Interpreter {
             )
         })?;
 
-        let parent = resolved.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        let parent = resolved
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
         self.load_paths.push(parent);
-        let forms = reader::parse(&source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
+        let forms =
+            reader::parse(&source, &mut self.runtime.interner).map_err(EvalError::from_reader)?;
         let _ = self.eval_forms(forms, self.global_env)?;
         self.load_paths.pop();
         Ok(Value::Unit)
@@ -364,7 +461,10 @@ impl Interpreter {
         match value {
             Value::String(handle) => Ok(self.runtime.heap.string_ref(*handle).to_string()),
             _ => Err(EvalError::new(
-                EvalErrorKind::TypeMismatch { expected: "string", found: value.type_name() },
+                EvalErrorKind::TypeMismatch {
+                    expected: "string",
+                    found: value.type_name(),
+                },
                 None,
                 "文字列が必要です",
             )),
@@ -385,7 +485,10 @@ impl Interpreter {
                 self.apply_closure(closure, &args)
             }
             other => Err(EvalError::new(
-                EvalErrorKind::TypeMismatch { expected: "function", found: other.type_name() },
+                EvalErrorKind::TypeMismatch {
+                    expected: "function",
+                    found: other.type_name(),
+                },
                 None,
                 "関数ではない値を呼び出しました",
             )),
@@ -395,12 +498,20 @@ impl Interpreter {
     fn apply_closure(&mut self, closure: Closure, args: &[Value]) -> Result<Value, EvalError> {
         if closure.params.len() != args.len() {
             return Err(EvalError::new(
-                EvalErrorKind::ArityMismatch { expected: closure.params.len(), found: args.len() },
+                EvalErrorKind::ArityMismatch {
+                    expected: closure.params.len(),
+                    found: args.len(),
+                },
                 None,
                 "引数の個数が一致しません",
             ));
         }
-        let bindings = closure.params.iter().cloned().zip(args.iter().cloned()).collect();
+        let bindings = closure
+            .params
+            .iter()
+            .cloned()
+            .zip(args.iter().cloned())
+            .collect();
         let new_env = extend_env(&mut self.runtime, closure.env, bindings);
         let mut last = Value::Unit;
         for expr in &closure.body {

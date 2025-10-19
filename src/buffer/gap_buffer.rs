@@ -180,7 +180,8 @@ impl GapBuffer {
 
     /// 下位互換のためのエイリアス
     pub fn get_range(&self, start: usize, end: usize) -> Result<String> {
-        self.substring(start, end).map_err(|e| AltreError::Buffer(e))
+        self.substring(start, end)
+            .map_err(|e| AltreError::Buffer(e))
     }
 
     /// 指定位置に文字を挿入
@@ -201,7 +202,11 @@ impl GapBuffer {
     }
 
     /// 指定位置のバイト列を挿入（内部用）
-    fn insert_bytes_internal(&mut self, char_pos: usize, bytes: &[u8]) -> std::result::Result<(), BufferError> {
+    fn insert_bytes_internal(
+        &mut self,
+        char_pos: usize,
+        bytes: &[u8],
+    ) -> std::result::Result<(), BufferError> {
         let byte_pos = self.char_to_byte_pos_internal(char_pos)?;
         self.move_gap_to_internal(byte_pos)?;
 
@@ -240,11 +245,17 @@ impl GapBuffer {
 
     /// 下位互換のためのエイリアス
     pub fn delete_char(&mut self, pos: usize) -> Result<()> {
-        self.delete(pos).map(|_| ()).map_err(|e| AltreError::Buffer(e))
+        self.delete(pos)
+            .map(|_| ())
+            .map_err(|e| AltreError::Buffer(e))
     }
 
     /// 指定範囲を削除
-    pub fn delete_range(&mut self, start: usize, end: usize) -> std::result::Result<String, BufferError> {
+    pub fn delete_range(
+        &mut self,
+        start: usize,
+        end: usize,
+    ) -> std::result::Result<String, BufferError> {
         if start > end {
             return Err(BufferError::InvalidCursorPosition { position: start });
         }
@@ -266,7 +277,12 @@ impl GapBuffer {
     }
 
     /// 指定範囲を置換
-    pub fn replace_range(&mut self, start: usize, end: usize, s: &str) -> std::result::Result<(), BufferError> {
+    pub fn replace_range(
+        &mut self,
+        start: usize,
+        end: usize,
+        s: &str,
+    ) -> std::result::Result<(), BufferError> {
         self.delete_range(start, end)?;
         self.insert_str(start, s)?;
         Ok(())
@@ -294,7 +310,10 @@ impl GapBuffer {
     }
 
     /// 文字位置をバイト位置に変換
-    fn char_to_byte_pos_internal(&mut self, char_pos: usize) -> std::result::Result<usize, BufferError> {
+    fn char_to_byte_pos_internal(
+        &mut self,
+        char_pos: usize,
+    ) -> std::result::Result<usize, BufferError> {
         if let Some(cache) = &self.char_cache {
             if cache.last_char_pos == char_pos {
                 return Ok(cache.last_byte_pos);
@@ -358,7 +377,10 @@ impl GapBuffer {
     }
 
     /// 指定位置の文字のバイト長を取得
-    fn char_byte_len_at_internal(&self, char_pos: usize) -> std::result::Result<usize, BufferError> {
+    fn char_byte_len_at_internal(
+        &self,
+        char_pos: usize,
+    ) -> std::result::Result<usize, BufferError> {
         let ch = self.char_at(char_pos)?;
         Ok(ch.len_utf8())
     }
@@ -428,10 +450,12 @@ impl GapBuffer {
         Ok(())
     }
 
-
     /// バイト位置を文字位置に変換
     #[allow(dead_code)]
-    fn byte_to_char_pos_internal(&mut self, byte_pos: usize) -> std::result::Result<usize, BufferError> {
+    fn byte_to_char_pos_internal(
+        &mut self,
+        byte_pos: usize,
+    ) -> std::result::Result<usize, BufferError> {
         if let Some(cache) = &self.char_cache {
             if cache.last_byte_pos == byte_pos {
                 return Ok(cache.last_char_pos);
@@ -514,7 +538,6 @@ impl GapBuffer {
 
         Ok(())
     }
-
 }
 
 impl Default for GapBuffer {
@@ -526,8 +549,8 @@ impl Default for GapBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::{prelude::*, prop_oneof};
     use proptest::test_runner::{Config as ProptestConfig, TestCaseError};
+    use proptest::{prelude::*, prop_oneof};
 
     fn char_to_byte_index(s: &str, char_pos: usize) -> usize {
         if char_pos >= s.chars().count() {
@@ -552,20 +575,26 @@ mod tests {
     }
 
     fn operation_strategy() -> impl Strategy<Value = Operation> {
-        let insert_char = (0u16..256u16, any::<char>())
-            .prop_map(|(pos, ch)| Operation::InsertChar { pos: pos as usize, ch });
-        let insert_str = (0u16..256u16, proptest::collection::vec(any::<char>(), 0..6))
-            .prop_map(|(pos, chars)| Operation::InsertStr {
+        let insert_char =
+            (0u16..256u16, any::<char>()).prop_map(|(pos, ch)| Operation::InsertChar {
+                pos: pos as usize,
+                ch,
+            });
+        let insert_str = (0u16..256u16, proptest::collection::vec(any::<char>(), 0..6)).prop_map(
+            |(pos, chars)| Operation::InsertStr {
                 pos: pos as usize,
                 text: chars.into_iter().collect(),
-            });
-        let delete = (0u16..256u16)
-            .prop_map(|pos| Operation::Delete { pos: pos as usize });
+            },
+        );
+        let delete = (0u16..256u16).prop_map(|pos| Operation::Delete { pos: pos as usize });
 
         prop_oneof![insert_char, insert_str, delete]
     }
 
-    fn prop_assert_gap_state(buffer: &GapBuffer, expected: &str) -> std::result::Result<(), TestCaseError> {
+    fn prop_assert_gap_state(
+        buffer: &GapBuffer,
+        expected: &str,
+    ) -> std::result::Result<(), TestCaseError> {
         prop_assert!(
             buffer.gap_start <= buffer.gap_end,
             "gap start {} exceeds gap end {}",

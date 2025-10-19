@@ -2,14 +2,14 @@
 //!
 //! Emacsスタイルのミニバッファ機能の統合システム
 
-use crate::error::Result;
-use crate::alisp::Interpreter;
-use crate::alisp::integration::eval_in_minibuffer;
-use crate::input::keybinding::Key;
 use super::{
-    ModernMinibuffer, MinibufferResult, MinibufferAction,
-    completion::{PathCompletion, CommandCompletion},
+    completion::{CommandCompletion, PathCompletion},
+    MinibufferAction, MinibufferResult, ModernMinibuffer,
 };
+use crate::alisp::integration::eval_in_minibuffer;
+use crate::alisp::Interpreter;
+use crate::error::Result;
+use crate::input::keybinding::Key;
 use std::time::{Duration, Instant};
 
 /// ミニバッファシステムのメイン実装
@@ -108,7 +108,11 @@ pub enum SystemResponse {
     /// 行番号移動
     GotoLine(usize),
     /// クエリ置換開始
-    QueryReplace { pattern: String, replacement: String, is_regex: bool },
+    QueryReplace {
+        pattern: String,
+        replacement: String,
+        is_regex: bool,
+    },
     /// システム終了要求
     Quit,
     /// 何もしない
@@ -134,8 +138,7 @@ impl MinibufferSystem {
 
     /// 設定付きでミニバッファシステムを作成
     pub fn with_config(config: MinibufferConfig) -> Self {
-        let path_completion = PathCompletion::new()
-            .with_hidden_files(config.show_hidden_files);
+        let path_completion = PathCompletion::new().with_hidden_files(config.show_hidden_files);
 
         Self {
             minibuffer: ModernMinibuffer::new(),
@@ -154,7 +157,9 @@ impl MinibufferSystem {
             super::MinibufferMode::FindFile => SystemState::FindFile,
             super::MinibufferMode::ExecuteCommand => SystemState::ExecuteCommand,
             super::MinibufferMode::EvalExpression => SystemState::ExecuteCommand,
-            super::MinibufferMode::SwitchBuffer | super::MinibufferMode::KillBuffer => SystemState::ExecuteCommand,
+            super::MinibufferMode::SwitchBuffer | super::MinibufferMode::KillBuffer => {
+                SystemState::ExecuteCommand
+            }
             super::MinibufferMode::ErrorDisplay { .. } => SystemState::ErrorDisplay,
             super::MinibufferMode::InfoDisplay { .. } => SystemState::InfoDisplay,
             super::MinibufferMode::GotoLine => SystemState::GotoLine,
@@ -227,9 +232,19 @@ impl MinibufferSystem {
             MinibufferResult::SwitchBuffer(name) => Ok(SystemResponse::SwitchBuffer(name)),
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
-            MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::SaveFileAs(path) => {
+                Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path)))
+            }
             MinibufferResult::GotoLine(line) => Ok(SystemResponse::GotoLine(line)),
-            MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
+            MinibufferResult::QueryReplace {
+                pattern,
+                replacement,
+                is_regex,
+            } => Ok(SystemResponse::QueryReplace {
+                pattern,
+                replacement,
+                is_regex,
+            }),
             MinibufferResult::Cancel => {
                 self.minibuffer.deactivate();
                 Ok(SystemResponse::Continue)
@@ -248,9 +263,19 @@ impl MinibufferSystem {
             MinibufferResult::SwitchBuffer(name) => Ok(SystemResponse::SwitchBuffer(name)),
             MinibufferResult::KillBuffer(name) => Ok(SystemResponse::KillBuffer(name)),
             MinibufferResult::EvalExpression(expr) => self.handle_eval_expression(expr),
-            MinibufferResult::SaveFileAs(path) => Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path))),
+            MinibufferResult::SaveFileAs(path) => {
+                Ok(SystemResponse::FileOperation(FileOperation::SaveAs(path)))
+            }
             MinibufferResult::GotoLine(line) => Ok(SystemResponse::GotoLine(line)),
-            MinibufferResult::QueryReplace { pattern, replacement, is_regex } => Ok(SystemResponse::QueryReplace { pattern, replacement, is_regex }),
+            MinibufferResult::QueryReplace {
+                pattern,
+                replacement,
+                is_regex,
+            } => Ok(SystemResponse::QueryReplace {
+                pattern,
+                replacement,
+                is_regex,
+            }),
             MinibufferResult::Cancel => Ok(SystemResponse::Continue),
             MinibufferResult::Invalid => Ok(SystemResponse::None),
         }
@@ -264,7 +289,9 @@ impl MinibufferSystem {
                 self.minibuffer.show_error("No file specified".to_string());
                 Ok(SystemResponse::Continue)
             } else {
-                Ok(SystemResponse::FileOperation(FileOperation::Open(filename.to_string())))
+                Ok(SystemResponse::FileOperation(FileOperation::Open(
+                    filename.to_string(),
+                )))
             }
         } else if command == "save-buffer" {
             Ok(SystemResponse::FileOperation(FileOperation::Save))
@@ -297,10 +324,13 @@ impl MinibufferSystem {
         } else if let Some(path) = command.strip_prefix("write-file ") {
             let trimmed = path.trim();
             if trimmed.is_empty() {
-                self.minibuffer.show_error("ファイル名を入力してください".to_string());
+                self.minibuffer
+                    .show_error("ファイル名を入力してください".to_string());
                 Ok(SystemResponse::Continue)
             } else {
-                Ok(SystemResponse::FileOperation(FileOperation::SaveAs(trimmed.to_string())))
+                Ok(SystemResponse::FileOperation(FileOperation::SaveAs(
+                    trimmed.to_string(),
+                )))
             }
         } else if command == "quit" || command == "save-buffers-kill-terminal" {
             Ok(SystemResponse::Quit)
@@ -314,7 +344,8 @@ impl MinibufferSystem {
         let expression = expr.trim();
 
         if expression.is_empty() {
-            self.minibuffer.show_error("式が入力されていません".to_string());
+            self.minibuffer
+                .show_error("式が入力されていません".to_string());
             return Ok(SystemResponse::Continue);
         }
 
@@ -365,13 +396,21 @@ impl MinibufferSystem {
     }
 
     /// バッファ切り替えを開始
-    pub fn start_switch_buffer(&mut self, buffers: &[String], initial: Option<&str>) -> Result<SystemResponse> {
+    pub fn start_switch_buffer(
+        &mut self,
+        buffers: &[String],
+        initial: Option<&str>,
+    ) -> Result<SystemResponse> {
         self.minibuffer.start_switch_buffer(buffers, initial);
         Ok(SystemResponse::Continue)
     }
 
     /// バッファ削除を開始
-    pub fn start_kill_buffer(&mut self, buffers: &[String], initial: Option<&str>) -> Result<SystemResponse> {
+    pub fn start_kill_buffer(
+        &mut self,
+        buffers: &[String],
+        initial: Option<&str>,
+    ) -> Result<SystemResponse> {
         self.minibuffer.start_kill_buffer(buffers, initial);
         Ok(SystemResponse::Continue)
     }
@@ -383,7 +422,11 @@ impl MinibufferSystem {
     }
 
     /// 行番号入力を開始
-    pub fn start_goto_line(&mut self, default_line: usize, max_line: usize) -> Result<SystemResponse> {
+    pub fn start_goto_line(
+        &mut self,
+        default_line: usize,
+        max_line: usize,
+    ) -> Result<SystemResponse> {
         self.minibuffer.start_goto_line(default_line, max_line);
         Ok(SystemResponse::Continue)
     }
@@ -426,8 +469,8 @@ impl MinibufferSystem {
         self.config = config;
 
         // パス補完の設定を更新
-        self.path_completion = PathCompletion::new()
-            .with_hidden_files(self.config.show_hidden_files);
+        self.path_completion =
+            PathCompletion::new().with_hidden_files(self.config.show_hidden_files);
     }
 
     /// 現在の設定を取得
@@ -574,7 +617,9 @@ mod tests {
     fn test_execute_command_action() {
         let mut system = MinibufferSystem::new();
 
-        let response = system.handle_action(MinibufferAction::ExecuteCommand).unwrap();
+        let response = system
+            .handle_action(MinibufferAction::ExecuteCommand)
+            .unwrap();
         assert!(matches!(response, SystemResponse::Continue));
         assert_eq!(system.state(), SystemState::ExecuteCommand);
     }
@@ -583,7 +628,9 @@ mod tests {
     fn test_eval_expression_action() {
         let mut system = MinibufferSystem::new();
 
-        let response = system.handle_action(MinibufferAction::EvalExpression).unwrap();
+        let response = system
+            .handle_action(MinibufferAction::EvalExpression)
+            .unwrap();
         assert!(matches!(response, SystemResponse::Continue));
         assert_eq!(system.state(), SystemState::ExecuteCommand);
         assert!(system.is_active());
@@ -616,15 +663,27 @@ mod tests {
         assert!(matches!(response, SystemResponse::Quit));
 
         // find-file コマンドのテスト
-        let response = system.handle_execute_result("find-file test.txt".to_string()).unwrap();
-        assert!(matches!(response, SystemResponse::FileOperation(FileOperation::Open(_))));
+        let response = system
+            .handle_execute_result("find-file test.txt".to_string())
+            .unwrap();
+        assert!(matches!(
+            response,
+            SystemResponse::FileOperation(FileOperation::Open(_))
+        ));
 
         // save-buffer コマンドのテスト
-        let response = system.handle_execute_result("save-buffer".to_string()).unwrap();
-        assert!(matches!(response, SystemResponse::FileOperation(FileOperation::Save)));
+        let response = system
+            .handle_execute_result("save-buffer".to_string())
+            .unwrap();
+        assert!(matches!(
+            response,
+            SystemResponse::FileOperation(FileOperation::Save)
+        ));
 
         // eval-expression コマンドのテスト（直接評価）
-        let response = system.handle_execute_result("eval-expression (+ 1 2)".to_string()).unwrap();
+        let response = system
+            .handle_execute_result("eval-expression (+ 1 2)".to_string())
+            .unwrap();
         assert!(matches!(response, SystemResponse::Continue));
         assert_eq!(system.state(), SystemState::InfoDisplay);
     }
@@ -660,7 +719,9 @@ mod tests {
 
         system.add_command("custom-command".to_string());
         assert_eq!(system.available_commands().len(), initial_count + 1);
-        assert!(system.available_commands().contains(&"custom-command".to_string()));
+        assert!(system
+            .available_commands()
+            .contains(&"custom-command".to_string()));
     }
 
     #[test]

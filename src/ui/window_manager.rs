@@ -1,5 +1,5 @@
 //! ウィンドウ管理モジュール
-//! 
+//!
 //! 分割ウィンドウとビューポート状態を管理する。
 
 use std::collections::HashMap;
@@ -25,9 +25,9 @@ pub enum SplitOrientation {
 /// ウィンドウ管理エラー
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum WindowError {
-    #[error("これ以上ウィンドウを削除できません")] 
+    #[error("これ以上ウィンドウを削除できません")]
     LastWindow,
-    #[error("対象ウィンドウが見つかりません")] 
+    #[error("対象ウィンドウが見つかりません")]
     NotFound,
 }
 
@@ -233,7 +233,9 @@ impl WindowManager {
 
     /// フォーカス中ウィンドウのビューポートへの可変参照
     pub fn focused_viewport_mut(&mut self) -> Option<&mut ViewportState> {
-        self.states.get_mut(&self.focused).map(|state| &mut state.viewport)
+        self.states
+            .get_mut(&self.focused)
+            .map(|state| &mut state.viewport)
     }
 
     /// フォーカス中ウィンドウのビューポート
@@ -253,7 +255,9 @@ impl WindowManager {
 
     /// フォーカス中ウィンドウのバッファID
     pub fn focused_buffer(&self) -> Option<BufferId> {
-        self.states.get(&self.focused).and_then(|state| state.buffer_id)
+        self.states
+            .get(&self.focused)
+            .and_then(|state| state.buffer_id)
     }
 
     /// 指定ウィンドウにバッファIDを割り当て
@@ -355,10 +359,7 @@ impl WindowManager {
     }
 
     /// ウィンドウ矩形と区切り線の領域を取得
-    pub fn layout_rects_with_dividers(
-        &self,
-        area: Rect,
-    ) -> (Vec<(WindowId, Rect)>, Vec<Rect>) {
+    pub fn layout_rects_with_dividers(&self, area: Rect) -> (Vec<(WindowId, Rect)>, Vec<Rect>) {
         let mut rects = Vec::new();
         let mut dividers = Vec::new();
         self.layout

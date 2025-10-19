@@ -10,10 +10,20 @@ pub struct MinibufferOutcome {
 
 pub fn eval_in_minibuffer(interpreter: &mut Interpreter, source: &str) -> MinibufferOutcome {
     match interpreter.eval(source) {
-        Ok(EvalOutcome { display, messages, .. }) => MinibufferOutcome { output: format!("=> {}", display), messages, is_error: false },
+        Ok(EvalOutcome {
+            display, messages, ..
+        }) => MinibufferOutcome {
+            output: format!("=> {}", display),
+            messages,
+            is_error: false,
+        },
         Err(err) => {
             let message = format_eval_error(&err, &interpreter.runtime().interner);
-            MinibufferOutcome { output: message, messages: Vec::new(), is_error: true }
+            MinibufferOutcome {
+                output: message,
+                messages: Vec::new(),
+                is_error: true,
+            }
         }
     }
 }

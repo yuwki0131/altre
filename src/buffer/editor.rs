@@ -2,7 +2,11 @@
 //!
 //! 基本編集操作のメインインターフェース
 
-use crate::buffer::{gap_buffer::GapBuffer, cursor::CursorPosition, navigation::{NavigationAction, NavigationError, NavigationSystem}};
+use crate::buffer::{
+    cursor::CursorPosition,
+    gap_buffer::GapBuffer,
+    navigation::{NavigationAction, NavigationError, NavigationSystem},
+};
 use crate::error::{EditError, Result};
 use std::time::Instant;
 
@@ -292,7 +296,7 @@ impl TextEditor {
             '\u{0000}'..='\u{001F}' => false,
             '\u{007F}' => false, // DEL
             // 印刷可能文字とスペース、タブは有効
-            _ => !ch.is_control() || ch == '\t'
+            _ => !ch.is_control() || ch == '\t',
         }
     }
 
@@ -388,7 +392,7 @@ impl TextEditor {
                 // 致命的エラー：QA.mdに従い即座に終了
                 Err(error.clone())
             }
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 
@@ -415,8 +419,8 @@ impl TextEditor {
     /// 改行コードの正規化
     fn normalize_line_ending(&self, input: &str) -> String {
         input
-            .replace("\r\n", "\n")  // Windows CRLF → LF
-            .replace("\r", "\n")    // Mac CR → LF
+            .replace("\r\n", "\n") // Windows CRLF → LF
+            .replace("\r", "\n") // Mac CR → LF
     }
 
     fn adjust_mark_on_insert(&mut self, at: usize, len: usize) {
@@ -459,7 +463,10 @@ impl TextEditor {
     }
 
     /// ナビゲーション操作の実行
-    pub fn navigate(&mut self, action: NavigationAction) -> std::result::Result<bool, NavigationError> {
+    pub fn navigate(
+        &mut self,
+        action: NavigationAction,
+    ) -> std::result::Result<bool, NavigationError> {
         let text = self.buffer.to_string();
         self.navigation.set_cursor(self.cursor);
         let moved = self.navigation.navigate(&text, action)?;
@@ -497,7 +504,11 @@ impl TextEditor {
     fn end_performance_measurement(&self, operation_name: &str) {
         let duration = self.last_operation_time.elapsed();
         if duration.as_millis() > 1 {
-            eprintln!("Warning: {} took {}ms (target: <1ms)", operation_name, duration.as_millis());
+            eprintln!(
+                "Warning: {} took {}ms (target: <1ms)",
+                operation_name,
+                duration.as_millis()
+            );
         }
     }
 }
@@ -519,7 +530,9 @@ impl EditOperations for TextEditor {
             editor.adjust_mark_on_insert(cursor_pos, 1);
 
             // 3. ギャップバッファに挿入
-            editor.buffer.insert(cursor_pos, ch)
+            editor
+                .buffer
+                .insert(cursor_pos, ch)
                 .map_err(|_| EditError::BufferError("挿入失敗".to_string()))?;
 
             // 4. カーソル位置を更新
@@ -561,11 +574,13 @@ impl EditOperations for TextEditor {
 
             let cursor_pos = editor.cursor.char_pos;
 
-             let char_count = normalized.chars().count();
-             editor.adjust_mark_on_insert(cursor_pos, char_count);
+            let char_count = normalized.chars().count();
+            editor.adjust_mark_on_insert(cursor_pos, char_count);
 
             // ギャップバッファに挿入
-            editor.buffer.insert_str(cursor_pos, &normalized)
+            editor
+                .buffer
+                .insert_str(cursor_pos, &normalized)
                 .map_err(|_| EditError::BufferError("文字列挿入失敗".to_string()))?;
 
             // カーソル位置を更新
@@ -604,7 +619,9 @@ impl EditOperations for TextEditor {
 
             let pos = editor.cursor.char_pos - 1;
             editor.adjust_mark_on_delete(pos, 1);
-            let deleted_char = editor.buffer.delete(pos)
+            let deleted_char = editor
+                .buffer
+                .delete(pos)
                 .map_err(|_| EditError::BufferError("削除失敗".to_string()))?;
 
             // カーソルを後退
@@ -648,7 +665,9 @@ impl EditOperations for TextEditor {
 
             let pos = editor.cursor.char_pos;
             editor.adjust_mark_on_delete(pos, 1);
-            let deleted_char = editor.buffer.delete(pos)
+            let deleted_char = editor
+                .buffer
+                .delete(pos)
                 .map_err(|_| EditError::BufferError("削除失敗".to_string()))?;
 
             // カーソル位置は変更なし（文字が削除されたため相対的に正しい位置）
@@ -678,7 +697,9 @@ impl EditOperations for TextEditor {
             editor.adjust_mark_on_insert(cursor_pos, 1);
 
             // LF統一ポリシー
-            editor.buffer.insert_str(cursor_pos, "\n")
+            editor
+                .buffer
+                .insert_str(cursor_pos, "\n")
                 .map_err(|_| EditError::BufferError("改行挿入失敗".to_string()))?;
 
             // カーソルを次の行の先頭に移動
@@ -711,7 +732,9 @@ impl EditOperations for TextEditor {
                 return Err(EditError::OutOfBounds(start).into());
             }
 
-            let deleted_text = editor.buffer.delete_range(start, end)
+            let deleted_text = editor
+                .buffer
+                .delete_range(start, end)
                 .map_err(|_| EditError::BufferError("範囲削除失敗".to_string()))?;
 
             let removed_len = deleted_text.chars().count();
@@ -744,7 +767,6 @@ impl EditOperations for TextEditor {
         self.end_performance_measurement("delete_range");
         result
     }
-
 }
 
 impl Default for TextEditor {
@@ -868,7 +890,12 @@ impl TextEditor {
     }
 
     /// 範囲を置換し、元のテキストを返す
-    pub fn replace_range_span(&mut self, start: usize, end: usize, replacement: &str) -> Result<String> {
+    pub fn replace_range_span(
+        &mut self,
+        start: usize,
+        end: usize,
+        replacement: &str,
+    ) -> Result<String> {
         let deleted = <Self as EditOperations>::delete_range(self, start, end)?;
         self.move_cursor_to_char(start)?;
         if !replacement.is_empty() {

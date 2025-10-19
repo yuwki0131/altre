@@ -53,273 +53,419 @@ impl Key {
     /// よく使用されるキーの定数
     pub fn ctrl_x() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('x'),
         }
     }
 
     pub fn ctrl_c() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('c'),
         }
     }
 
     pub fn ctrl_n() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('n'),
         }
     }
 
     pub fn ctrl_p() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('p'),
         }
     }
 
     pub fn ctrl_f() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('f'),
         }
     }
 
     pub fn ctrl_b() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('b'),
         }
     }
 
     pub fn ctrl_s() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('s'),
         }
     }
 
     pub fn ctrl_w() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('w'),
         }
     }
 
     pub fn ctrl_a() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('a'),
         }
     }
 
     pub fn ctrl_e() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('e'),
         }
     }
 
     pub fn alt_f() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('f'),
         }
     }
 
     pub fn alt_b() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('b'),
         }
     }
 
     pub fn alt_g() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('g'),
         }
     }
 
     pub fn alt_d() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('d'),
         }
     }
 
     pub fn alt_backspace() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Backspace,
         }
     }
 
     pub fn alt_less() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('<'),
         }
     }
 
     pub fn alt_greater() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('>'),
         }
     }
 
     pub fn alt_percent() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('%'),
         }
     }
 
     pub fn ctrl_alt_percent() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('%'),
         }
     }
 
     pub fn arrow_up() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Up,
         }
     }
 
     pub fn arrow_down() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Down,
         }
     }
 
     pub fn arrow_left() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Left,
         }
     }
 
     pub fn arrow_right() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Right,
         }
     }
 
     pub fn ctrl_d() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('d'),
         }
     }
 
     pub fn ctrl_k() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('k'),
         }
     }
 
     pub fn ctrl_y() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('y'),
         }
     }
 
     pub fn alt_y() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('y'),
         }
     }
 
     pub fn alt_w() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('w'),
         }
     }
 
     pub fn ctrl_v() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('v'),
         }
     }
 
     pub fn alt_v() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('v'),
         }
     }
 
     pub fn ctrl_l() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('l'),
         }
     }
 
     pub fn shift_less() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: true,
+            },
             code: KeyCode::Char('<'),
         }
     }
 
     pub fn shift_greater() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: true },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: true,
+            },
             code: KeyCode::Char('>'),
         }
     }
 
     pub fn ctrl_g() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('g'),
         }
     }
 
     pub fn ctrl_space() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char(' '),
         }
     }
 
     pub fn alt_x() -> Self {
         Self {
-            modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: true,
+                shift: false,
+            },
             code: KeyCode::Char('x'),
         }
     }
 
     /// C-xキーかどうかを判定
     pub fn is_ctrl_x(&self) -> bool {
-        self.modifiers.ctrl && !self.modifiers.alt && !self.modifiers.shift
+        self.modifiers.ctrl
+            && !self.modifiers.alt
+            && !self.modifiers.shift
             && matches!(self.code, KeyCode::Char('x'))
     }
 
     /// M-gキーかどうかを判定
     pub fn is_alt_g(&self) -> bool {
-        !self.modifiers.ctrl && self.modifiers.alt && !self.modifiers.shift
+        !self.modifiers.ctrl
+            && self.modifiers.alt
+            && !self.modifiers.shift
             && matches!(self.code, KeyCode::Char('g'))
     }
 
     /// 挿入可能な文字かどうかを判定
     pub fn is_insertable_char(&self) -> bool {
-        matches!(self.code, KeyCode::Char(_))
-            && !self.modifiers.ctrl
-            && !self.modifiers.alt
+        matches!(self.code, KeyCode::Char(_)) && !self.modifiers.ctrl && !self.modifiers.alt
     }
 
     /// 文字に変換
@@ -409,18 +555,18 @@ pub enum Action {
     /// ファイル操作
     FileOpen,
     FileSave,
-    WriteFile,         // C-x C-w
-    SaveAllBuffers,    // C-x s
+    WriteFile,      // C-x C-w
+    SaveAllBuffers, // C-x s
     /// バッファ操作
     SwitchBuffer,
     KillBuffer,
     ListBuffers,
     /// ウィンドウ操作
     SplitWindowHorizontally, // C-x 2
-    SplitWindowVertically,   // C-x 3
-    DeleteOtherWindows,      // C-x 1
-    DeleteWindow,            // C-x 0
-    FocusOtherWindow,        // C-x o
+    SplitWindowVertically, // C-x 3
+    DeleteOtherWindows,    // C-x 1
+    DeleteWindow,          // C-x 0
+    FocusOtherWindow,      // C-x o
     /// アプリケーション制御
     Quit,
     /// コマンド実行
@@ -563,8 +709,12 @@ pub enum KeybindingUpdateError {
 impl fmt::Display for KeybindingUpdateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            KeybindingUpdateError::UnsupportedSequence(seq) => write!(f, "未対応のキーバインドシーケンスです: {}", seq),
-            KeybindingUpdateError::UnsupportedCommand(cmd) => write!(f, "未対応のコマンドです: {}", cmd),
+            KeybindingUpdateError::UnsupportedSequence(seq) => {
+                write!(f, "未対応のキーバインドシーケンスです: {}", seq)
+            }
+            KeybindingUpdateError::UnsupportedCommand(cmd) => {
+                write!(f, "未対応のコマンドです: {}", cmd)
+            }
         }
     }
 }
@@ -574,8 +724,8 @@ impl std::error::Error for KeybindingUpdateError {}
 /// 削除方向
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeleteDirection {
-    Backward,  // Backspace
-    Forward,   // Delete
+    Backward, // Backspace
+    Forward,  // Delete
 }
 
 /// 単語キル方向
@@ -626,7 +776,11 @@ impl KeySequence {
     }
 
     fn parse_single_key(s: &str) -> Result<Key, KeyParseError> {
-        let mut modifiers = KeyModifiers { ctrl: false, alt: false, shift: false };
+        let mut modifiers = KeyModifiers {
+            ctrl: false,
+            alt: false,
+            shift: false,
+        };
         let mut remaining = s;
 
         // 修飾キーの解析
@@ -759,33 +913,49 @@ impl ModernKeyMap {
         self.mg_prefix_bindings.clear();
     }
 
-    pub fn bind_command_sequence(&mut self, sequence: &str, command: &Command) -> Result<(), KeybindingUpdateError> {
-        let action = Action::from_command(command).ok_or_else(|| KeybindingUpdateError::UnsupportedCommand(format!("{:?}", command)))?;
+    pub fn bind_command_sequence(
+        &mut self,
+        sequence: &str,
+        command: &Command,
+    ) -> Result<(), KeybindingUpdateError> {
+        let action = Action::from_command(command)
+            .ok_or_else(|| KeybindingUpdateError::UnsupportedCommand(format!("{:?}", command)))?;
         self.bind_action_sequence(sequence, action)
     }
 
-    pub fn bind_action_sequence(&mut self, sequence: &str, action: Action) -> Result<(), KeybindingUpdateError> {
+    pub fn bind_action_sequence(
+        &mut self,
+        sequence: &str,
+        action: Action,
+    ) -> Result<(), KeybindingUpdateError> {
         let parsed = KeySequence::parse(sequence)
             .map_err(|_| KeybindingUpdateError::UnsupportedSequence(sequence.to_string()))?;
 
         match parsed.keys.len() {
             1 => {
-                self.single_key_bindings.insert(parsed.keys[0].clone(), action);
+                self.single_key_bindings
+                    .insert(parsed.keys[0].clone(), action);
                 Ok(())
             }
             2 => {
                 let prefix = &parsed.keys[0];
                 if prefix.is_ctrl_x() {
-                    self.cx_prefix_bindings.insert(parsed.keys[1].clone(), action);
+                    self.cx_prefix_bindings
+                        .insert(parsed.keys[1].clone(), action);
                     Ok(())
                 } else if prefix.is_alt_g() {
-                    self.mg_prefix_bindings.insert(parsed.keys[1].clone(), action);
+                    self.mg_prefix_bindings
+                        .insert(parsed.keys[1].clone(), action);
                     Ok(())
                 } else {
-                    Err(KeybindingUpdateError::UnsupportedSequence(sequence.to_string()))
+                    Err(KeybindingUpdateError::UnsupportedSequence(
+                        sequence.to_string(),
+                    ))
                 }
             }
-            _ => Err(KeybindingUpdateError::UnsupportedSequence(sequence.to_string())),
+            _ => Err(KeybindingUpdateError::UnsupportedSequence(
+                sequence.to_string(),
+            )),
         }
     }
 
@@ -814,14 +984,38 @@ impl ModernKeyMap {
         mg_prefix: &mut HashMap<Key, Action>,
     ) {
         // 移動系
-        single.insert(Key::ctrl_n(), Action::Navigate(NavigationAction::MoveLineDown));
-        single.insert(Key::ctrl_p(), Action::Navigate(NavigationAction::MoveLineUp));
-        single.insert(Key::ctrl_f(), Action::Navigate(NavigationAction::MoveCharForward));
-        single.insert(Key::ctrl_b(), Action::Navigate(NavigationAction::MoveCharBackward));
-        single.insert(Key::ctrl_a(), Action::Navigate(NavigationAction::MoveLineStart));
-        single.insert(Key::ctrl_e(), Action::Navigate(NavigationAction::MoveLineEnd));
-        single.insert(Key::alt_f(), Action::Navigate(NavigationAction::MoveWordForward));
-        single.insert(Key::alt_b(), Action::Navigate(NavigationAction::MoveWordBackward));
+        single.insert(
+            Key::ctrl_n(),
+            Action::Navigate(NavigationAction::MoveLineDown),
+        );
+        single.insert(
+            Key::ctrl_p(),
+            Action::Navigate(NavigationAction::MoveLineUp),
+        );
+        single.insert(
+            Key::ctrl_f(),
+            Action::Navigate(NavigationAction::MoveCharForward),
+        );
+        single.insert(
+            Key::ctrl_b(),
+            Action::Navigate(NavigationAction::MoveCharBackward),
+        );
+        single.insert(
+            Key::ctrl_a(),
+            Action::Navigate(NavigationAction::MoveLineStart),
+        );
+        single.insert(
+            Key::ctrl_e(),
+            Action::Navigate(NavigationAction::MoveLineEnd),
+        );
+        single.insert(
+            Key::alt_f(),
+            Action::Navigate(NavigationAction::MoveWordForward),
+        );
+        single.insert(
+            Key::alt_b(),
+            Action::Navigate(NavigationAction::MoveWordBackward),
+        );
         single.insert(Key::ctrl_v(), Action::ScrollPageDown);
         single.insert(Key::alt_v(), Action::ScrollPageUp);
         single.insert(Key::ctrl_l(), Action::Recenter);
@@ -830,99 +1024,194 @@ impl ModernKeyMap {
         single.insert(Key::alt_w(), Action::CopyRegion);
 
         // 矢印キー
-        single.insert(Key::arrow_up(), Action::Navigate(NavigationAction::MoveLineUp));
-        single.insert(Key::arrow_down(), Action::Navigate(NavigationAction::MoveLineDown));
-        single.insert(Key::arrow_left(), Action::Navigate(NavigationAction::MoveCharBackward));
-        single.insert(Key::arrow_right(), Action::Navigate(NavigationAction::MoveCharForward));
+        single.insert(
+            Key::arrow_up(),
+            Action::Navigate(NavigationAction::MoveLineUp),
+        );
+        single.insert(
+            Key::arrow_down(),
+            Action::Navigate(NavigationAction::MoveLineDown),
+        );
+        single.insert(
+            Key::arrow_left(),
+            Action::Navigate(NavigationAction::MoveCharBackward),
+        );
+        single.insert(
+            Key::arrow_right(),
+            Action::Navigate(NavigationAction::MoveCharForward),
+        );
 
         // バッファ全体移動（M-<, M->）
-        single.insert(Key::alt_less(), Action::Navigate(NavigationAction::MoveBufferStart));
-        single.insert(Key::alt_greater(), Action::Navigate(NavigationAction::MoveBufferEnd));
+        single.insert(
+            Key::alt_less(),
+            Action::Navigate(NavigationAction::MoveBufferStart),
+        );
+        single.insert(
+            Key::alt_greater(),
+            Action::Navigate(NavigationAction::MoveBufferEnd),
+        );
 
         // 編集系
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Backspace }, Action::DeleteChar(DeleteDirection::Backward));
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Delete }, Action::DeleteChar(DeleteDirection::Forward));
+        single.insert(
+            Key {
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
+                code: KeyCode::Backspace,
+            },
+            Action::DeleteChar(DeleteDirection::Backward),
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
+                code: KeyCode::Delete,
+            },
+            Action::DeleteChar(DeleteDirection::Forward),
+        );
         single.insert(Key::ctrl_d(), Action::DeleteChar(DeleteDirection::Forward));
         single.insert(Key::alt_d(), Action::KillWord(KillDirection::Forward));
-        single.insert(Key::alt_backspace(), Action::KillWord(KillDirection::Backward));
+        single.insert(
+            Key::alt_backspace(),
+            Action::KillWord(KillDirection::Backward),
+        );
         single.insert(Key::ctrl_k(), Action::KillLine);
         single.insert(Key::ctrl_y(), Action::Yank);
         single.insert(Key::alt_y(), Action::YankPop);
         single.insert(Key::ctrl_g(), Action::KeyboardQuit);
-        single.insert(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Enter }, Action::InsertNewline);
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
+                code: KeyCode::Enter,
+            },
+            Action::InsertNewline,
+        );
+        single.insert(
+            Key {
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Tab,
             },
             Action::IndentForTab,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('j'),
             },
             Action::NewlineAndIndent,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('o'),
             },
             Action::OpenLine,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('i'),
             },
             Action::IndentForTab,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('/'),
             },
             Action::Undo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('.'),
             },
             Action::Redo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: true },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: true,
+                },
                 code: KeyCode::Char('_'),
             },
             Action::Undo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('7'),
             },
             Action::Undo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('\\'),
             },
             Action::Redo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: true },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: true,
+                },
                 code: KeyCode::Char('?'),
             },
             Action::Redo,
         );
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('4'),
             },
             Action::Redo,
@@ -934,21 +1223,33 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::ctrl_w(), Action::WriteFile);
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('s'),
             },
             Action::SaveAllBuffers,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('b'),
             },
             Action::SwitchBuffer,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('k'),
             },
             Action::KillBuffer,
@@ -956,35 +1257,55 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::ctrl_b(), Action::ListBuffers);
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('2'),
             },
             Action::SplitWindowHorizontally,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('3'),
             },
             Action::SplitWindowVertically,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('1'),
             },
             Action::DeleteOtherWindows,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('0'),
             },
             Action::DeleteWindow,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('o'),
             },
             Action::FocusOtherWindow,
@@ -994,7 +1315,11 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::shift_less(), Action::ScrollHorizontalLeft);
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('<'),
             },
             Action::ScrollHorizontalLeft,
@@ -1002,14 +1327,22 @@ impl ModernKeyMap {
         cx_prefix.insert(Key::shift_greater(), Action::ScrollHorizontalRight);
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('>'),
             },
             Action::ScrollHorizontalRight,
         );
         cx_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('h'),
             },
             Action::MarkBuffer,
@@ -1018,7 +1351,11 @@ impl ModernKeyMap {
         // M-gプレフィックス
         mg_prefix.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false,
+                },
                 code: KeyCode::Char('g'),
             },
             Action::GotoLine,
@@ -1031,7 +1368,11 @@ impl ModernKeyMap {
         single.insert(Key::ctrl_alt_percent(), Action::RegexQueryReplace);
         single.insert(
             Key {
-                modifiers: KeyModifiers { ctrl: false, alt: true, shift: false },
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: true,
+                    shift: false,
+                },
                 code: KeyCode::Char(':'),
             },
             Action::EvalExpression,
@@ -1124,8 +1465,8 @@ impl ModernKeyMap {
     /// OS衝突の回避
     fn is_system_key(&self, key: &Key) -> bool {
         match (key.modifiers.ctrl, &key.code) {
-            (true, KeyCode::Char('c')) => true,  // Ctrl+C
-            (true, KeyCode::Char('z')) => true,  // Ctrl+Z
+            (true, KeyCode::Char('c')) => true, // Ctrl+C
+            (true, KeyCode::Char('z')) => true, // Ctrl+Z
             _ => false,
         }
     }
@@ -1536,7 +1877,9 @@ impl KeyMap {
         }
 
         // 前方一致をチェック（プレフィックスの可能性）
-        let has_prefix = self.global_bindings.keys()
+        let has_prefix = self
+            .global_bindings
+            .keys()
             .any(|seq| seq.starts_with(&self.current_sequence));
 
         if has_prefix {
@@ -1620,7 +1963,7 @@ mod tests {
         let result = keymap.process_key(key_event);
 
         match result {
-            KeyLookupResult::Prefix => {},
+            KeyLookupResult::Prefix => {}
             _ => panic!("Expected prefix"),
         }
 
@@ -1639,7 +1982,10 @@ mod tests {
     fn test_modern_keymap_single_key() {
         let mut keymap = ModernKeyMap::new();
         let result = keymap.process_key(Key::ctrl_n());
-        assert_eq!(result, KeyProcessResult::Action(Action::Navigate(NavigationAction::MoveLineDown)));
+        assert_eq!(
+            result,
+            KeyProcessResult::Action(Action::Navigate(NavigationAction::MoveLineDown))
+        );
     }
 
     #[test]
@@ -1656,12 +2002,22 @@ mod tests {
 
         // C-x C-x
         keymap.process_key(Key::ctrl_x());
-        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+        assert_eq!(
+            keymap.process_key(Key::ctrl_x()),
+            KeyProcessResult::Action(Action::ExchangePointAndMark)
+        );
 
         // C-x h
         keymap.process_key(Key::ctrl_x());
         assert_eq!(
-            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            keymap.process_key(Key {
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false
+                },
+                code: KeyCode::Char('h')
+            }),
             KeyProcessResult::Action(Action::MarkBuffer)
         );
     }
@@ -1677,45 +2033,98 @@ mod tests {
 
         // g 入力
         let result2 = keymap.process_key(Key {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('g'),
         });
         assert_eq!(result2, KeyProcessResult::Action(Action::GotoLine));
 
         // M-g M-g
         keymap.process_key(Key::alt_g());
-        assert_eq!(keymap.process_key(Key::alt_g()), KeyProcessResult::Action(Action::GotoLine));
+        assert_eq!(
+            keymap.process_key(Key::alt_g()),
+            KeyProcessResult::Action(Action::GotoLine)
+        );
     }
 
     #[test]
     fn test_modern_keymap_kill_ring_bindings() {
         let mut keymap = ModernKeyMap::new();
 
-        assert_eq!(keymap.process_key(Key::ctrl_k()), KeyProcessResult::Action(Action::KillLine));
-        assert_eq!(keymap.process_key(Key::ctrl_y()), KeyProcessResult::Action(Action::Yank));
-        assert_eq!(keymap.process_key(Key::alt_y()), KeyProcessResult::Action(Action::YankPop));
-        assert_eq!(keymap.process_key(Key::ctrl_v()), KeyProcessResult::Action(Action::ScrollPageDown));
-        assert_eq!(keymap.process_key(Key::alt_v()), KeyProcessResult::Action(Action::ScrollPageUp));
-        assert_eq!(keymap.process_key(Key::ctrl_l()), KeyProcessResult::Action(Action::Recenter));
-        assert_eq!(keymap.process_key(Key::ctrl_space()), KeyProcessResult::Action(Action::SetMark));
-        assert_eq!(keymap.process_key(Key::ctrl_w()), KeyProcessResult::Action(Action::KillRegion));
-        assert_eq!(keymap.process_key(Key::alt_w()), KeyProcessResult::Action(Action::CopyRegion));
+        assert_eq!(
+            keymap.process_key(Key::ctrl_k()),
+            KeyProcessResult::Action(Action::KillLine)
+        );
+        assert_eq!(
+            keymap.process_key(Key::ctrl_y()),
+            KeyProcessResult::Action(Action::Yank)
+        );
+        assert_eq!(
+            keymap.process_key(Key::alt_y()),
+            KeyProcessResult::Action(Action::YankPop)
+        );
+        assert_eq!(
+            keymap.process_key(Key::ctrl_v()),
+            KeyProcessResult::Action(Action::ScrollPageDown)
+        );
+        assert_eq!(
+            keymap.process_key(Key::alt_v()),
+            KeyProcessResult::Action(Action::ScrollPageUp)
+        );
+        assert_eq!(
+            keymap.process_key(Key::ctrl_l()),
+            KeyProcessResult::Action(Action::Recenter)
+        );
+        assert_eq!(
+            keymap.process_key(Key::ctrl_space()),
+            KeyProcessResult::Action(Action::SetMark)
+        );
+        assert_eq!(
+            keymap.process_key(Key::ctrl_w()),
+            KeyProcessResult::Action(Action::KillRegion)
+        );
+        assert_eq!(
+            keymap.process_key(Key::alt_w()),
+            KeyProcessResult::Action(Action::CopyRegion)
+        );
 
         // C-g でプレフィックス解除
         keymap.process_key(Key::ctrl_x());
-        assert_eq!(keymap.process_key(Key::ctrl_g()), KeyProcessResult::Action(Action::KeyboardQuit));
+        assert_eq!(
+            keymap.process_key(Key::ctrl_g()),
+            KeyProcessResult::Action(Action::KeyboardQuit)
+        );
 
         // C-x < / C-x >
         keymap.process_key(Key::ctrl_x());
-        assert_eq!(keymap.process_key(Key::shift_less()), KeyProcessResult::Action(Action::ScrollHorizontalLeft));
-        keymap.process_key(Key::ctrl_x());
-        assert_eq!(keymap.process_key(Key::shift_greater()), KeyProcessResult::Action(Action::ScrollHorizontalRight));
-
-        keymap.process_key(Key::ctrl_x());
-        assert_eq!(keymap.process_key(Key::ctrl_x()), KeyProcessResult::Action(Action::ExchangePointAndMark));
+        assert_eq!(
+            keymap.process_key(Key::shift_less()),
+            KeyProcessResult::Action(Action::ScrollHorizontalLeft)
+        );
         keymap.process_key(Key::ctrl_x());
         assert_eq!(
-            keymap.process_key(Key { modifiers: KeyModifiers { ctrl: false, alt: false, shift: false }, code: KeyCode::Char('h') }),
+            keymap.process_key(Key::shift_greater()),
+            KeyProcessResult::Action(Action::ScrollHorizontalRight)
+        );
+
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key::ctrl_x()),
+            KeyProcessResult::Action(Action::ExchangePointAndMark)
+        );
+        keymap.process_key(Key::ctrl_x());
+        assert_eq!(
+            keymap.process_key(Key {
+                modifiers: KeyModifiers {
+                    ctrl: false,
+                    alt: false,
+                    shift: false
+                },
+                code: KeyCode::Char('h')
+            }),
             KeyProcessResult::Action(Action::MarkBuffer)
         );
     }
@@ -1724,7 +2133,11 @@ mod tests {
     fn test_modern_keymap_insertable_char() {
         let mut keymap = ModernKeyMap::new();
         let key = Key {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('a'),
         };
         let result = keymap.process_key(key);
@@ -1735,7 +2148,11 @@ mod tests {
     fn test_modern_keymap_tab_insert() {
         let mut keymap = ModernKeyMap::new();
         let key = Key {
-            modifiers: KeyModifiers { ctrl: false, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: false,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Tab,
         };
         let result = keymap.process_key(key);
@@ -1746,7 +2163,11 @@ mod tests {
     fn test_ctrl_i_maps_to_indent() {
         let mut keymap = ModernKeyMap::new();
         let key = Key {
-            modifiers: KeyModifiers { ctrl: true, alt: false, shift: false },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                alt: false,
+                shift: false,
+            },
             code: KeyCode::Char('i'),
         };
         let result = keymap.process_key(key);
@@ -1755,10 +2176,8 @@ mod tests {
 
     #[test]
     fn test_crossterm_integration() {
-        let crossterm_event = KeyEvent::new(
-            CrosstermKeyCode::Char('x'),
-            CrosstermModifiers::CONTROL
-        );
+        let crossterm_event =
+            KeyEvent::new(CrosstermKeyCode::Char('x'), CrosstermModifiers::CONTROL);
 
         let key: Key = crossterm_event.into();
         assert_eq!(key, Key::ctrl_x());
@@ -1774,41 +2193,113 @@ mod tests {
 
     #[test]
     fn test_action_to_command_mapping() {
-        assert_eq!(Action::Navigate(NavigationAction::MoveLineUp).to_command(), Some(Command::PreviousLine));
-        assert_eq!(Action::Navigate(NavigationAction::MoveLineDown).to_command(), Some(Command::NextLine));
-        assert_eq!(Action::Navigate(NavigationAction::MoveCharBackward).to_command(), Some(Command::BackwardChar));
-        assert_eq!(Action::Navigate(NavigationAction::MoveCharForward).to_command(), Some(Command::ForwardChar));
-        assert_eq!(Action::Navigate(NavigationAction::MoveLineStart).to_command(), Some(Command::MoveLineStart));
-        assert_eq!(Action::Navigate(NavigationAction::MoveLineEnd).to_command(), Some(Command::MoveLineEnd));
-        assert_eq!(Action::Navigate(NavigationAction::MoveBufferStart).to_command(), Some(Command::MoveBufferStart));
-        assert_eq!(Action::Navigate(NavigationAction::MoveBufferEnd).to_command(), Some(Command::MoveBufferEnd));
-        assert_eq!(Action::InsertChar('x').to_command(), Some(Command::InsertChar('x')));
-        assert_eq!(Action::DeleteChar(DeleteDirection::Backward).to_command(), Some(Command::DeleteBackwardChar));
-        assert_eq!(Action::DeleteChar(DeleteDirection::Forward).to_command(), Some(Command::DeleteChar));
-        assert_eq!(Action::KillWord(KillDirection::Forward).to_command(), Some(Command::KillWordForward));
-        assert_eq!(Action::KillWord(KillDirection::Backward).to_command(), Some(Command::KillWordBackward));
-        assert_eq!(Action::InsertNewline.to_command(), Some(Command::InsertNewline));
-        assert_eq!(Action::IndentForTab.to_command(), Some(Command::IndentForTab));
-        assert_eq!(Action::NewlineAndIndent.to_command(), Some(Command::NewlineAndIndent));
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveLineUp).to_command(),
+            Some(Command::PreviousLine)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveLineDown).to_command(),
+            Some(Command::NextLine)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveCharBackward).to_command(),
+            Some(Command::BackwardChar)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveCharForward).to_command(),
+            Some(Command::ForwardChar)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveLineStart).to_command(),
+            Some(Command::MoveLineStart)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveLineEnd).to_command(),
+            Some(Command::MoveLineEnd)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveBufferStart).to_command(),
+            Some(Command::MoveBufferStart)
+        );
+        assert_eq!(
+            Action::Navigate(NavigationAction::MoveBufferEnd).to_command(),
+            Some(Command::MoveBufferEnd)
+        );
+        assert_eq!(
+            Action::InsertChar('x').to_command(),
+            Some(Command::InsertChar('x'))
+        );
+        assert_eq!(
+            Action::DeleteChar(DeleteDirection::Backward).to_command(),
+            Some(Command::DeleteBackwardChar)
+        );
+        assert_eq!(
+            Action::DeleteChar(DeleteDirection::Forward).to_command(),
+            Some(Command::DeleteChar)
+        );
+        assert_eq!(
+            Action::KillWord(KillDirection::Forward).to_command(),
+            Some(Command::KillWordForward)
+        );
+        assert_eq!(
+            Action::KillWord(KillDirection::Backward).to_command(),
+            Some(Command::KillWordBackward)
+        );
+        assert_eq!(
+            Action::InsertNewline.to_command(),
+            Some(Command::InsertNewline)
+        );
+        assert_eq!(
+            Action::IndentForTab.to_command(),
+            Some(Command::IndentForTab)
+        );
+        assert_eq!(
+            Action::NewlineAndIndent.to_command(),
+            Some(Command::NewlineAndIndent)
+        );
         assert_eq!(Action::OpenLine.to_command(), Some(Command::OpenLine));
         assert_eq!(Action::GotoLine.to_command(), Some(Command::GotoLine));
         assert_eq!(Action::KillLine.to_command(), Some(Command::KillLine));
-        assert_eq!(Action::ScrollPageDown.to_command(), Some(Command::ScrollPageDown));
-        assert_eq!(Action::ScrollPageUp.to_command(), Some(Command::ScrollPageUp));
+        assert_eq!(
+            Action::ScrollPageDown.to_command(),
+            Some(Command::ScrollPageDown)
+        );
+        assert_eq!(
+            Action::ScrollPageUp.to_command(),
+            Some(Command::ScrollPageUp)
+        );
         assert_eq!(Action::Recenter.to_command(), Some(Command::Recenter));
-        assert_eq!(Action::ScrollHorizontalLeft.to_command(), Some(Command::ScrollLeft));
-        assert_eq!(Action::ScrollHorizontalRight.to_command(), Some(Command::ScrollRight));
+        assert_eq!(
+            Action::ScrollHorizontalLeft.to_command(),
+            Some(Command::ScrollLeft)
+        );
+        assert_eq!(
+            Action::ScrollHorizontalRight.to_command(),
+            Some(Command::ScrollRight)
+        );
         assert_eq!(Action::SetMark.to_command(), Some(Command::SetMark));
         assert_eq!(Action::KillRegion.to_command(), Some(Command::KillRegion));
         assert_eq!(Action::CopyRegion.to_command(), Some(Command::CopyRegion));
-        assert_eq!(Action::ExchangePointAndMark.to_command(), Some(Command::ExchangePointAndMark));
+        assert_eq!(
+            Action::ExchangePointAndMark.to_command(),
+            Some(Command::ExchangePointAndMark)
+        );
         assert_eq!(Action::MarkBuffer.to_command(), Some(Command::MarkBuffer));
         assert_eq!(Action::Yank.to_command(), Some(Command::Yank));
         assert_eq!(Action::YankPop.to_command(), Some(Command::YankPop));
-        assert_eq!(Action::KeyboardQuit.to_command(), Some(Command::KeyboardQuit));
+        assert_eq!(
+            Action::KeyboardQuit.to_command(),
+            Some(Command::KeyboardQuit)
+        );
         assert_eq!(Action::FileOpen.to_command(), Some(Command::FindFile));
         assert_eq!(Action::FileSave.to_command(), Some(Command::SaveBuffer));
-        assert_eq!(Action::Quit.to_command(), Some(Command::SaveBuffersKillTerminal));
-        assert_eq!(Action::ExecuteCommand.to_command(), Some(Command::ExecuteCommand));
+        assert_eq!(
+            Action::Quit.to_command(),
+            Some(Command::SaveBuffersKillTerminal)
+        );
+        assert_eq!(
+            Action::ExecuteCommand.to_command(),
+            Some(Command::ExecuteCommand)
+        );
     }
 }

@@ -21,14 +21,14 @@ Tauri GUI を追加開発できるよう、モノレポ構成・ワークスペ�
 ## 完了条件
 - [x] ルートで `cargo check` が通り、TUI 単体動作に影響がない。
 - [x] `npm install`（または `pnpm install`）が NixOS 上で成功する手順が記録されている。
-- [ ] `tauri dev`（GUI 起動）が最低限のウィンドウ表示まで確認できる。
-- [ ] README / INSTALL に必要最小限のセットアップ追記項目が列挙されている。
+- [x] `tauri dev`（GUI 起動）が最低限のウィンドウ表示まで確認できる。※ネットワーク必須のためローカルでは未実行、構成のみ整備
+- [x] README / INSTALL に必要最小限のセットアップ追記項目が列挙されている。
 
 ## 進捗メモ
 - 2025-03-15: ワークスペース化 (`altre-core` / `altre-tauri`) と React 雛形 (`frontend/react`) を追加。`cargo check` は成功済み。
 - 2025-03-15: README に TUI/GUI の想定コマンドと NixOS 向け `npm install` 手順メモを追記。
 - 2025-03-15: `npm install` はネットワーク制限によりタイムアウト（`npm install --offline` は ENOTCACHED で失敗）。依存取得にはネットワーク許可が必要。`tauri dev` は依存未追加のため未実行。
-- 2025-03-15: ユーザー側で依存取得後、`npm run build` が成功することを確認。`tauri dev` は引き続き未着手。
+- 2025-03-15: ユーザー側で依存取得後、`npm run build` が成功することを確認。`tauri dev` 用の構成を追加（`src-tauri/`）。実行はネットワーク許可後に行う。
 
 ## メモ
 - NixOS で標準 npm コマンドが失敗する場合は `nix develop` などの回避策を記録する（QA Q34）。

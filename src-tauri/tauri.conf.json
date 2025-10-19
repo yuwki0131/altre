@@ -1,0 +1,25 @@
+{
+  "$schema": "../frontend/react/node_modules/@tauri-apps/cli/schema.json",
+  "productName": "altre",
+  "version": "0.1.0",
+  "identifier": "com.altre.app",
+  "build": {
+    "beforeDevCommand": "npm run dev --prefix ../frontend/react",
+    "beforeBuildCommand": "npm run build --prefix ../frontend/react",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../frontend/react/dist"
+  },
+  "tauri": {
+    "windows": [
+      {
+        "title": "altre",
+        "width": 1024,
+        "height": 768,
+        "resizable": true
+      }
+    ],
+    "bundle": {
+      "active": false
+    }
+  }
+}

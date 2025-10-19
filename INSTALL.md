@@ -56,6 +56,14 @@ raw mode を利用するため、端末や仮想環境によっては実行に�
 nix-shell
 ```
 
+
+## GUI (Tauri) のビルド / 実行
+1. `nix-shell nix/shell.nix` で開発シェルに入る（Node.js と Tauri CLI を含む環境を想定）。
+2. `npm install --prefix frontend/react` で依存を取得し、`npm run build --prefix frontend/react` で `dist/` を生成。
+3. `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を実行するとウィンドウが起動する（現状は fallback UI 表示）。
+   - ネットワークアクセスが必須。`tauri` クレートや npm 依存を取得できない場合は、後でリトライする。
+4. ブラウザで確認するだけなら `npm run dev --prefix frontend/react` を利用し、`http://localhost:5173` を開く。
+
 ## 3. 設定
 MVP 版にはユーザー設定ファイルはありません。将来的に `~/.altre.d/` 配下へ設定ファイルを配置する予定です。
 

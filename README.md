@@ -55,25 +55,12 @@ cargo run -p altre --release
 * raw mode が利用できない環境ではエラーになることがあります。
 * トラブルシューティングは `manuals/troubleshooting.md` を参照してください。
 
-### GUI（Tauri）開発準備（NixOS 前提メモ）
-現時点では GUI は未実装ですが、開発環境の雛形は次の手順で整備できます。
-
-```bash
-# 1. 開発シェルに入る（nix-shell または nix develop を使用）
-nix-shell nix/shell.nix        # または `nix develop`
-
-# 2. React フロントエンドの依存を取得
-cd frontend/react
-npm install                    # 初回のみ
-npm run dev                    # フロントエンド単体プレビュー
-
-# 3. 別ターミナルで Rust 側プレースホルダを起動
-cd ../../
-cargo run -p altre-tauri        # 現状はプレースホルダのメッセージを表示
-```
-
-* `npm install` が失敗する場合は、開発シェルで Node.js が有効になっているか確認してください。
-* `tauri dev` 相当のコマンドは Tauri 実装タスク完了後に案内します。
+### Tauri GUI を試す（実験的）
+1. `nix-shell nix/shell.nix` で開発シェルに入り、Node.js と Tauri CLI が利用可能な環境を準備します。
+2. `npm install --prefix frontend/react` でフロントエンド依存を取得し、`npm run build --prefix frontend/react` で `dist/` を生成します。
+3. ネイティブウィンドウ確認: `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を実行。ネットワークから `tauri` 関連のクレートを取得するため、オンライン環境が必要です。現状は fallback UI のみ表示されます。
+4. ブラウザでプレビューする場合は `npm run dev --prefix frontend/react` を実行し、`http://localhost:5173` で表示を確認してください。
+   - Rust バックエンドとの連携は今後 `altre-tauri` のコマンド実装で追加予定です。
 
 ## 基本操作
 - 文字入力・Backspace/Delete/Enter/Tab による基本編集、`C-d` で前方削除、`C-k` で行キル

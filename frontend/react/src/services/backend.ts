@@ -40,6 +40,12 @@ export interface KeySequencePayload {
   sequence: KeyStrokePayload[][];
 }
 
+export interface SaveResult {
+  snapshot: EditorSnapshot;
+  success: boolean;
+  message?: string;
+}
+
 let fallbackBuffer = [
   'Tauri GUI は準備中です。',
   'Rust バックエンドと接続できないため、ローカルサンプルを表示しています。',
@@ -82,18 +88,49 @@ export async function openFile(path: string): Promise<EditorSnapshot> {
   }
 }
 
-export async function saveFile(): Promise<EditorSnapshot> {
+export async function saveFile(): Promise<SaveResult> {
   if (!isTauriRuntime()) {
-    return appendFallbackMessage('save-file (fallback)');
+    return {
+      snapshot: appendFallbackMessage('save-file (fallback)'),
+      success: false,
+      message: 'Tauri backend が利用できないため保存できません',
+    };
   }
 
   try {
-    const response = await invoke<{ snapshot: EditorSnapshot; success: boolean; message?: string }>(
-      'editor_save_file',
-    );
-    return response.snapshot;
+    const response = await invoke<SaveResult>('editor_save_file');
+    return response;
   } catch (error) {
     throw formatBackendError('editor_save_file', error);
+  }
+}
+
+export async function pickOpenFile(): Promise<string | null> {
+  try {
+    if (!isTauriRuntime()) {
+      return promptForPath();
+    }
+
+    const internals = (window as Record<string, unknown> & {
+      __TAURI_INTERNALS__?: {
+        dialog?: {
+          open?: (options: { multiple: boolean }) => Promise<string | string[] | null>;
+        };
+      };
+    }).__TAURI_INTERNALS__;
+
+    const dialog = internals?.dialog?.open;
+    if (typeof dialog === 'function') {
+      const selected = await dialog({ multiple: false });
+      if (Array.isArray(selected)) {
+        return selected[0] ?? null;
+      }
+      return selected ?? null;
+    }
+
+    return promptForPath();
+  } catch (error) {
+    throw formatBackendError('dialog.open', error);
   }
 }
 
@@ -204,4 +241,16 @@ function replaceLastLine(line: string): void {
 
 function appendLine(line: string): void {
   fallbackBuffer = [...fallbackBuffer, line];
+}
+
+function promptForPath(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const input = window.prompt('開くファイルのパスを入力してください');
+  if (!input) {
+    return null;
+  }
+  const trimmed = input.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

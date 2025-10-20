@@ -3,9 +3,12 @@ import {
   EditorSnapshot,
   KeySequencePayload,
   KeyStrokePayload,
+  SaveResult,
   extractErrorMessage,
   fetchSnapshot,
   openFile,
+  pickOpenFile,
+  saveFile,
   sendKeySequence,
 } from '../services/backend';
 
@@ -26,15 +29,19 @@ interface UseEditorResult {
   snapshot: EditorSnapshot | null;
   loading: boolean;
   error: string | null;
+  info: string | null;
   handleKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
   requestRefresh: () => Promise<void>;
   requestOpenFile: (path: string) => Promise<void>;
+  requestOpenFileDialog: () => Promise<void>;
+  requestSaveFile: () => Promise<void>;
 }
 
 export function useEditor(): UseEditorResult {
   const [snapshot, setSnapshot] = useState<EditorSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const pendingSequenceRef = useRef<KeyStrokePayload[][]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFlushingRef = useRef(false);
@@ -77,9 +84,11 @@ export function useEditor(): UseEditorResult {
       const next = await sendKeySequence(payload);
       setSnapshot(next);
       setError(null);
+      setInfo(null);
     } catch (err) {
       console.error('key-sequence error', err);
       setError(extractErrorMessage(err));
+      setInfo(null);
     } finally {
       isFlushingRef.current = false;
       if (pendingSequenceRef.current.length > 0) {
@@ -100,13 +109,16 @@ export function useEditor(): UseEditorResult {
 
   const requestRefresh = useCallback(async () => {
     setLoading(true);
+    setInfo(null);
     try {
       const next = await fetchSnapshot();
       setSnapshot(next);
       setError(null);
+      setInfo(null);
     } catch (err) {
       console.error('snapshot error', err);
       setError(extractErrorMessage(err));
+      setInfo(null);
     } finally {
       setLoading(false);
     }
@@ -118,13 +130,51 @@ export function useEditor(): UseEditorResult {
 
   const requestOpenFile = useCallback(async (path: string) => {
     setLoading(true);
+    setInfo(null);
     try {
       const next = await openFile(path);
       setSnapshot(next);
       setError(null);
+      setInfo(null);
     } catch (err) {
       console.error('open-file error', err);
       setError(extractErrorMessage(err));
+      setInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const requestOpenFileDialog = useCallback(async () => {
+    try {
+      const selected = await pickOpenFile();
+      if (!selected) {
+        return;
+      }
+      await requestOpenFile(selected);
+    } catch (err) {
+      console.error('open-dialog error', err);
+      setError(extractErrorMessage(err));
+      setInfo(null);
+    }
+  }, [requestOpenFile]);
+
+  const requestSaveFile = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result: SaveResult = await saveFile();
+      setSnapshot(result.snapshot);
+      if (result.success) {
+        setError(null);
+        setInfo(result.message ?? '保存しました');
+      } else {
+        setError(result.message ?? '保存に失敗しました');
+        setInfo(null);
+      }
+    } catch (err) {
+      console.error('save-file error', err);
+      setError(extractErrorMessage(err));
+      setInfo(null);
     } finally {
       setLoading(false);
     }
@@ -157,11 +207,24 @@ export function useEditor(): UseEditorResult {
       snapshot,
       loading,
       error,
+      info,
       handleKeyDown,
       requestRefresh,
       requestOpenFile,
+      requestOpenFileDialog,
+      requestSaveFile,
     }),
-    [snapshot, loading, error, handleKeyDown, requestRefresh, requestOpenFile],
+    [
+      snapshot,
+      loading,
+      error,
+      info,
+      handleKeyDown,
+      requestRefresh,
+      requestOpenFile,
+      requestOpenFileDialog,
+      requestSaveFile,
+    ],
   );
 }
 

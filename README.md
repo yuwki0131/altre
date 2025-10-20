@@ -49,9 +49,10 @@ cargo test -p altre --release           # 依存取得が不要な環境で実�
 ### TUI の実行
 
 ```bash
-cargo run -p altre --release
+cargo run -p altre -- --tui
 ```
 
+* `cargo run -p altre`（オプションなし）は GUI モードを起動します。GUI 依存が満たせない環境では自動的に TUI へフォールバックします。
 * raw mode が利用できない環境ではエラーになることがあります。
 * トラブルシューティングは `manuals/troubleshooting.md` を参照してください。
 

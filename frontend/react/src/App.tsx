@@ -2,7 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from './hooks/useEditor';
 
 export function App() {
-  const { snapshot, loading, error, handleKeyDown, requestRefresh, requestOpenFile } = useEditor();
+  const {
+    snapshot,
+    loading,
+    error,
+    info,
+    handleKeyDown,
+    requestRefresh,
+    requestOpenFile,
+    requestOpenFileDialog,
+    requestSaveFile,
+  } = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
   const [openPath, setOpenPath] = useState('');
 
@@ -16,7 +26,7 @@ export function App() {
 
   const minibufferPrompt = snapshot?.minibuffer.prompt ?? 'M-x';
   const minibufferInput = snapshot?.minibuffer.input ?? '';
-  const minibufferMessage = error ?? snapshot?.minibuffer.message ?? null;
+  const minibufferMessage = error ?? info ?? snapshot?.minibuffer.message ?? null;
   const statusLabel = snapshot?.status.label ?? '---';
   const isDirty = snapshot?.status.isModified ?? false;
 
@@ -31,9 +41,17 @@ export function App() {
     <div className="app">
       <header className="app__header">
         <span>altre (Tauri プロトタイプ)</span>
-        <button type="button" onClick={() => void requestRefresh()}>
-          リロード
-        </button>
+        <div className="app__header-actions">
+          <button type="button" onClick={() => void requestRefresh()}>
+            リロード
+          </button>
+          <button type="button" onClick={() => void requestOpenFileDialog()}>
+            開く…
+          </button>
+          <button type="button" onClick={() => void requestSaveFile()} disabled={!snapshot}>
+            保存
+          </button>
+        </div>
       </header>
 
       {loading && <div className="app__loading">読み込み中...</div>}

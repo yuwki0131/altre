@@ -86,6 +86,7 @@
 - React 側では 160ms のフラッシュ遅延を設け、押下されたキーを `KeySequencePayload.sequence` に蓄積してからまとめて送信する。
 - **将来拡張**: バックエンドで差分イベントを生成し、`tauri::Window::emit_all` 経由で push 通知。イベント名 `altre://backend-updated` などを想定。
 - React 側では Zustand もしくは React Context を使用し、`EditorSnapshot` をアプリ全体で共有する。
+- ヘッダーに配置した `リロード / 開く… / 保存` ボタンで代表的な操作を呼び出す。`開く…` は Tauri ランタイムで対話ダイアログが取得できない場合、`window.prompt` を用いたパス入力にフォールバックする。`保存` 実行時は `editor_save_file` のレスポンスメッセージをミニバッファ優先で表示する。
 
 ## 6. ログ出力
 - CLI オプション `--debug-log <path>` を `altre-tauri` 側で受け取り、デフォルトは `~/.altre-log/debug.log`。

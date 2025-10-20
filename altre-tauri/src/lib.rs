@@ -4,7 +4,10 @@ pub mod logging;
 pub mod options;
 pub mod snapshot;
 
+pub use altre::error::{AltreError, Result as BackendResult};
 pub use controller::{BackendController, SaveResponse};
 pub use keymap::{KeySequencePayload, KeyStrokePayload};
 pub use options::BackendOptions;
-pub use snapshot::{BufferSnapshot, CursorSnapshot, EditorSnapshot, MinibufferSnapshot, StatusSnapshot};
+pub use snapshot::{
+    BufferSnapshot, CursorSnapshot, EditorSnapshot, MinibufferSnapshot, StatusSnapshot,
+};

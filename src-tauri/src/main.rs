@@ -1,150 +1,150 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::{Deserialize, Serialize};
+use altre_tauri::{
+    BackendController, BackendOptions, BackendResult, EditorSnapshot, KeySequencePayload,
+    SaveResponse,
+};
+use std::env;
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::State;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CursorSnapshot {
-    line: usize,
-    column: usize,
+struct BackendState {
+    controller: Mutex<BackendController>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BufferSnapshot {
-    lines: Vec<String>,
-    cursor: CursorSnapshot,
+impl BackendState {
+    fn try_new(options: BackendOptions) -> BackendResult<Self> {
+        let controller = BackendController::new(options)?;
+        Ok(Self {
+            controller: Mutex::new(controller),
+        })
+    }
+
+    fn with_controller<F, T>(&self, f: F) -> Result<T, String>
+    where
+        F: FnOnce(&mut BackendController) -> BackendResult<T>,
+    {
+        let mut guard = self
+            .controller
+            .lock()
+            .map_err(|_| "バックエンドのロックに失敗しました".to_string())?;
+        f(&mut guard).map_err(|err| err.to_string())
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct MinibufferSnapshot {
-    mode: String,
-    prompt: String,
-    input: String,
-    completions: Vec<String>,
-    message: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct StatusSnapshot {
-    label: String,
-    is_modified: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct EditorSnapshot {
-    buffer: BufferSnapshot,
-    minibuffer: MinibufferSnapshot,
-    status: StatusSnapshot,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KeyStrokePayload {
-    key: String,
-    ctrl: Option<bool>,
-    alt: Option<bool>,
-    shift: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KeySequencePayload {
-    keys: Vec<KeyStrokePayload>,
+fn backend_options_from_env() -> BackendOptions {
+    let debug_log_path = env::var_os("ALTRE_GUI_DEBUG_LOG").map(PathBuf::from);
+    BackendOptions { debug_log_path }
 }
 
 #[tauri::command]
-fn editor_snapshot() -> EditorSnapshot {
-    fallback_snapshot()
+fn editor_snapshot(state: State<BackendState>) -> Result<EditorSnapshot, String> {
+    state.with_controller(|controller| controller.snapshot())
 }
 
 #[tauri::command]
-fn editor_handle_keys(payload: KeySequencePayload) -> EditorSnapshot {
-    let mut snapshot = fallback_snapshot();
-    for stroke in payload.keys {
-        if stroke.ctrl.unwrap_or(false) || stroke.alt.unwrap_or(false) {
-            snapshot
-                .buffer
-                .lines
-                .push(format!("[fallback] {}", format_key(&stroke)));
-            continue;
-        }
-
-        match stroke.key.as_str() {
-            "Enter" => snapshot.buffer.lines.push(String::new()),
-            "Backspace" => {
-                if let Some(last) = snapshot.buffer.lines.last_mut() {
-                    if !last.is_empty() {
-                        last.pop();
-                    }
-                }
-            }
-            key if key.len() == 1 => {
-                if let Some(last) = snapshot.buffer.lines.last_mut() {
-                    last.push_str(key);
-                }
-            }
-            _ => snapshot
-                .buffer
-                .lines
-                .push(format!("[fallback] {}", format_key(&stroke))),
-        }
-    }
-    snapshot
+fn editor_handle_keys(
+    state: State<BackendState>,
+    payload: KeySequencePayload,
+) -> Result<EditorSnapshot, String> {
+    state.with_controller(|controller| controller.handle_serialized_keys(payload))
 }
 
 #[tauri::command]
-fn editor_open_file(path: String) -> EditorSnapshot {
-    let mut snapshot = fallback_snapshot();
-    snapshot
-        .buffer
-        .lines
-        .push(format!("[fallback] open-file: {path}"));
-    snapshot
+fn editor_open_file(state: State<BackendState>, path: String) -> Result<EditorSnapshot, String> {
+    state.with_controller(|controller| controller.open_file(&path))
 }
 
-fn format_key(stroke: &KeyStrokePayload) -> String {
-    let mut parts = Vec::new();
-    if stroke.ctrl.unwrap_or(false) {
-        parts.push("C".to_string());
-    }
-    if stroke.alt.unwrap_or(false) {
-        parts.push("M".to_string());
-    }
-    if stroke.shift.unwrap_or(false) {
-        parts.push("S".to_string());
-    }
-    parts.push(stroke.key.clone());
-    parts.join("-")
+#[tauri::command]
+fn editor_save_file(state: State<BackendState>) -> Result<SaveResponse, String> {
+    state.with_controller(|controller| controller.save_active_buffer())
 }
 
-fn fallback_snapshot() -> EditorSnapshot {
-    EditorSnapshot {
-        buffer: BufferSnapshot {
-            lines: vec![
-                "Tauri GUI は準備中です。".into(),
-                "Rust バックエンドと接続できないため、ローカルサンプルを表示しています。".into(),
-                "依存が揃ったら Tauri コマンドを実装し、invoke() が成功するようにしてください。".into(),
-            ],
-            cursor: CursorSnapshot { line: 2, column: 24 },
-        },
-        minibuffer: MinibufferSnapshot {
-            mode: "inactive".into(),
-            prompt: "M-x".into(),
-            input: String::new(),
-            completions: Vec::new(),
-            message: Some("Tauri backend 未接続 (fallback)".into()),
-        },
-        status: StatusSnapshot {
-            label: "scratch (fallback)".into(),
-            is_modified: false,
-        },
-    }
+#[tauri::command]
+fn editor_shutdown(state: State<BackendState>) -> Result<(), String> {
+    state.with_controller(|controller| {
+        controller.shutdown();
+        Ok(())
+    })
 }
 
 fn main() {
+    let options = backend_options_from_env();
+    let state = match BackendState::try_new(options) {
+        Ok(state) => state,
+        Err(err) => {
+            eprintln!("Tauri バックエンドの初期化に失敗しました: {err}");
+            std::process::exit(1);
+        }
+    };
+
     tauri::Builder::default()
+        .manage(state)
         .invoke_handler(tauri::generate_handler![
             editor_snapshot,
             editor_handle_keys,
-            editor_open_file
+            editor_open_file,
+            editor_save_file,
+            editor_shutdown
         ])
         .run(tauri::generate_context!())
         .expect("failed to run altre-tauri-app");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn snapshot_command_returns_initial_state() {
+        let temp = tempdir().unwrap();
+        let options = BackendOptions {
+            debug_log_path: Some(temp.path().join("log.jsonl")),
+        };
+        let state = BackendState::try_new(options).expect("バックエンド初期化に失敗しました");
+
+        let snapshot = state
+            .with_controller(|controller| controller.snapshot())
+            .expect("スナップショット取得に失敗しました");
+        assert_eq!(snapshot.buffer.cursor.line, 0);
+    }
+
+    #[test]
+    fn open_file_and_save_via_commands() {
+        let temp_dir = tempdir().unwrap();
+        let log_path = temp_dir.path().join("log.jsonl");
+        let file_path = temp_dir.path().join("sample.txt");
+        let options = BackendOptions {
+            debug_log_path: Some(log_path),
+        };
+        let state = BackendState::try_new(options).unwrap();
+
+        state
+            .with_controller(|controller| controller.open_file(file_path.to_str().unwrap()))
+            .expect("ファイルオープンに失敗しました");
+
+        state
+            .with_controller(|controller| {
+                controller.handle_serialized_keys(KeySequencePayload {
+                    keys: vec![altre_tauri::KeyStrokePayload {
+                        key: "a".into(),
+                        ctrl: false,
+                        alt: false,
+                        shift: false,
+                    }],
+                })
+            })
+            .expect("キー入力に失敗しました");
+
+        let response = state
+            .with_controller(|controller| controller.save_active_buffer())
+            .expect("保存に失敗しました");
+
+        assert!(response.success);
+        let content = fs::read_to_string(file_path).expect("保存ファイルの読み込みに失敗しました");
+        assert_eq!(content, "a");
+    }
 }

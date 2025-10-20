@@ -1,6 +1,6 @@
 use altre::buffer::CursorPosition;
-use altre::minibuffer::{MinibufferMode, MinibufferSystem};
 use altre::core::RenderMetadata;
+use altre::minibuffer::{MinibufferMode, MinibufferSystem};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

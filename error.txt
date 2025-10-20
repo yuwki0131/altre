@@ -1,0 +1,279 @@
+[nix-shell:~/workspace/altre]$ cd src-tauri/
+
+[nix-shell:~/workspace/altre/src-tauri]$ cargo tauri dev
+     Running BeforeDevCommand (`npm run dev --prefix ./frontend/react`)
+
+> altre-tauri-ui@0.1.0 dev
+> vite
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+  VITE v6.4.0  ready in 126 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching /home/yuwki0131/workspace/altre/src-tauri for changes...
+        Info Watching /home/yuwki0131/workspace/altre/altre-core for changes...
+        Info Watching /home/yuwki0131/workspace/altre/altre-tauri for changes...
+        Info Watching /home/yuwki0131/workspace/altre/src-tauri for changes...
+  Downloaded serialize-to-javascript v0.1.1
+  Downloaded serialize-to-javascript-impl v0.1.1
+  Downloaded muda v0.15.3
+  Downloaded tray-icon v0.19.3
+  Downloaded tauri v2.0.0
+  Downloaded 5 crates (432.2KiB) in 1.09s
+   Compiling futures-channel v0.3.31
+   Compiling futures-util v0.3.31
+   Compiling bytes v1.10.1
+   Compiling getrandom v0.3.3
+   Compiling url v2.5.7
+   Compiling form_urlencoded v1.2.2
+   Compiling socket2 v0.6.1
+   Compiling httparse v1.10.1
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling tracing-core v0.1.34
+   Compiling sync_wrapper v1.0.2
+   Compiling tower-layer v0.3.3
+   Compiling futures-sink v0.3.31
+   Compiling tauri-runtime-wry v2.8.1
+   Compiling iri-string v0.7.8
+   Compiling ipnet v2.11.0
+   Compiling shellexpand v3.1.1
+   Compiling serialize-to-javascript-impl v0.1.1
+   Compiling getrandom v0.2.16
+   Compiling want v0.3.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling uuid v1.18.1
+   Compiling altre v0.1.0 (/home/yuwki0131/workspace/altre/altre-core)
+   Compiling cfb v0.7.3
+   Compiling serialize-to-javascript v0.1.1
+   Compiling tracing v0.1.41
+   Compiling http v1.3.1
+   Compiling urlpattern v0.3.0
+   Compiling schemars v0.8.22
+   Compiling tokio v1.48.0
+   Compiling infer v0.19.0
+   Compiling tauri-utils v2.7.0
+   Compiling http-body v1.0.1
+   Compiling http-body-util v0.1.3
+   Compiling futures-executor v0.3.31
+   Compiling glib v0.18.5
+   Compiling altre-tauri v0.1.0 (/home/yuwki0131/workspace/altre/altre-tauri)
+   Compiling tower v0.5.2
+   Compiling hyper v1.7.0
+   Compiling tokio-util v0.7.16
+   Compiling tower-http v0.6.6
+   Compiling hyper-util v0.1.17
+   Compiling reqwest v0.12.24
+   Compiling gio v0.18.4
+   Compiling cairo-rs v0.18.5
+   Compiling atk v0.18.2
+   Compiling javascriptcore-rs v1.1.2
+   Compiling tauri-build v2.4.1
+   Compiling tauri-codegen v2.4.0
+   Compiling tauri v2.0.0
+   Compiling altre-tauri-app v0.1.0 (/home/yuwki0131/workspace/altre/src-tauri)
+   Compiling tauri-macros v2.4.0
+   Compiling gdk-pixbuf v0.18.5
+   Compiling pango v0.18.3
+   Compiling soup3 v0.5.0
+   Compiling gdk v0.18.2
+   Compiling gtk v0.18.2
+   Compiling gdkx11 v0.18.2
+   Compiling webkit2gtk v2.0.1
+   Compiling tao v0.34.4
+   Compiling muda v0.15.3
+   Compiling wry v0.53.4
+   Compiling tauri-runtime v2.8.0
+error[E0432]: unresolved import `tauri_utils::html`
+  --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/mod.rs:19:3
+   |
+19 |   html::{SCRIPT_NONCE_TOKEN, STYLE_NONCE_TOKEN},
+   |   ^^^^ could not find `html` in `tauri_utils`
+   |
+note: found an item that was configured out
+  --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-utils-2.7.0/src/lib.rs:28:9
+   |
+27 | #[cfg(feature = "html-manipulation")]
+   |       ----------------------------- the item is gated behind the `html-manipulation` feature
+28 | pub mod html;
+   |         ^^^^
+
+error[E0603]: struct `Rect` is private
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/lib.rs:224:24
+    |
+224 |     DeviceEventFilter, Rect, UserAttentionType,
+    |                        ^^^^ private struct
+    |
+note: the struct `Rect` is defined here
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.8.0/src/lib.rs:31:53
+    |
+ 31 | use dpi::{PhysicalPosition, PhysicalSize, Position, Rect, Size};
+    |                                                     ^^^^
+help: import `Rect` directly
+    |
+224 |     DeviceEventFilter, tauri_runtime::dpi::Rect, UserAttentionType,
+    |                        ++++++++++++++++++++
+
+error[E0603]: struct `Rect` is private
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/webview/mod.rs:606:61
+    |
+606 |     pending.webview_attributes.bounds = Some(tauri_runtime::Rect { size, position });
+    |                                                             ^^^^ private struct
+    |
+note: the struct `Rect` is defined here
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.8.0/src/lib.rs:31:53
+    |
+ 31 | use dpi::{PhysicalPosition, PhysicalSize, Position, Rect, Size};
+    |                                                     ^^^^
+help: consider importing one of these structs instead
+    |
+606 -     pending.webview_attributes.bounds = Some(tauri_runtime::Rect { size, position });
+606 +     pending.webview_attributes.bounds = Some(crate::runtime::dpi::Rect { size, position });
+    |
+606 |     pending.webview_attributes.bounds = Some(tauri_runtime::dpi::Rect { size, position });
+    |                                                             +++++
+help: import `Rect` directly
+    |
+606 |     pending.webview_attributes.bounds = Some(tauri_runtime::dpi::Rect { size, position });
+    |                                                             +++++
+
+error[E0603]: struct `Rect` is private
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/webview/mod.rs:915:51
+    |
+915 |   pub fn set_bounds(&self, bounds: tauri_runtime::Rect) -> crate::Result<()> {
+    |                                                   ^^^^ private struct
+    |
+note: the struct `Rect` is defined here
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.8.0/src/lib.rs:31:53
+    |
+ 31 | use dpi::{PhysicalPosition, PhysicalSize, Position, Rect, Size};
+    |                                                     ^^^^
+help: consider importing one of these structs instead
+    |
+915 -   pub fn set_bounds(&self, bounds: tauri_runtime::Rect) -> crate::Result<()> {
+915 +   pub fn set_bounds(&self, bounds: crate::runtime::dpi::Rect) -> crate::Result<()> {
+    |
+915 |   pub fn set_bounds(&self, bounds: tauri_runtime::dpi::Rect) -> crate::Result<()> {
+    |                                                   +++++
+help: import `Rect` directly
+    |
+915 |   pub fn set_bounds(&self, bounds: tauri_runtime::dpi::Rect) -> crate::Result<()> {
+    |                                                   +++++
+
+error[E0603]: struct `Rect` is private
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/webview/mod.rs:980:56
+    |
+980 |   pub fn bounds(&self) -> crate::Result<tauri_runtime::Rect> {
+    |                                                        ^^^^ private struct
+    |
+note: the struct `Rect` is defined here
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.8.0/src/lib.rs:31:53
+    |
+ 31 | use dpi::{PhysicalPosition, PhysicalSize, Position, Rect, Size};
+    |                                                     ^^^^
+help: consider importing one of these structs instead
+    |
+980 -   pub fn bounds(&self) -> crate::Result<tauri_runtime::Rect> {
+980 +   pub fn bounds(&self) -> crate::Result<crate::runtime::dpi::Rect> {
+    |
+980 |   pub fn bounds(&self) -> crate::Result<tauri_runtime::dpi::Rect> {
+    |                                                        +++++
+help: import `Rect` directly
+    |
+980 |   pub fn bounds(&self) -> crate::Result<tauri_runtime::dpi::Rect> {
+    |                                                        +++++
+
+error[E0277]: the trait bound `std::string::String: From<&&str>` is not satisfied
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:203:71
+    |
+203 |         webview_attributes = webview_attributes.initialization_script(script);
+    |                                                 --------------------- ^^^^^^ the trait `From<&&str>` is not implemented for `std::string::String`
+    |                                                 |
+    |                                                 required by a bound introduced by this call
+    |
+    = note: required for `&&str` to implement `Into<std::string::String>`
+note: required by a bound in `WebviewAttributes::initialization_script`
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.8.0/src/webview.rs:523:55
+    |
+523 |   pub fn initialization_script(mut self, script: impl Into<String>) -> Self {
+    |                                                       ^^^^^^^^^^^^ required by this bound in `WebviewAttributes::initialization_script`
+help: consider dereferencing here
+    |
+203 |         webview_attributes = webview_attributes.initialization_script(*script);
+    |                                                                       +
+
+error[E0593]: closure is expected to take 3 arguments, but it takes 2 arguments
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:217:15
+    |
+217 |       pending.register_uri_scheme_protocol(uri_scheme.clone(), move |request, responder| {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^                     ------------------------- takes 2 arguments
+    |               |
+    |               expected closure that takes 3 arguments
+
+error[E0593]: closure is expected to take 3 arguments, but it takes 2 arguments
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:255:15
+    |
+255 |       pending.register_uri_scheme_protocol("tauri", move |request, responder| {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^          ------------------------- takes 2 arguments
+    |               |
+    |               expected closure that takes 3 arguments
+
+error[E0593]: closure is expected to take 3 arguments, but it takes 2 arguments
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:263:15
+    |
+263 |       pending.register_uri_scheme_protocol("ipc", move |request, responder| {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^        ------------------------- takes 2 arguments
+    |               |
+    |               expected closure that takes 3 arguments
+
+error[E0308]: mismatched types
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:526:9
+    |
+525 |         pending.webview_attributes.initialization_scripts.push(
+    |                                                           ---- arguments to this method are incorrect
+526 | /         HotkeyZoom {
+527 | |           os_name: std::env::consts::OS,
+528 | |         }
+529 | |         .render_default(&Default::default())?
+530 | |         .into_string(),
+    | |______________________^ expected `InitializationScript`, found `String`
+    |
+note: method defined here
+   --> /rustc/1159e78c4747b02ef996e55082b704c09b970588/library/alloc/src/vec/mod.rs:2521:12
+
+error[E0308]: mismatched types
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/webview/mod.rs:667:13
+    |
+667 |       .push(script.to_string());
+    |        ---- ^^^^^^^^^^^^^^^^^^ expected `InitializationScript`, found `String`
+    |        |
+    |        arguments to this method are incorrect
+    |
+note: method defined here
+   --> /rustc/1159e78c4747b02ef996e55082b704c09b970588/library/alloc/src/vec/mod.rs:2521:12
+
+error[E0308]: mismatched types
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/window/mod.rs:384:60
+    |
+384 |         app_manager.webview.attach_webview(window.clone(), webview);
+    |                             --------------                 ^^^^^^^ expected `DetachedWebview<EventLoopMessage, R>`, found `DetachedWindowWebview<..., ...>`
+    |                             |
+    |                             arguments to this method are incorrect
+    |
+    = note: expected struct `DetachedWebview<EventLoopMessage, R>`
+               found struct `DetachedWindowWebview<EventLoopMessage, R>`
+note: method defined here
+   --> /home/yuwki0131/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.0.0/src/manager/webview.rs:569:17
+    |
+569 |   pub(crate) fn attach_webview(
+    |                 ^^^^^^^^^^^^^^
+...
+572 |     webview: DetachedWebview<EventLoopMessage, R>,
+    |     ---------------------------------------------
+
+Some errors have detailed explanations: E0277, E0308, E0432, E0593, E0603.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `tauri` (lib) due to 12 previous errors

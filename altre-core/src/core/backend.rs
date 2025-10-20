@@ -420,10 +420,23 @@ impl Backend {
     }
 
     fn default_alisp_init_path() -> PathBuf {
-        std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("alisp")
-            .join("init.al")
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+        let candidates = [
+            cwd.join("alisp").join("init.al"),
+            cwd.join("../alisp").join("init.al"),
+            manifest_dir.join("../alisp").join("init.al"),
+        ];
+
+        for candidate in &candidates {
+            if candidate.exists() {
+                return candidate.clone();
+            }
+        }
+
+        // いずれも存在しない場合はカレントディレクトリ基準のパスを返す
+        candidates[0].clone()
     }
 
     fn user_init_path() -> Option<PathBuf> {

@@ -14,11 +14,17 @@ pub struct BackendController {
     logger: Option<DebugLogger>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SaveResponse {
     pub success: bool,
     pub message: Option<String>,
+    pub snapshot: EditorSnapshot,
 }
+
+/// `BackendController` は内部で `Rc` を使用するため `Send` を実装しないが、
+/// ミューテックス越しに逐次アクセスする運用前提のため明示的に `Send` を許可する。
+/// Tauri コマンドは `Mutex<BackendController>` 越しに利用し、並列アクセスは行わない。
+unsafe impl Send for BackendController {}
 
 impl BackendController {
     pub fn new(options: BackendOptions) -> Result<Self> {
@@ -63,9 +69,29 @@ impl BackendController {
     }
 
     pub fn save_active_buffer(&mut self) -> Result<SaveResponse> {
-        Err(AltreError::Application(
-            "GUI 保存処理は未実装です".to_string(),
-        ))
+        let events = [
+            KeyEvent::new(CrosstermKeyCode::Char('x'), CrosstermModifiers::CONTROL),
+            KeyEvent::new(CrosstermKeyCode::Char('s'), CrosstermModifiers::CONTROL),
+        ];
+        let snapshot = self.handle_key_events(&events)?;
+        let mode = snapshot.minibuffer.mode.clone();
+        let message = snapshot.minibuffer.message.clone();
+        let success = !matches!(mode.as_str(), "error" | "write-file" | "save-confirmation");
+
+        self.log_event(
+            "save_buffer",
+            &json!({
+                "success": success,
+                "mode": mode,
+                "message": message,
+            }),
+        )?;
+
+        Ok(SaveResponse {
+            success,
+            message,
+            snapshot,
+        })
     }
 
     pub fn shutdown(&mut self) {
@@ -83,9 +109,9 @@ impl BackendController {
 
     fn log_event<T: Serialize>(&self, tag: &str, payload: &T) -> Result<()> {
         if let Some(logger) = &self.logger {
-            logger
-                .log_event(tag, payload)
-                .map_err(|err| AltreError::Application(format!("デバッグログ出力に失敗しました: {err}")))?;
+            logger.log_event(tag, payload).map_err(|err| {
+                AltreError::Application(format!("デバッグログ出力に失敗しました: {err}"))
+            })?;
         }
         Ok(())
     }
@@ -132,10 +158,16 @@ mod tests {
     use super::*;
     use crate::options::BackendOptions;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn inserts_character_via_controller() {
-        let mut controller = BackendController::new(BackendOptions::default()).unwrap();
+        let temp = tempdir().unwrap();
+        let options = BackendOptions {
+            debug_log_path: Some(temp.path().join("log.jsonl")),
+        };
+        let mut controller = BackendController::new(options).unwrap();
         let events = [KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)];
         let snapshot = controller.handle_key_events(&events).unwrap();
         assert_eq!(snapshot.buffer.lines.join("\n"), "a");
@@ -144,9 +176,41 @@ mod tests {
 
     #[test]
     fn generates_snapshot_without_input() {
-        let mut controller = BackendController::new(BackendOptions::default()).unwrap();
+        let temp = tempdir().unwrap();
+        let options = BackendOptions {
+            debug_log_path: Some(temp.path().join("log.jsonl")),
+        };
+        let mut controller = BackendController::new(options).unwrap();
         let snapshot = controller.snapshot().unwrap();
         // 初期バッファは scratch
         assert!(!snapshot.status.label.is_empty());
+    }
+
+    #[test]
+    fn save_active_buffer_writes_file() {
+        let temp = tempdir().unwrap();
+        let file_path = temp.path().join("sample.txt");
+        let options = BackendOptions {
+            debug_log_path: Some(temp.path().join("log.jsonl")),
+        };
+        let mut controller = BackendController::new(options).unwrap();
+
+        controller
+            .open_file(file_path.to_str().unwrap())
+            .expect("ファイルオープンに失敗しました");
+
+        controller
+            .handle_key_events(&[KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)])
+            .expect("文字入力に失敗しました");
+
+        let response = controller
+            .save_active_buffer()
+            .expect("保存処理に失敗しました");
+
+        assert!(response.success);
+        assert!(!response.snapshot.status.is_modified);
+
+        let content = fs::read_to_string(file_path).expect("保存結果の読み込みに失敗しました");
+        assert_eq!(content, "a");
     }
 }

@@ -2,6 +2,7 @@
 members = [
     "altre-core",
     "altre-tauri",
+    "src-tauri",
 ]
 resolver = "2"
 

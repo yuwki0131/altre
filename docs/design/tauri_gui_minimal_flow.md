@@ -63,8 +63,8 @@ Pull 更新は以下のタイミングで実行する。
    - IME 使用時は `event.isComposing` を検知してバックエンド送信を抑制。
 
 2. **スナップショット適用**  
-   - `useEditor` で `EditorSnapshot` を `useReducer` などに渡し、描画側で `buffer.lines` 差分をレンダリング（最初は全更新で良い）。  
-   - エラーメッセージはミニバッファ領域に集約し、`fallback` 表示は `isTauriRuntime()` false のみで使用。
+   - `useEditor` で `EditorSnapshot` を `setState` 経由で保持し、React 再描画で `buffer.lines` を更新（初期段階では全更新で許容）。  
+   - エラーメッセージは状態として保持し、ミニバッファ領域とエラーバナーへ表示。`isTauriRuntime()` が false の場合のみフォールバック描画を使用する。
 
 3. **ファイル操作 UI**  
    - 現行フォーム（テキスト入力）に加え、Tauri ダイアログへ移行するための抽象インターフェースを用意（`openFileDialog()` は後続タスクで実装）。  

@@ -47,44 +47,85 @@ let fallbackBuffer = [
 ];
 
 export async function fetchSnapshot(): Promise<EditorSnapshot> {
-  return invokeWithFallback<EditorSnapshot>('editor_snapshot', undefined, createFallbackSnapshot);
-}
-
-export async function sendKeySequence(payload: KeySequencePayload): Promise<EditorSnapshot> {
-  return invokeWithFallback<EditorSnapshot>(
-    'editor_handle_keys',
-    { payload },
-    () => updateFallbackBuffer(payload),
-  );
-}
-
-export async function openFile(path: string): Promise<EditorSnapshot> {
-  return invokeWithFallback<EditorSnapshot>(
-    'editor_open_file',
-    { path },
-    () => appendFallbackMessage(`open-file: ${path}`),
-  );
-}
-
-async function invokeWithFallback<T>(
-  command: string,
-  payload: unknown,
-  fallback: () => T,
-): Promise<T> {
   if (!isTauriRuntime()) {
-    return fallback();
+    return createFallbackSnapshot();
   }
 
   try {
-    return await invoke<T>(command, payload);
+    return await invoke<EditorSnapshot>('editor_snapshot');
   } catch (error) {
-    console.warn(`[Tauri invoke: ${command}]`, error);
-    return fallback();
+    throw formatBackendError('editor_snapshot', error);
   }
 }
 
+export async function sendKeySequence(payload: KeySequencePayload): Promise<EditorSnapshot> {
+  if (!isTauriRuntime()) {
+    return updateFallbackBuffer(payload);
+  }
+
+  try {
+    return await invoke<EditorSnapshot>('editor_handle_keys', { payload });
+  } catch (error) {
+    throw formatBackendError('editor_handle_keys', error);
+  }
+}
+
+export async function openFile(path: string): Promise<EditorSnapshot> {
+  if (!isTauriRuntime()) {
+    return appendFallbackMessage(`open-file: ${path}`);
+  }
+
+  try {
+    return await invoke<EditorSnapshot>('editor_open_file', { path });
+  } catch (error) {
+    throw formatBackendError('editor_open_file', error);
+  }
+}
+
+export async function saveFile(): Promise<EditorSnapshot> {
+  if (!isTauriRuntime()) {
+    return appendFallbackMessage('save-file (fallback)');
+  }
+
+  try {
+    const response = await invoke<{ snapshot: EditorSnapshot; success: boolean; message?: string }>(
+      'editor_save_file',
+    );
+    return response.snapshot;
+  } catch (error) {
+    throw formatBackendError('editor_save_file', error);
+  }
+}
+
+const TAURI_DETECTION_KEYS = ['__TAURI_IPC__', '__TAURI_INTERNALS__', '__TAURI_METADATA__'];
+
 function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_IPC__' in window;
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return TAURI_DETECTION_KEYS.some((key) => key in (window as Record<string, unknown>));
+}
+
+function formatBackendError(command: string, error: unknown): Error {
+  const message = extractErrorMessage(error);
+  return new Error(`コマンド ${command} の実行に失敗しました: ${message}`);
+}
+
+export function extractErrorMessage(error: unknown): string {
+  if (!error) {
+    return '不明なエラー';
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 function createFallbackSnapshot(): EditorSnapshot {

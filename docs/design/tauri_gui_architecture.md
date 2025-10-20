@@ -45,6 +45,7 @@
 | `editor_shutdown` | なし | `()` | バックエンドを明示的に終了。GUI 終了時の後片付けに利用。 |
 
 - `KeySequencePayload` は `[[{ "key": "x", "ctrl": true }], [{ "key": "f", "ctrl": true }]]` のように **時系列順のチャンク配列** で表現する。各チャンクは同時に発生したキー群（現状は1要素）を表す。
+- GUI 実行時は Tauri 側の `invoke` 失敗をそのままエラーとして返し、React でミニバッファ／エラーバナーへ表示する。ブラウザプレビュー（`npm run dev`）時のみフォールバックサンプルを利用する。
 - `SaveResponse` は `{ success: bool, message: Option<String> }`。
 
 ### 4.2 追加予定のコマンド

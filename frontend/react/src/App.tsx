@@ -16,7 +16,7 @@ export function App() {
 
   const minibufferPrompt = snapshot?.minibuffer.prompt ?? 'M-x';
   const minibufferInput = snapshot?.minibuffer.input ?? '';
-  const minibufferMessage = snapshot?.minibuffer.message ?? null;
+  const minibufferMessage = error ?? snapshot?.minibuffer.message ?? null;
   const statusLabel = snapshot?.status.label ?? '---';
   const isDirty = snapshot?.status.isModified ?? false;
 

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EditorSnapshot, KeySequencePayload, KeyStrokePayload, fetchSnapshot, openFile, sendKeySequence } from '../services/backend';
+import {
+  EditorSnapshot,
+  KeySequencePayload,
+  KeyStrokePayload,
+  extractErrorMessage,
+  fetchSnapshot,
+  openFile,
+  sendKeySequence,
+} from '../services/backend';
 
 const KEY_SEQUENCE_FLUSH_DELAY_MS = 160;
 const IMMEDIATE_FLUSH_KEYS = new Set([
@@ -71,7 +79,7 @@ export function useEditor(): UseEditorResult {
       setError(null);
     } catch (err) {
       console.error('key-sequence error', err);
-      setError('キー入力の送信に失敗しました');
+      setError(extractErrorMessage(err));
     } finally {
       isFlushingRef.current = false;
       if (pendingSequenceRef.current.length > 0) {
@@ -91,14 +99,14 @@ export function useEditor(): UseEditorResult {
   }, [flushPendingSequence]);
 
   const requestRefresh = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const next = await fetchSnapshot();
       setSnapshot(next);
       setError(null);
     } catch (err) {
       console.error('snapshot error', err);
-      setError('バックエンドとの通信に失敗しました');
+      setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -109,14 +117,14 @@ export function useEditor(): UseEditorResult {
   }, [requestRefresh]);
 
   const requestOpenFile = useCallback(async (path: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const next = await openFile(path);
       setSnapshot(next);
       setError(null);
     } catch (err) {
       console.error('open-file error', err);
-      setError('ファイルを開けませんでした');
+      setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }

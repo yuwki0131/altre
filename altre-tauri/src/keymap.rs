@@ -16,7 +16,9 @@ pub struct KeyStrokePayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct KeySequencePayload {
-    pub keys: Vec<KeyStrokePayload>,
+    /// 入力されたキー列。各要素は時系列順のチャンク（例: `["C-x"]`, `["C-f"]`）を表す。
+    #[serde(default)]
+    pub sequence: Vec<Vec<KeyStrokePayload>>,
 }
 
 #[derive(Debug, Error)]
@@ -26,12 +28,27 @@ pub enum KeyConversionError {
 }
 
 impl KeySequencePayload {
+    pub fn from_strokes(strokes: Vec<KeyStrokePayload>) -> Self {
+        Self {
+            sequence: strokes.into_iter().map(|stroke| vec![stroke]).collect(),
+        }
+    }
+
+    pub fn from_sequence(sequence: Vec<Vec<KeyStrokePayload>>) -> Self {
+        Self { sequence }
+    }
+
     pub fn into_key_events(self) -> Result<Vec<KeyEvent>> {
-        self.keys
-            .into_iter()
-            .map(KeyStrokePayload::to_key_event)
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|err| AltreError::Application(err.to_string()))
+        let mut events = Vec::new();
+        for chunk in self.sequence {
+            for stroke in chunk {
+                let event = stroke.to_key_event().map_err(|err| {
+                    AltreError::Application(format!("キー入力の変換に失敗しました: {err}"))
+                })?;
+                events.push(event);
+            }
+        }
+        Ok(events)
     }
 }
 
@@ -114,5 +131,30 @@ mod tests {
             shift: false,
         };
         assert!(payload.to_key_event().is_err());
+    }
+
+    #[test]
+    fn converts_sequence_payload() {
+        let payload = KeySequencePayload::from_sequence(vec![
+            vec![KeyStrokePayload {
+                key: "x".into(),
+                ctrl: true,
+                alt: false,
+                shift: false,
+            }],
+            vec![KeyStrokePayload {
+                key: "f".into(),
+                ctrl: true,
+                alt: false,
+                shift: false,
+            }],
+        ]);
+
+        let events = payload
+            .into_key_events()
+            .expect("キー列の変換に失敗しました");
+        assert_eq!(events.len(), 2);
+        assert!(events[0].modifiers.contains(CrosstermModifiers::CONTROL));
+        assert_eq!(events[1].code, CrosstermKeyCode::Char('f'));
     }
 }

@@ -33,41 +33,56 @@
 
 ## 4. コマンド / API 仕様
 
-| コマンド名 | リクエストペイロード | レスポンス | 説明 |
-|------------|----------------------|------------|------|
-| `editor_init` | `{ debug_log: bool }` | `EditorSnapshot` | バックエンド初期化、初期スナップショット取得 |
-| `editor_handle_keys` | `{ sequence: string }` | `EditorSnapshot` | キー入力を処理し最新状態を返す |
-| `editor_open_file` | `{ path: string }` | `EditorSnapshot` | ファイルを開きバッファ状態を返す |
-| `editor_save_file` | `{}` | `{ success: bool, message?: string }` | アクティブバッファを保存 |
-| `editor_get_snapshot` | `{}` | `EditorSnapshot` | 明示的な pull 更新 |
-| `editor_exit` | `{}` | `{}` | バックエンドを終了／リソース解放 |
+### 4.1 現状実装 (`src-tauri/src/main.rs`)
 
-- `sequence` は既存 `input::KeySequence` を JSON 文字列として受け渡す。エンコード形式は `[["Ctrl","X"],["Ctrl","F"]]` のような配列を想定。
-- `EditorSnapshot` は以下を含む:
-  ```json
-  {
-    "buffers": [
-      {
-        "id": "main",
-        "lines": ["Hello", "World"],
-        "cursor": { "line": 1, "column": 5 }
-      }
-    ],
-    "minibuffer": {
-      "prompt": "M-x",
-      "input": "find-file",
-      "messages": ["Opened README.md"]
-    },
-    "status": {
-      "mode": "Tauri",
-      "file": "README.md",
-      "dirty": false
-    }
+| コマンド名 | リクエスト | レスポンス | 説明 |
+|------------|------------|------------|------|
+| `editor_init` | `{ debug_log_path?, initial_file?, working_directory? }` | `EditorSnapshot` | GUI 起動時の初期化。オプションを反映したバックエンドを再生成し、最新スナップショットを返す。 |
+| `editor_snapshot` | なし | `EditorSnapshot` | バックエンドの最新状態を取得する Pull API。起動直後の初期状態取得にも利用。 |
+| `editor_handle_keys` | `{ payload: KeySequencePayload }` | `EditorSnapshot` | キーシーケンスを処理した直後の状態を返す。 |
+| `editor_open_file` | `{ path: string }` | `EditorSnapshot` | 指定パスのファイルを開き、アクティブバッファを切り替える。 |
+| `editor_save_file` | なし | `SaveResponse` | アクティブバッファを保存し、成功可否とメッセージを返す。 |
+| `editor_shutdown` | なし | `()` | バックエンドを明示的に終了。GUI 終了時の後片付けに利用。 |
+
+- `KeySequencePayload` は `[[{ "key": "x", "ctrl": true }], [{ "key": "f", "ctrl": true }]]` のように **時系列順のチャンク配列** で表現する。各チャンクは同時に発生したキー群（現状は1要素）を表す。
+- `SaveResponse` は `{ success: bool, message: Option<String> }`。
+
+### 4.2 追加予定のコマンド
+
+- `editor_get_snapshot` : Pull 更新を明示的に分離する場合に導入。`editor_handle_keys` は `()` を返し、クライアント側で別途スナップショットを取得する構成も想定。
+- `editor_show_dialog` 系 : Tauri 標準のダイアログと連携する場合に、Rust から UI へ指示を出すためのイベントコマンドを検討。
+
+### 4.3 `EditorSnapshot` の構造
+
+現状の `altre-tauri/src/snapshot.rs` は単一バッファに特化した以下の構造を提供している。
+
+```json
+{
+  "buffer": {
+    "lines": ["Hello", "World"],
+    "cursor": { "line": 1, "column": 5 }
+  },
+  "minibuffer": {
+    "mode": "find-file",
+    "prompt": "Find file:",
+    "input": "README.md",
+    "completions": [],
+    "message": null
+  },
+  "status": {
+    "label": "README.md",
+    "isModified": false
   }
-  ```
+}
+```
+
+- `buffers` 配列は未実装。複数ウィンドウやバッファ一覧の表示は将来拡張で対応する。
+- `render_metadata.status_label` を `status.label` に伝播しているため、TUI 側と表示フォーマットを共有できる。
+- 将来の差分更新を見据え、`buffer.lines` は `Vec<String>` のままとし、差分イベントでは `LineUpdate`（要設計）を送る方針。
 
 ## 5. 状態管理と更新
 - **初期実装**: Pull 型。React 側で操作後に `editor_get_snapshot` を呼び状態を更新。
+- React 側では 160ms のフラッシュ遅延を設け、押下されたキーを `KeySequencePayload.sequence` に蓄積してからまとめて送信する。
 - **将来拡張**: バックエンドで差分イベントを生成し、`tauri::Window::emit_all` 経由で push 通知。イベント名 `altre://backend-updated` などを想定。
 - React 側では Zustand もしくは React Context を使用し、`EditorSnapshot` をアプリ全体で共有する。
 
@@ -106,6 +121,8 @@
 
 ## 9. 今後の課題
 - Push 型イベント導入時の差分計算コストと、フロントエンド側での差分適用ロジック。
+- React フロントエンドでのキーシーケンス正規化（修飾キー、IME との相互作用、リピート処理）と `KeySequencePayload` の仕様確定。
+- `editor_snapshot` のマルチバッファ化、ウィンドウ分割情報、ミニバッファ表示切替といった UI 拡張。
 - IME / 国際化対応の要否（ブラウザエンジン依存になるため検証が必要）。
 - Tauri バンドル時のファイルアクセス権限、サンドボックス対応（macOS notarization etc）。
 

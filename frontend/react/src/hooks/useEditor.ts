@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  EditorSnapshot,
-  KeySequencePayload,
-  KeyStrokePayload,
-  fetchSnapshot,
-  openFile,
-  sendKeySequence,
-} from '../services/backend';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EditorSnapshot, KeySequencePayload, KeyStrokePayload, fetchSnapshot, openFile, sendKeySequence } from '../services/backend';
+
+const KEY_SEQUENCE_FLUSH_DELAY_MS = 160;
+const IMMEDIATE_FLUSH_KEYS = new Set([
+  'Enter',
+  'Escape',
+  'Tab',
+  'Backspace',
+  'Delete',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+]);
 
 interface UseEditorResult {
   snapshot: EditorSnapshot | null;
@@ -21,6 +27,68 @@ export function useEditor(): UseEditorResult {
   const [snapshot, setSnapshot] = useState<EditorSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pendingSequenceRef = useRef<KeyStrokePayload[][]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFlushingRef = useRef(false);
+  const flushFnRef = useRef<() => Promise<void>>(async () => {});
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current !== null) {
+      clearTimeout(flushTimerRef.current);
+    }
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null;
+      void flushFnRef.current();
+    }, KEY_SEQUENCE_FLUSH_DELAY_MS);
+  }, []);
+
+  const clearFlushTimer = useCallback(() => {
+    if (flushTimerRef.current !== null) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+  }, []);
+
+  const flushPendingSequence = useCallback(async () => {
+    if (isFlushingRef.current) {
+      return;
+    }
+
+    if (pendingSequenceRef.current.length === 0) {
+      clearFlushTimer();
+      return;
+    }
+
+    const sequence = pendingSequenceRef.current.splice(0, pendingSequenceRef.current.length);
+    const payload: KeySequencePayload = { sequence };
+
+    isFlushingRef.current = true;
+    clearFlushTimer();
+
+    try {
+      const next = await sendKeySequence(payload);
+      setSnapshot(next);
+      setError(null);
+    } catch (err) {
+      console.error('key-sequence error', err);
+      setError('キー入力の送信に失敗しました');
+    } finally {
+      isFlushingRef.current = false;
+      if (pendingSequenceRef.current.length > 0) {
+        scheduleFlush();
+      }
+    }
+  }, [clearFlushTimer, scheduleFlush]);
+
+  useEffect(() => {
+    flushFnRef.current = () => flushPendingSequence();
+    return () => {
+      flushFnRef.current = async () => {};
+      if (flushTimerRef.current !== null) {
+        clearTimeout(flushTimerRef.current);
+      }
+    };
+  }, [flushPendingSequence]);
 
   const requestRefresh = useCallback(async () => {
     try {
@@ -55,25 +123,25 @@ export function useEditor(): UseEditorResult {
   }, []);
 
   const handleKeyDown = useCallback(
-    async (event: React.KeyboardEvent<HTMLDivElement>) => {
-      // 変換できないキーはブラウザに任せる
-      const payload = createKeySequence(event);
-      if (!payload) {
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.isComposing) {
+        return;
+      }
+
+      const stroke = createKeyStroke(event);
+      if (!stroke) {
         return;
       }
 
       event.preventDefault();
-
-      try {
-        const next = await sendKeySequence(payload);
-        setSnapshot(next);
-        setError(null);
-      } catch (err) {
-        console.error('key-sequence error', err);
-        setError('キー入力の送信に失敗しました');
+      pendingSequenceRef.current.push([stroke]);
+      if (shouldFlushImmediately(event, stroke)) {
+        void flushPendingSequence();
+      } else {
+        scheduleFlush();
       }
     },
-    [],
+    [flushPendingSequence, scheduleFlush],
   );
 
   return useMemo(
@@ -89,27 +157,47 @@ export function useEditor(): UseEditorResult {
   );
 }
 
-function createKeySequence(
+function createKeyStroke(
   event: React.KeyboardEvent<HTMLDivElement>,
-): KeySequencePayload | null {
-  const key = normalizeKey(event.key);
-  if (!key) {
+): KeyStrokePayload | null {
+  const normalized = normalizeKey(event.key);
+  if (!normalized) {
     return null;
   }
 
   const stroke: KeyStrokePayload = {
-    key,
+    key: normalized.key,
     ctrl: event.ctrlKey || event.metaKey,
     alt: event.altKey,
-    shift: event.shiftKey && key.length > 1, // 1文字の場合は後段で表示
+    shift: event.shiftKey && normalized.requiresShift,
   };
 
-  return { keys: [stroke] };
+  return stroke;
 }
 
-function normalizeKey(raw: string): string | null {
+function shouldFlushImmediately(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  stroke: KeyStrokePayload,
+): boolean {
+  if (event.repeat) {
+    return true;
+  }
+
+  if (stroke.ctrl || stroke.alt) {
+    return true;
+  }
+
+  return IMMEDIATE_FLUSH_KEYS.has(event.key);
+}
+
+function normalizeKey(
+  raw: string,
+): { key: string; requiresShift: boolean } | null {
   if (raw.length === 1) {
-    return raw;
+    return {
+      key: raw,
+      requiresShift: false,
+    };
   }
 
   switch (raw) {
@@ -122,7 +210,10 @@ function normalizeKey(raw: string): string | null {
     case 'ArrowDown':
     case 'ArrowLeft':
     case 'ArrowRight':
-      return transformNamedKey(raw);
+      return {
+        key: transformNamedKey(raw),
+        requiresShift: true,
+      };
     default:
       return null;
   }

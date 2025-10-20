@@ -7,6 +7,7 @@ use altre::Backend;
 use crossterm::event::{KeyCode as CrosstermKeyCode, KeyEvent, KeyModifiers as CrosstermModifiers};
 use serde::Serialize;
 use serde_json::json;
+use std::path::Path;
 
 /// GUI から Rust バックエンドを操作するコントローラー
 pub struct BackendController {
@@ -28,12 +29,22 @@ unsafe impl Send for BackendController {}
 
 impl BackendController {
     pub fn new(options: BackendOptions) -> Result<Self> {
+        if let Some(dir) = options.working_directory.as_ref() {
+            change_working_directory(dir)?;
+        }
+
         let backend = Backend::new()?;
         let logger = match options.resolve_log_path() {
             Some(path) => Some(DebugLogger::new(path).map_err(log_error)?),
             None => None,
         };
-        Ok(Self { backend, logger })
+        let mut controller = Self { backend, logger };
+
+        if let Some(path) = options.initial_file.as_ref() {
+            controller.open_initial_file(path)?;
+        }
+
+        Ok(controller)
     }
 
     pub fn snapshot(&mut self) -> Result<EditorSnapshot> {
@@ -59,6 +70,9 @@ impl BackendController {
         payload: KeySequencePayload,
     ) -> Result<EditorSnapshot> {
         let events = payload.into_key_events()?;
+        if events.is_empty() {
+            return self.snapshot();
+        }
         self.handle_key_events(&events)
     }
 
@@ -115,6 +129,13 @@ impl BackendController {
         }
         Ok(())
     }
+
+    fn open_initial_file(&mut self, path: &Path) -> Result<()> {
+        let display = path.to_string_lossy().to_string();
+        self.backend.open_file(&display)?;
+        self.log_event("init_open_file", &json!({ "path": display }))?;
+        Ok(())
+    }
 }
 
 fn describe_key_event(event: &KeyEvent) -> String {
@@ -153,6 +174,15 @@ fn log_error(err: std::io::Error) -> AltreError {
     AltreError::Application(format!("デバッグログの初期化に失敗しました: {err}"))
 }
 
+fn change_working_directory(path: &Path) -> Result<()> {
+    std::env::set_current_dir(path).map_err(|err| {
+        AltreError::Application(format!(
+            "ワーキングディレクトリの変更に失敗しました ({}): {err}",
+            path.to_string_lossy()
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,6 +196,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let options = BackendOptions {
             debug_log_path: Some(temp.path().join("log.jsonl")),
+            ..Default::default()
         };
         let mut controller = BackendController::new(options).unwrap();
         let events = [KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)];
@@ -179,6 +210,7 @@ mod tests {
         let temp = tempdir().unwrap();
         let options = BackendOptions {
             debug_log_path: Some(temp.path().join("log.jsonl")),
+            ..Default::default()
         };
         let mut controller = BackendController::new(options).unwrap();
         let snapshot = controller.snapshot().unwrap();
@@ -192,6 +224,7 @@ mod tests {
         let file_path = temp.path().join("sample.txt");
         let options = BackendOptions {
             debug_log_path: Some(temp.path().join("log.jsonl")),
+            ..Default::default()
         };
         let mut controller = BackendController::new(options).unwrap();
 

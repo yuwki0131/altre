@@ -37,7 +37,7 @@ export interface KeyStrokePayload {
 }
 
 export interface KeySequencePayload {
-  keys: KeyStrokePayload[];
+  sequence: KeyStrokePayload[][];
 }
 
 let fallbackBuffer = [
@@ -108,7 +108,7 @@ function createFallbackSnapshot(): EditorSnapshot {
 }
 
 function updateFallbackBuffer(payload: KeySequencePayload): EditorSnapshot {
-  for (const key of payload.keys) {
+  for (const key of flattenSequence(payload)) {
     if (!key.ctrl && !key.alt && key.key.length === 1) {
       const current = lastLine();
       const updated = `${current}${key.key}`;
@@ -129,6 +129,10 @@ function updateFallbackBuffer(payload: KeySequencePayload): EditorSnapshot {
 function appendFallbackMessage(message: string): EditorSnapshot {
   appendLine(`[fallback] ${message}`);
   return createFallbackSnapshot();
+}
+
+function flattenSequence(payload: KeySequencePayload): KeyStrokePayload[] {
+  return payload.sequence.flatMap((chunk) => chunk);
 }
 
 function formatKeyStroke(stroke: KeyStrokePayload): string {

@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 pub struct BackendOptions {
     /// デバッグログ出力先（未指定時は `~/.altre-log/debug.log`）
     pub debug_log_path: Option<PathBuf>,
+    /// 起動時に開くファイルパス
+    pub initial_file: Option<PathBuf>,
+    /// GUI 実行時のワーキングディレクトリ
+    pub working_directory: Option<PathBuf>,
 }
 
 impl BackendOptions {
@@ -12,6 +16,23 @@ impl BackendOptions {
         match &self.debug_log_path {
             Some(path) => Some(path.clone()),
             None => default_log_path(),
+        }
+    }
+
+    pub fn merged_with(&self, overrides: &BackendOptions) -> BackendOptions {
+        BackendOptions {
+            debug_log_path: overrides
+                .debug_log_path
+                .clone()
+                .or_else(|| self.debug_log_path.clone()),
+            initial_file: overrides
+                .initial_file
+                .clone()
+                .or_else(|| self.initial_file.clone()),
+            working_directory: overrides
+                .working_directory
+                .clone()
+                .or_else(|| self.working_directory.clone()),
         }
     }
 }

@@ -8,8 +8,10 @@
 
 ## ビルド確認結果
 - `cargo check -p altre` は成功し、TUI クレートは問題なし。
-- `cargo check -p altre-tauri-app` は `atk/gdk/gobject/pango` など GTK 系システムライブラリを `pkg-config` が検出できず失敗。GUI ビルドにはネイティブ依存（.pc ファイル）の導入が必要。
+- ホスト環境での `cargo check -p altre-tauri-app` は引き続き GTK 系ネイティブ依存が不足して失敗するため、`nix-shell` 利用が必須。
 - `nix-shell nix/shell.nix --command 'cargo check -p altre-tauri-app'` が成功。`src-tauri/icons/icon.png` を RGBA 32bit PNG へ差し替えて Tauri のアイコン検証を通過（2025-03-16）。
+- `editor_init` コマンドを追加し、GUI 起動時にログ出力先・初期ファイル・ワーキングディレクトリを指定できるよう更新。`cargo check -p altre-tauri` / `nix-shell nix/shell.nix --command 'cargo check -p altre-tauri-app'` で動作確認済み（2025-03-16）。
+- `KeySequencePayload` をチャンク形式（`Vec<Vec<KeyStrokePayload>>`）へ拡張し、React 側はタイムアウト付きバッファで複合キーをまとめて送信可能にした。`cargo check -p altre-tauri` と `npm --prefix frontend/react run build` を実施済み（2025-03-16）。
 
 ## 今後の対応案
 - `frontend/react` の npm 依存を整えて `npm --prefix frontend/react run build` を安定化。その上で `cargo tauri dev` でのランタイム確認を行う。

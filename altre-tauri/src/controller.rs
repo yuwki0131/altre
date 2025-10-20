@@ -112,6 +112,10 @@ impl BackendController {
         self.backend.shutdown();
     }
 
+    pub fn is_running(&self) -> bool {
+        self.backend.is_running()
+    }
+
     fn create_snapshot(&mut self) -> Result<EditorSnapshot> {
         let metadata = self.backend.render_metadata();
         let view = self.backend.render_view();

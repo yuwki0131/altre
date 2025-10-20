@@ -8,7 +8,7 @@ use serde::Deserialize;
 use std::env;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 struct BackendState {
     options: Mutex<BackendOptions>,
@@ -75,10 +75,21 @@ fn editor_snapshot(state: State<BackendState>) -> Result<EditorSnapshot, String>
 
 #[tauri::command]
 fn editor_handle_keys(
+    app: AppHandle,
     state: State<BackendState>,
     payload: KeySequencePayload,
 ) -> Result<EditorSnapshot, String> {
-    state.with_controller(|controller| controller.handle_serialized_keys(payload))
+    let (snapshot, should_exit) = state.with_controller(|controller| {
+        let snapshot = controller.handle_serialized_keys(payload)?;
+        let should_exit = !controller.is_running();
+        Ok((snapshot, should_exit))
+    })?;
+
+    if should_exit {
+        app.exit(0);
+    }
+
+    Ok(snapshot)
 }
 
 #[tauri::command]

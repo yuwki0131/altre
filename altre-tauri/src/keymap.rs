@@ -70,6 +70,10 @@ impl KeyStrokePayload {
 }
 
 fn parse_key_code(raw: &str) -> std::result::Result<CrosstermKeyCode, KeyConversionError> {
+    if raw == " " {
+        return Ok(CrosstermKeyCode::Char(' '));
+    }
+
     let key = raw.trim();
     if key.len() == 1 {
         let ch = key.chars().next().unwrap();
@@ -131,6 +135,19 @@ mod tests {
             shift: false,
         };
         assert!(payload.to_key_event().is_err());
+    }
+
+    #[test]
+    fn converts_space_key() {
+        let payload = KeyStrokePayload {
+            key: " ".into(),
+            ctrl: false,
+            alt: false,
+            shift: false,
+        };
+        let event = payload.to_key_event().unwrap();
+        assert_eq!(event.code, CrosstermKeyCode::Char(' '));
+        assert!(event.modifiers.is_empty());
     }
 
     #[test]

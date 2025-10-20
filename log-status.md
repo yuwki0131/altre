@@ -14,6 +14,7 @@
 - `KeySequencePayload` をチャンク形式（`Vec<Vec<KeyStrokePayload>>`）へ拡張し、React 側はタイムアウト付きバッファで複合キーをまとめて送信可能にした。`cargo check -p altre-tauri` と `npm --prefix frontend/react run build` を実施済み（2025-03-16）。
 - Tauri 実行時はフォールバックを無効化し、`invoke` 失敗時のエラーメッセージを React で表示できるよう調整。ブラウザプレビュー時は従来のフォールバックを維持（2025-03-16）。
 - `altre` バイナリに `--tui` / `--gui` オプションを追加し、デフォルトで GUI 起動、失敗時は TUI へフォールバックする挙動を実装。GUI バイナリは自動的に `cargo build -p altre-tauri-app --release` で生成し、`target/release/altre-tauri-app` を起動。`cargo check -p altre` で確認済み（2025-03-16）。
+- GUI 経由でスペースキーを押すとエラーになっていた問題を修正（`altre-tauri/src/keymap.rs`）。スペースを `trim()` せず扱い、単体テストを追加。`npm --prefix frontend/react run build` で確認（2025-03-16）。
 - GUI ヘッダーに `開く…` / `保存` ボタンを追加し、`保存` 成功時はレスポンスメッセージをミニバッファへ表示。`開く…` は Tauri ダイアログ未提供環境では `window.prompt` を用いたパス入力へフォールバック（2025-03-16）。
 
 ## 今後の対応案

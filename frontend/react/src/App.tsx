@@ -11,21 +11,35 @@ export function App() {
   } = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLSpanElement | null>(null);
+  const firstVisibleLineRef = useRef<HTMLSpanElement | null>(null);
+  const previousCursorLineRef = useRef<number>(0);
+  const previousTopLineRef = useRef<number>(0);
 
   useEffect(() => {
     editorRef.current?.focus();
   }, [snapshot]);
 
-  const lines = useMemo(() => snapshot?.buffer.lines ?? [], [snapshot]);
+  const bufferLines = useMemo(() => snapshot?.buffer.lines ?? [], [snapshot]);
   const cursorLine = snapshot?.buffer.cursor.line ?? 0;
   const cursorColumn = snapshot?.buffer.cursor.column ?? 0;
+
+  const topLine = snapshot?.viewport?.topLine ?? 0;
+  const viewportHeight = snapshot?.viewport?.height ?? bufferLines.length;
+  const visibleStart = useMemo(() => {
+    const maxStart = Math.max(0, bufferLines.length - viewportHeight);
+    return Math.min(Math.max(0, topLine), maxStart);
+  }, [bufferLines.length, topLine, viewportHeight]);
+  const visibleLines = useMemo(
+    () => bufferLines.slice(visibleStart, visibleStart + viewportHeight),
+    [bufferLines, visibleStart, viewportHeight],
+  );
 
   const lineCount = useMemo(() => {
     if (!snapshot) {
       return 0;
     }
-    return Math.max(1, snapshot.buffer.lines.length);
-  }, [snapshot]);
+    return Math.max(1, bufferLines.length);
+  }, [snapshot, bufferLines.length]);
 
   const statusText = useMemo(() => {
     if (!snapshot) {
@@ -148,13 +162,41 @@ export function App() {
     return lines;
   }, [snapshot, error, info, loading]);
 
-  const bufferLineCount = snapshot?.buffer.lines.length ?? 0;
+  const bufferLineCount = bufferLines.length;
 
   useEffect(() => {
-    if (activeLineRef.current) {
-      activeLineRef.current.scrollIntoView({ block: 'nearest' });
+    if (visibleStart === previousTopLineRef.current) {
+      return;
     }
+    previousTopLineRef.current = visibleStart;
+    if (firstVisibleLineRef.current) {
+      firstVisibleLineRef.current.scrollIntoView({ block: 'start', inline: 'nearest' });
+    }
+  }, [visibleStart]);
+
+  useEffect(() => {
+    if (!activeLineRef.current) {
+      previousCursorLineRef.current = cursorLine;
+      return;
+    }
+
+    const previousLine = previousCursorLineRef.current;
+    const delta = cursorLine - previousLine;
+
+    let block: ScrollLogicalPosition = 'nearest';
+    if (delta > 1) {
+      block = 'end';
+    } else if (delta < -1) {
+      block = 'start';
+    }
+
+    activeLineRef.current.scrollIntoView({ block, inline: 'nearest' });
+
+    previousCursorLineRef.current = cursorLine;
   }, [cursorLine, cursorColumn, bufferLineCount]);
+
+  activeLineRef.current = null;
+  firstVisibleLineRef.current = null;
 
   return (
     <div className="app">
@@ -186,14 +228,23 @@ export function App() {
           ref={editorRef}
           onKeyDown={handleKeyDown}
         >
-          {lines.length === 0 ? (
+          {visibleLines.length === 0 ? (
             <span className="editor-surface__line">(空のバッファ)</span>
           ) : (
-            lines.map((line, index) => {
-              const isActive = index === cursorLine;
+            visibleLines.map((line, index) => {
+              const actualIndex = visibleStart + index;
+              const isActive = actualIndex === cursorLine;
               if (!isActive) {
                 return (
-                  <span key={index} className="editor-surface__line">
+                  <span
+                    key={actualIndex}
+                    className="editor-surface__line"
+                    ref={(el) => {
+                      if (index === 0) {
+                        firstVisibleLineRef.current = el;
+                      }
+                    }}
+                  >
                     {line || '\u00a0'}
                   </span>
                 );
@@ -206,9 +257,14 @@ export function App() {
 
               return (
                 <span
-                  key={index}
+                  key={actualIndex}
                   className="editor-surface__line editor-surface__line--active"
-                  ref={activeLineRef}
+                  ref={(el) => {
+                    if (index === 0) {
+                      firstVisibleLineRef.current = el;
+                    }
+                    activeLineRef.current = el;
+                  }}
                 >
                   <span>{before}</span>
                   <span className="editor-surface__cursor">{cursorChar}</span>

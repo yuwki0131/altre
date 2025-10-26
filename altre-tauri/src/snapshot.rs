@@ -1,6 +1,7 @@
 use altre::buffer::CursorPosition;
 use altre::core::RenderMetadata;
 use altre::minibuffer::{MinibufferMode, MinibufferSystem};
+use altre::ui::viewport::ViewportState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -8,6 +9,7 @@ pub struct EditorSnapshot {
     pub buffer: BufferSnapshot,
     pub minibuffer: MinibufferSnapshot,
     pub status: StatusSnapshot,
+    pub viewport: ViewportSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -37,12 +39,22 @@ pub struct StatusSnapshot {
     pub is_modified: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewportSnapshot {
+    pub top_line: usize,
+    pub height: usize,
+    pub scroll_x: usize,
+    pub width: usize,
+}
+
 impl EditorSnapshot {
     pub fn new(
         text: &str,
         cursor: &CursorPosition,
         metadata: &RenderMetadata,
         minibuffer: &MinibufferSystem,
+        viewport: ViewportState,
     ) -> Self {
         Self {
             buffer: BufferSnapshot::from_text(text, cursor),
@@ -51,6 +63,7 @@ impl EditorSnapshot {
                 label: metadata.status_label.clone(),
                 is_modified: metadata.is_modified,
             },
+            viewport: ViewportSnapshot::from(viewport),
         }
     }
 }
@@ -67,6 +80,17 @@ impl BufferSnapshot {
                 line: cursor.line,
                 column: cursor.column,
             },
+        }
+    }
+}
+
+impl From<ViewportState> for ViewportSnapshot {
+    fn from(state: ViewportState) -> Self {
+        Self {
+            top_line: state.top_line,
+            height: state.height,
+            scroll_x: state.scroll_x,
+            width: state.width,
         }
     }
 }

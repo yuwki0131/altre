@@ -1,9 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 
+export interface ViewportSnapshot {
+  topLine: number;
+  height: number;
+  scrollX: number;
+  width: number;
+}
+
 export interface EditorSnapshot {
   buffer: BufferSnapshot;
   minibuffer: MinibufferSnapshot;
   status: StatusSnapshot;
+  viewport: ViewportSnapshot;
 }
 
 export interface BufferSnapshot {
@@ -182,6 +190,7 @@ function createFallbackSnapshot(): EditorSnapshot {
       label: 'scratch (fallback)',
       isModified: false,
     },
+    viewport: createFallbackViewport(),
   };
 }
 
@@ -241,6 +250,17 @@ function replaceLastLine(line: string): void {
 
 function appendLine(line: string): void {
   fallbackBuffer = [...fallbackBuffer, line];
+}
+
+function createFallbackViewport(): ViewportSnapshot {
+  const height = Math.max(1, fallbackBuffer.length);
+  const maxWidth = fallbackBuffer.reduce((acc, line) => Math.max(acc, line.length), 0);
+  return {
+    topLine: 0,
+    height,
+    scrollX: 0,
+    width: maxWidth,
+  };
 }
 
 function promptForPath(): string | null {

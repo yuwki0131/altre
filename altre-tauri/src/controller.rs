@@ -3,6 +3,7 @@ use crate::logging::DebugLogger;
 use crate::options::BackendOptions;
 use crate::snapshot::EditorSnapshot;
 use altre::error::{AltreError, Result};
+use altre::ui::viewport::ViewportState;
 use altre::Backend;
 use crossterm::event::{KeyCode as CrosstermKeyCode, KeyEvent, KeyModifiers as CrosstermModifiers};
 use serde::Serialize;
@@ -13,6 +14,8 @@ use std::path::Path;
 pub struct BackendController {
     backend: Backend,
     logger: Option<DebugLogger>,
+    viewport_height: usize,
+    viewport_width: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -38,7 +41,19 @@ impl BackendController {
             Some(path) => Some(DebugLogger::new(path).map_err(log_error)?),
             None => None,
         };
-        let mut controller = Self { backend, logger };
+        let mut controller = Self {
+            backend,
+            logger,
+            viewport_height: 40,
+            viewport_width: 120,
+        };
+
+        {
+            let view = controller.backend.render_view();
+            if let Some(viewport) = view.window_manager.focused_viewport_mut() {
+                viewport.update_dimensions(controller.viewport_height, controller.viewport_width);
+            }
+        }
 
         if let Some(path) = options.initial_file.as_ref() {
             controller.open_initial_file(path)?;
@@ -119,9 +134,18 @@ impl BackendController {
     fn create_snapshot(&mut self) -> Result<EditorSnapshot> {
         let metadata = self.backend.render_metadata();
         let view = self.backend.render_view();
+        if let Some(viewport) = view.window_manager.focused_viewport_mut() {
+            viewport.update_dimensions(self.viewport_height, self.viewport_width);
+        }
         let text = view.editor.to_string();
         let cursor = *view.editor.cursor();
-        let snapshot = EditorSnapshot::new(&text, &cursor, &metadata, view.minibuffer);
+        let viewport_state = view
+            .window_manager
+            .focused_viewport()
+            .cloned()
+            .unwrap_or_else(ViewportState::new);
+        let snapshot =
+            EditorSnapshot::new(&text, &cursor, &metadata, view.minibuffer, viewport_state);
         Ok(snapshot)
     }
 

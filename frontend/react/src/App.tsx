@@ -10,6 +10,7 @@ export function App() {
     handleKeyDown,
   } = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
+  const activeLineRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     editorRef.current?.focus();
@@ -147,6 +148,14 @@ export function App() {
     return lines;
   }, [snapshot, error, info, loading]);
 
+  const bufferLineCount = snapshot?.buffer.lines.length ?? 0;
+
+  useEffect(() => {
+    if (activeLineRef.current) {
+      activeLineRef.current.scrollIntoView({ block: 'nearest' });
+    }
+  }, [cursorLine, cursorColumn, bufferLineCount]);
+
   return (
     <div className="app">
       <div className="app__minibuffer">
@@ -177,8 +186,37 @@ export function App() {
           ref={editorRef}
           onKeyDown={handleKeyDown}
         >
-          {lines.map((line, index) => renderLine(line, index, cursorLine, cursorColumn))}
-          {lines.length === 0 && <span className="editor-surface__line">(空のバッファ)</span>}
+          {lines.length === 0 ? (
+            <span className="editor-surface__line">(空のバッファ)</span>
+          ) : (
+            lines.map((line, index) => {
+              const isActive = index === cursorLine;
+              if (!isActive) {
+                return (
+                  <span key={index} className="editor-surface__line">
+                    {line || '\u00a0'}
+                  </span>
+                );
+              }
+
+              const safeColumn = Math.min(cursorColumn, line.length);
+              const before = line.slice(0, safeColumn) || '\u00a0';
+              const cursorChar = line.charAt(safeColumn) || '\u00a0';
+              const after = line.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
+
+              return (
+                <span
+                  key={index}
+                  className="editor-surface__line editor-surface__line--active"
+                  ref={activeLineRef}
+                >
+                  <span>{before}</span>
+                  <span className="editor-surface__cursor">{cursorChar}</span>
+                  <span>{after}</span>
+                </span>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -186,33 +224,5 @@ export function App() {
         <span className="statusline__content">{statusText}</span>
       </div>
     </div>
-  );
-}
-
-function renderLine(
-  content: string,
-  index: number,
-  cursorLine: number,
-  cursorColumn: number,
-): JSX.Element {
-  if (index !== cursorLine) {
-    return (
-      <span key={index} className="editor-surface__line">
-        {content || '\u00a0'}
-      </span>
-    );
-  }
-
-  const safeColumn = Math.min(cursorColumn, content.length);
-  const before = content.slice(0, safeColumn) || '\u00a0';
-  const cursorChar = content.charAt(safeColumn) || '\u00a0';
-  const after = content.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
-
-  return (
-    <span key={index} className="editor-surface__line editor-surface__line--active">
-      <span>{before}</span>
-      <span className="editor-surface__cursor">{cursorChar}</span>
-      <span>{after}</span>
-    </span>
   );
 }

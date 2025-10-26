@@ -57,6 +57,11 @@ cargo test -p altre --release           # 依存取得が不要な環境で実�
    - `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を直接実行することでホットリロード環境を利用できます（要ネットワーク）。
 4. `npm run dev --prefix frontend/react` を実行するとブラウザで UI をプレビューできます（この場合は Tauri バックエンド未接続で fallback 表示になります）。
 
+### ビルド・実行スクリプト
+- `./build-run.sh [gui|tui]` : 既定で GUI をビルド・起動します。`tui` を明示すると TUI のみ実行します。
+- `./build-run-tui.sh` : TUI 専用のビルド・起動を行います。
+  - いずれも追加引数は `cargo run` にそのまま渡されます。
+
 #### TUI (ratatui)
 ```bash
 cargo run -p altre -- --tui

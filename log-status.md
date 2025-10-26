@@ -1,3 +1,21 @@
+# ログステータス（2025-10-20）
+
+## 依存関係の状況
+- Rust 側は `tauri 2.8.5` / `tauri-runtime-wry 2.8.0` / `softbuffer 0.4.6` を使用。`softbuffer` が `objc2 0.5.2` を要求するため、`cargo tree -i objc2@0.5.2` にはまだ参照が残る。
+- GUI ビルドには GTK / WebKitGTK / libsoup / libappindicator などのネイティブ依存が必須。Nix 環境では `nix/shell.nix` でセットアップ可能。
+- Node.js 18 以上と `@tauri-apps/cli`、`npm install --prefix frontend/react` の依存が揃っていればホットリロードまで含めて動作する。
+
+## ビルド確認結果
+- `cargo check -p altre` / `cargo check -p altre-tauri` / `cargo check -p altre-tauri-app` は Nix シェル経由で成功。
+- `cargo run -p altre -- --gui` は初回に `altre-tauri-app` を自動ビルドし、GUI バイナリを起動。GUI バイナリが起動できない場合は TUI へフォールバックする。
+- `cargo run -p altre -- --tui` は従来通り ratatui の TUI を起動。raw mode が利用できない端末では失敗するため、テストのみ行う場合は `cargo test`/`cargo check` を利用する。
+- `npm --prefix frontend/react run build` が通った後で `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を実行するとホットリロード付きで GUI を確認できる。
+
+## 今後の対応案
+- `docs/design/tauri_gui_minimal_flow.md` の T3/F3/F4/QA1（スナップショット拡張、fallback の切り替え、E2E 手順）は継続課題。
+- `cargo test -p altre-tauri` / `-p altre-tauri-app` をオフラインでも通せるよう、依存キャッシュおよび CI 相当の実行手順を整備する。
+- `softbuffer` の `objc2 0.6` 対応版が公開されたら更新し、依存木から 0.5 系を排除する。
+
 # ログステータス（2025-03-16）
 
 ## 依存関係の状況

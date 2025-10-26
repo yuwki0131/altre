@@ -13,6 +13,7 @@ Emacs風テキストエディタ実装
 ## 主な現在の実装状況
 - Emacs 互換のバッファ / ポイント / マークとキルリングを実装し、リージョン編集や単語移動をサポート
 - ratatui + crossterm による TUI レイアウトと複数ウィンドウ表示
+- Tauri + React による GUI フロントエンド（バックエンドと編集状態を往復する最小実装を搭載）
 - ミニバッファからのコマンド実行 (`M-x`)
 - ファイル操作
 - インクリメンタル検索
@@ -21,13 +22,13 @@ Emacs風テキストエディタ実装
 
 ## 現在のステータス
 - 開発フェーズ: MVP コア機能に加え、バッファ・ウィンドウ管理と検索機能を統合済み
-- 対応プラットフォーム: ターミナル向け TUI（ratatui）。GUI は Slint 実装を撤去し、Tauri ベースへの移行を再設計中
+- 対応プラットフォーム: GUI (Tauri + React) とターミナル向け TUI（ratatui）。`cargo run -p altre` は GUI を試行し、依存不足などで失敗した場合は TUI へ自動フォールバックする
 
 ## セットアップ
 ### 必須ツール
 - Rust 1.78 以降（`rustup` 経由のインストールを推奨）
 - 色表示と raw mode に対応した端末
-- （GUI 開発時）Node.js 18 以降 / npm、Tauri CLI（後続タスクで導入予定）
+- （GUI 開発時）Node.js 18 以降 / npm、Tauri CLI（`npm install -g @tauri-apps/cli` を推奨）
 
 ### リポジトリ取得
 
@@ -46,22 +47,23 @@ cargo build -p altre --release          # オフライン環境では --offline 
 cargo test -p altre --release           # 依存取得が不要な環境で実行
 ```
 
-### TUI の実行
+### アプリケーションの実行
 
+#### GUI (Tauri + React)
+1. `nix-shell nix/shell.nix` などで GTK / WebKit / libsoup などのネイティブ依存を解決した開発シェルに入ります。（他ディストリビューションでも同等パッケージを用意してください）
+2. `npm install --prefix frontend/react` でフロントエンド依存を取得し、`npm run build --prefix frontend/react` で `dist/` を生成します。
+3. `cargo run -p altre -- --gui` で GUI を起動します。初回は `altre-tauri-app`（Tauri バイナリ）を自動ビルドします。
+   - `cargo run -p altre`（オプションなし）でも同じ挙動で GUI を試行します。GUI バイナリ実行に失敗した場合は自動的に TUI へフォールバックします。
+   - `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を直接実行することでホットリロード環境を利用できます（要ネットワーク）。
+4. `npm run dev --prefix frontend/react` を実行するとブラウザで UI をプレビューできます（この場合は Tauri バックエンド未接続で fallback 表示になります）。
+
+#### TUI (ratatui)
 ```bash
 cargo run -p altre -- --tui
 ```
 
-* `cargo run -p altre`（オプションなし）は GUI モードを起動します。GUI 依存が満たせない環境では自動的に TUI へフォールバックします。
 * raw mode が利用できない環境ではエラーになることがあります。
 * トラブルシューティングは `manuals/troubleshooting.md` を参照してください。
-
-### Tauri GUI を試す（実験的）
-1. `nix-shell nix/shell.nix` で開発シェルに入り、Node.js と Tauri CLI が利用可能な環境を準備します。
-2. `npm install --prefix frontend/react` でフロントエンド依存を取得し、`npm run build --prefix frontend/react` で `dist/` を生成します。
-3. ネイティブウィンドウ確認: `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を実行。ネットワークから `tauri` 関連のクレートを取得するため、オンライン環境が必要です。現状は fallback UI のみ表示されます。
-4. ブラウザでプレビューする場合は `npm run dev --prefix frontend/react` を実行し、`http://localhost:5173` で表示を確認してください。
-   - Rust バックエンドとの連携は今後 `altre-tauri` のコマンド実装で追加予定です。
 
 ## 基本操作
 - 文字入力・Backspace/Delete/Enter/Tab による基本編集、`C-d` で前方削除、`C-k` で行キル
@@ -82,7 +84,7 @@ cargo run -p altre -- --tui
 │   ├── benches/          # Criterion ベンチマーク
 │   ├── src/              # コア実装
 │   └── tests/            # 結合テスト・統合テスト
-├── altre-tauri/          # Tauri GUI エントリポイント（プレースホルダ）
+├── altre-tauri/          # Tauri GUI バックエンド（Rust）
 ├── frontend/             # GUI フロントエンド資産
 │   └── react/            # React ベース UI 雛形
 ├── Cargo.toml            # ワークスペースマニフェスト

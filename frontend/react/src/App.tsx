@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useEditor } from './hooks/useEditor';
 
 export function App() {
@@ -8,13 +8,8 @@ export function App() {
     error,
     info,
     handleKeyDown,
-    requestRefresh,
-    requestOpenFile,
-    requestOpenFileDialog,
-    requestSaveFile,
   } = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
-  const [openPath, setOpenPath] = useState('');
 
   useEffect(() => {
     editorRef.current?.focus();
@@ -24,38 +19,156 @@ export function App() {
   const cursorLine = snapshot?.buffer.cursor.line ?? 0;
   const cursorColumn = snapshot?.buffer.cursor.column ?? 0;
 
-  const minibufferPrompt = snapshot?.minibuffer.prompt ?? 'M-x';
-  const minibufferInput = snapshot?.minibuffer.input ?? '';
-  const minibufferMessage = error ?? info ?? snapshot?.minibuffer.message ?? null;
-  const statusLabel = snapshot?.status.label ?? '---';
-  const isDirty = snapshot?.status.isModified ?? false;
+  const lineCount = useMemo(() => {
+    if (!snapshot) {
+      return 0;
+    }
+    return Math.max(1, snapshot.buffer.lines.length);
+  }, [snapshot]);
 
-  const handleOpenSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (openPath.trim().length === 0) return;
-    await requestOpenFile(openPath.trim());
-    setOpenPath('');
-  };
+  const statusText = useMemo(() => {
+    if (!snapshot) {
+      return ' 起動中...';
+    }
+
+    const modifiedFlag = snapshot.status.isModified ? '*' : ' ';
+    const label = snapshot.status.label || 'scratch';
+    const line = snapshot.buffer.cursor.line + 1;
+    const column = snapshot.buffer.cursor.column + 1;
+    const fpsDisplay = '--';
+
+    return ` ${modifiedFlag} ${label}  Ln ${line}, Col ${column}  ${lineCount} lines  FPS: ${fpsDisplay}`;
+  }, [snapshot, lineCount]);
+
+  const minibufferLines = useMemo(() => {
+    if (!snapshot) {
+      return [
+        {
+          key: 'loading',
+          type: 'info' as const,
+          content: loading ? '読み込み中...' : '初期化中...',
+        },
+      ];
+    }
+
+    const lines: Array<{
+      key: string;
+      type: 'prompt' | 'info' | 'error';
+      prompt?: string;
+      input?: string;
+      content?: string;
+    }> = [];
+
+    const mode = snapshot.minibuffer.mode;
+    const prompt = snapshot.minibuffer.prompt;
+    const input = snapshot.minibuffer.input;
+    const statusMessage = snapshot.minibuffer.message;
+
+    const globalError = error ?? null;
+    const globalInfo = info ?? null;
+
+    const interactiveModes = new Set([
+      'find-file',
+      'execute-command',
+      'eval-expression',
+      'write-file',
+      'switch-buffer',
+      'kill-buffer',
+      'query-replace-pattern',
+      'query-replace-replacement',
+      'goto-line',
+      'save-confirmation',
+    ]);
+
+    if (interactiveModes.has(mode)) {
+      lines.push({
+        key: 'prompt',
+        type: 'prompt',
+        prompt,
+        input: input.length > 0 ? input : '\u00a0',
+      });
+
+      if (mode === 'goto-line' && statusMessage) {
+        lines.push({
+          key: 'goto-status',
+          type: 'info',
+          content: statusMessage,
+        });
+      }
+    } else if (mode === 'error') {
+      if (statusMessage) {
+        lines.push({
+          key: 'minibuffer-error',
+          type: 'error',
+          content: statusMessage,
+        });
+      }
+    } else if (mode === 'info' && statusMessage) {
+      lines.push({
+        key: 'minibuffer-info',
+        type: 'info',
+        content: statusMessage,
+      });
+    }
+
+    if (lines.length === 0) {
+      const message = globalError ?? globalInfo ?? statusMessage;
+      if (message) {
+        lines.push({
+          key: 'fallback-message',
+          type: globalError ? 'error' : 'info',
+          content: message,
+        });
+      }
+    } else if (globalError) {
+      lines.push({
+        key: 'global-error',
+        type: 'error',
+        content: globalError,
+      });
+    } else if (globalInfo) {
+      lines.push({
+        key: 'global-info',
+        type: 'info',
+        content: globalInfo,
+      });
+    }
+
+    if (lines.length === 0) {
+      return [
+        {
+          key: 'inactive',
+          type: 'info' as const,
+          content: '\u00a0',
+        },
+      ];
+    }
+
+    return lines;
+  }, [snapshot, error, info, loading]);
 
   return (
     <div className="app">
-      <header className="app__header">
-        <span>altre (Tauri プロトタイプ)</span>
-        <div className="app__header-actions">
-          <button type="button" onClick={() => void requestRefresh()}>
-            リロード
-          </button>
-          <button type="button" onClick={() => void requestOpenFileDialog()}>
-            開く…
-          </button>
-          <button type="button" onClick={() => void requestSaveFile()} disabled={!snapshot}>
-            保存
-          </button>
-        </div>
-      </header>
+      <div className="app__minibuffer">
+        {minibufferLines.map((line) => {
+          if (line.type === 'prompt') {
+            return (
+              <div key={line.key} className="minibuffer__line">
+                <span className="minibuffer__prompt">{line.prompt ?? ''}</span>
+                <span className="minibuffer__input">{line.input ?? '\u00a0'}</span>
+              </div>
+            );
+          }
 
-      {loading && <div className="app__loading">読み込み中...</div>}
-      {error && <div className="app__error">{error}</div>}
+          const className =
+            line.type === 'error' ? 'minibuffer__error' : 'minibuffer__message';
+          return (
+            <div key={line.key} className="minibuffer__line">
+              <span className={className}>{line.content ?? '\u00a0'}</span>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="editor-surface">
         <div
@@ -69,26 +182,8 @@ export function App() {
         </div>
       </div>
 
-      <div className="app__minibuffer">
-        <span className="minibuffer__prompt">{minibufferPrompt}</span>
-        <span className="minibuffer__input">{minibufferInput || '\u00a0'}</span>
-        {minibufferMessage && <span className="minibuffer__message">{minibufferMessage}</span>}
-        <form onSubmit={handleOpenSubmit} style={{ marginLeft: 'auto' }}>
-          <input
-            type="text"
-            placeholder="ファイルパス"
-            value={openPath}
-            onChange={(event) => setOpenPath(event.target.value)}
-            style={{ background: 'transparent', color: 'inherit', border: '1px solid #333' }}
-          />
-        </form>
-      </div>
-
       <div className="statusline">
-        <span>{statusLabel}</span>
-        <span className={isDirty ? 'statusline__dirty' : 'statusline__clean'}>
-          {isDirty ? '● 未保存' : '✔ 保存済み'}
-        </span>
+        <span className="statusline__content">{statusText}</span>
       </div>
     </div>
   );

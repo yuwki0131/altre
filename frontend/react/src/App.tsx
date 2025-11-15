@@ -24,15 +24,23 @@ export function App() {
   const cursorColumn = snapshot?.buffer.cursor.column ?? 0;
 
   const topLine = snapshot?.viewport?.topLine ?? 0;
-  const viewportHeight = snapshot?.viewport?.height ?? bufferLines.length;
+  const viewportHeight = Math.max(1, snapshot?.viewport?.height ?? (bufferLines.length || 1));
   const visibleStart = useMemo(() => {
     const maxStart = Math.max(0, bufferLines.length - viewportHeight);
     return Math.min(Math.max(0, topLine), maxStart);
   }, [bufferLines.length, topLine, viewportHeight]);
-  const visibleLines = useMemo(
-    () => bufferLines.slice(visibleStart, visibleStart + viewportHeight),
-    [bufferLines, visibleStart, viewportHeight],
-  );
+  const visibleLines = useMemo(() => {
+    const result: Array<{ content: string; index: number | null }> = [];
+    for (let offset = 0; offset < viewportHeight; offset += 1) {
+      const actualIndex = visibleStart + offset;
+      if (actualIndex < bufferLines.length) {
+        result.push({ content: bufferLines[actualIndex], index: actualIndex });
+      } else {
+        result.push({ content: '', index: null });
+      }
+    }
+    return result;
+  }, [bufferLines, visibleStart, viewportHeight]);
 
   const lineCount = useMemo(() => {
     if (!snapshot) {
@@ -232,12 +240,20 @@ export function App() {
             <span className="editor-surface__line">(空のバッファ)</span>
           ) : (
             visibleLines.map((line, index) => {
-              const actualIndex = visibleStart + index;
-              const isActive = actualIndex === cursorLine;
+              const actualIndex = line.index;
+              const key = actualIndex ?? `placeholder-${visibleStart + index}`;
+              const isActive = actualIndex !== null && actualIndex === cursorLine;
+
+              const content = line.content;
+              const safeColumn = Math.min(cursorColumn, content.length);
+              const before = content.slice(0, safeColumn);
+              const cursorChar = content.charAt(safeColumn) || '\u00a0';
+              const after = content.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
+
               if (!isActive) {
                 return (
                   <span
-                    key={actualIndex}
+                    key={key}
                     className="editor-surface__line"
                     ref={(el) => {
                       if (index === 0) {
@@ -245,19 +261,14 @@ export function App() {
                       }
                     }}
                   >
-                    {line || '\u00a0'}
+                    {before === '\u00a0' && after === '' ? '\u00a0' : content || '\u00a0'}
                   </span>
                 );
               }
 
-              const safeColumn = Math.min(cursorColumn, line.length);
-              const before = line.slice(0, safeColumn) || '\u00a0';
-              const cursorChar = line.charAt(safeColumn) || '\u00a0';
-              const after = line.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
-
               return (
                 <span
-                  key={actualIndex}
+                  key={key}
                   className="editor-surface__line editor-surface__line--active"
                   ref={(el) => {
                     if (index === 0) {

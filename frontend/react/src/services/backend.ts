@@ -72,13 +72,14 @@ export async function fetchSnapshot(): Promise<EditorSnapshot> {
   }
 }
 
-export async function sendKeySequence(payload: KeySequencePayload): Promise<EditorSnapshot> {
+export async function sendKeySequence(payload: KeySequencePayload): Promise<boolean> {
   if (!isTauriRuntime()) {
-    return updateFallbackBuffer(payload);
+    updateFallbackBuffer(payload);
+    return false;
   }
 
   try {
-    return await invoke<EditorSnapshot>('editor_handle_keys', { payload });
+    return await invoke<boolean>('editor_handle_keys', { payload });
   } catch (error) {
     throw formatBackendError('editor_handle_keys', error);
   }

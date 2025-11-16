@@ -78,18 +78,17 @@ fn editor_handle_keys(
     app: AppHandle,
     state: State<BackendState>,
     payload: KeySequencePayload,
-) -> Result<EditorSnapshot, String> {
-    let (snapshot, should_exit) = state.with_controller(|controller| {
-        let snapshot = controller.handle_serialized_keys(payload)?;
-        let should_exit = !controller.is_running();
-        Ok((snapshot, should_exit))
+) -> Result<bool, String> {
+    let should_exit = state.with_controller(|controller| {
+        controller.process_serialized_keys(payload)?;
+        Ok(!controller.is_running())
     })?;
 
     if should_exit {
         app.exit(0);
     }
 
-    Ok(snapshot)
+    Ok(should_exit)
 }
 
 #[tauri::command]
@@ -211,7 +210,7 @@ mod tests {
 
         state
             .with_controller(|controller| {
-                controller.handle_serialized_keys(KeySequencePayload::from_strokes(vec![
+                controller.process_serialized_keys(KeySequencePayload::from_strokes(vec![
                     altre_tauri::KeyStrokePayload {
                         key: "a".into(),
                         ctrl: false,

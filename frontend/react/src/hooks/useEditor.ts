@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   EditorSnapshot,
-  KeySequencePayload,
   KeyStrokePayload,
   SaveResult,
   extractErrorMessage,
@@ -12,18 +11,12 @@ import {
   sendKeySequence,
 } from '../services/backend';
 
-const KEY_SEQUENCE_FLUSH_DELAY_MS = 160;
-const IMMEDIATE_FLUSH_KEYS = new Set([
-  'Enter',
-  'Escape',
-  'Tab',
-  'Backspace',
-  'Delete',
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-]);
+const SNAPSHOT_POLL_INTERVAL_MS = 120;
+
+interface FetchOptions {
+  showLoader?: boolean;
+  force?: boolean;
+}
 
 interface UseEditorResult {
   snapshot: EditorSnapshot | null;
@@ -42,77 +35,35 @@ export function useEditor(): UseEditorResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const pendingSequenceRef = useRef<KeyStrokePayload[][]>([]);
-  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFlushingRef = useRef(false);
-  const flushFnRef = useRef<() => Promise<void>>(async () => {});
+  const snapshotTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFetchingSnapshotRef = useRef(false);
+  const pendingFetchRef = useRef<FetchOptions | null>(null);
+  const needsInitialSnapshotRef = useRef(true);
 
-  const scheduleFlush = useCallback(() => {
-    if (flushTimerRef.current !== null) {
-      clearTimeout(flushTimerRef.current);
-    }
-    flushTimerRef.current = window.setTimeout(() => {
-      flushTimerRef.current = null;
-      void flushFnRef.current();
-    }, KEY_SEQUENCE_FLUSH_DELAY_MS);
-  }, []);
-
-  const clearFlushTimer = useCallback(() => {
-    if (flushTimerRef.current !== null) {
-      clearTimeout(flushTimerRef.current);
-      flushTimerRef.current = null;
-    }
-  }, []);
-
-  const flushPendingSequence = useCallback(async () => {
-    if (isFlushingRef.current) {
+  const fetchLatestSnapshot = useCallback(async function fetchLatestSnapshotImpl(
+    options?: FetchOptions,
+  ) {
+    if (isFetchingSnapshotRef.current) {
+      if (options?.force) {
+        const previous = pendingFetchRef.current;
+        pendingFetchRef.current = {
+          force: true,
+          showLoader: options.showLoader || previous?.showLoader,
+        };
+      }
       return;
     }
 
-    if (pendingSequenceRef.current.length === 0) {
-      clearFlushTimer();
-      return;
+    const shouldShowLoader = options?.showLoader || needsInitialSnapshotRef.current;
+    if (shouldShowLoader) {
+      setLoading(true);
     }
 
-    const sequence = pendingSequenceRef.current.splice(0, pendingSequenceRef.current.length);
-    const payload: KeySequencePayload = { sequence };
-
-    isFlushingRef.current = true;
-    clearFlushTimer();
-
-    try {
-      const next = await sendKeySequence(payload);
-      setSnapshot(next);
-      setError(null);
-      setInfo(null);
-    } catch (err) {
-      console.error('key-sequence error', err);
-      setError(extractErrorMessage(err));
-      setInfo(null);
-    } finally {
-      isFlushingRef.current = false;
-      if (pendingSequenceRef.current.length > 0) {
-        scheduleFlush();
-      }
-    }
-  }, [clearFlushTimer, scheduleFlush]);
-
-  useEffect(() => {
-    flushFnRef.current = () => flushPendingSequence();
-    return () => {
-      flushFnRef.current = async () => {};
-      if (flushTimerRef.current !== null) {
-        clearTimeout(flushTimerRef.current);
-      }
-    };
-  }, [flushPendingSequence]);
-
-  const requestRefresh = useCallback(async () => {
-    setLoading(true);
-    setInfo(null);
+    isFetchingSnapshotRef.current = true;
     try {
       const next = await fetchSnapshot();
       setSnapshot(next);
+      needsInitialSnapshotRef.current = false;
       setError(null);
       setInfo(null);
     } catch (err) {
@@ -120,13 +71,36 @@ export function useEditor(): UseEditorResult {
       setError(extractErrorMessage(err));
       setInfo(null);
     } finally {
-      setLoading(false);
+      isFetchingSnapshotRef.current = false;
+      if (shouldShowLoader) {
+        setLoading(false);
+        needsInitialSnapshotRef.current = false;
+      }
+      const pending = pendingFetchRef.current;
+      pendingFetchRef.current = null;
+      if (pending) {
+        void fetchLatestSnapshotImpl(pending);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void requestRefresh();
-  }, [requestRefresh]);
+    void fetchLatestSnapshot({ showLoader: true });
+    snapshotTimerRef.current = window.setInterval(() => {
+      void fetchLatestSnapshot();
+    }, SNAPSHOT_POLL_INTERVAL_MS);
+
+    return () => {
+      if (snapshotTimerRef.current !== null) {
+        clearInterval(snapshotTimerRef.current);
+        snapshotTimerRef.current = null;
+      }
+    };
+  }, [fetchLatestSnapshot]);
+
+  const requestRefresh = useCallback(async () => {
+    await fetchLatestSnapshot({ force: true, showLoader: true });
+  }, [fetchLatestSnapshot]);
 
   const requestOpenFile = useCallback(async (path: string) => {
     setLoading(true);
@@ -134,6 +108,7 @@ export function useEditor(): UseEditorResult {
     try {
       const next = await openFile(path);
       setSnapshot(next);
+      needsInitialSnapshotRef.current = false;
       setError(null);
       setInfo(null);
     } catch (err) {
@@ -164,6 +139,7 @@ export function useEditor(): UseEditorResult {
     try {
       const result: SaveResult = await saveFile();
       setSnapshot(result.snapshot);
+      needsInitialSnapshotRef.current = false;
       if (result.success) {
         setError(null);
         setInfo(result.message ?? '保存しました');
@@ -180,6 +156,22 @@ export function useEditor(): UseEditorResult {
     }
   }, []);
 
+  const dispatchKeySequence = useCallback(
+    async (sequence: KeyStrokePayload[][]) => {
+      try {
+        await sendKeySequence({ sequence });
+        setError(null);
+        setInfo(null);
+        void fetchLatestSnapshot({ force: true });
+      } catch (err) {
+        console.error('key-sequence error', err);
+        setError(extractErrorMessage(err));
+        setInfo(null);
+      }
+    },
+    [fetchLatestSnapshot],
+  );
+
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (event.isComposing) {
@@ -192,14 +184,9 @@ export function useEditor(): UseEditorResult {
       }
 
       event.preventDefault();
-      pendingSequenceRef.current.push([stroke]);
-      if (shouldFlushImmediately(event, stroke)) {
-        void flushPendingSequence();
-      } else {
-        scheduleFlush();
-      }
+      void dispatchKeySequence([[stroke]]);
     },
-    [flushPendingSequence, scheduleFlush],
+    [dispatchKeySequence],
   );
 
   return useMemo(
@@ -214,17 +201,7 @@ export function useEditor(): UseEditorResult {
       requestOpenFileDialog,
       requestSaveFile,
     }),
-    [
-      snapshot,
-      loading,
-      error,
-      info,
-      handleKeyDown,
-      requestRefresh,
-      requestOpenFile,
-      requestOpenFileDialog,
-      requestSaveFile,
-    ],
+    [snapshot, loading, error, info, handleKeyDown, requestRefresh, requestOpenFile, requestOpenFileDialog, requestSaveFile],
   );
 }
 
@@ -244,21 +221,6 @@ function createKeyStroke(
   };
 
   return stroke;
-}
-
-function shouldFlushImmediately(
-  event: React.KeyboardEvent<HTMLDivElement>,
-  stroke: KeyStrokePayload,
-): boolean {
-  if (event.repeat) {
-    return true;
-  }
-
-  if (stroke.ctrl || stroke.alt) {
-    return true;
-  }
-
-  return IMMEDIATE_FLUSH_KEYS.has(event.key);
 }
 
 function normalizeKey(

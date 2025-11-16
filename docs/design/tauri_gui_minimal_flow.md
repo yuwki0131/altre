@@ -24,21 +24,20 @@ React(UI) ── keydown ──▶ useEditor.handleKeyDown
   │                 tauri::command `editor_handle_keys`
   │                         │
   │                         ▼
-  │                BackendController.handle_serialized_keys
+  │                BackendController.process_serialized_keys
   │                         │
   │                         ▼
-  │                 Backend.snapshot() / EditorSnapshot
-  │                         │
-  ▼                         ▼
-React 状態更新 ◀─────────── JSON 応答
+  │                （キュー処理のみ・即時復帰）
+  │
+  └─ snapshot poll ─▶ services/backend.fetchSnapshot ─▶ React 状態更新
 ```
 
 Pull 更新は以下のタイミングで実行する。
 
 1. アプリ起動時 (`useEffect` 初回) に `editor_snapshot` を呼び初期状態を取得。
-2. キーシーケンス送信後に応答スナップショットで状態を更新。
+2. 120ms 間隔（既定値）のポーラーで `editor_snapshot` を呼び、最新状態を適用。
 3. ファイルオープン／保存など副作用を伴う操作後に `editor_snapshot` を再取得し差分を吸収。
-4. 明示リロード（UI ボタン）時は `editor_snapshot` を再度呼び出す。
+4. 明示リロード（UI ボタン）時は `editor_snapshot` を即時呼び出す（実行中なら終了後に再実行）。
 
 ## 3. バックエンド側の最小タスク
 
@@ -61,11 +60,11 @@ Pull 更新は以下のタイミングで実行する。
 ## 4. フロントエンド側の最小タスク
 
 1. **キー入力ハンドリング強化**  
-   - `useEditor` にキー履歴バッファとタイムアウト（既定 160ms）を導入し、複数キーをまとめて送信。  
+   - 各 `keydown` を即時にバックエンドへ送信し、応答は `bool` (should_exit) のみ受け取る。  
    - IME 使用時は `event.isComposing` を検知してバックエンド送信を抑制。
 
 2. **スナップショット適用**  
-   - `useEditor` で `EditorSnapshot` を `setState` 経由で保持し、React 再描画で `buffer.lines` を更新（初期段階では全更新で許容）。  
+   - `useEditor` で `EditorSnapshot` を `setState` 経由で保持し、React 再描画で `buffer.lines` を更新（初期段階では全更新で許容）。スナップショットはバックグラウンドポーラーが取得する。  
    - エラーメッセージは状態として保持し、ミニバッファ領域とエラーバナーへ表示。`isTauriRuntime()` が false の場合のみフォールバック描画を使用する。
 
 3. **ファイル操作 UI**  

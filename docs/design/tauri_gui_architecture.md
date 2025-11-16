@@ -39,7 +39,7 @@
 |------------|------------|------------|------|
 | `editor_init` | `{ debug_log_path?, initial_file?, working_directory? }` | `EditorSnapshot` | GUI 起動時の初期化。オプションを反映したバックエンドを再生成し、最新スナップショットを返す。 |
 | `editor_snapshot` | なし | `EditorSnapshot` | バックエンドの最新状態を取得する Pull API。起動直後の初期状態取得にも利用。 |
-| `editor_handle_keys` | `{ payload: KeySequencePayload }` | `EditorSnapshot` | キーシーケンスを処理した直後の状態を返す。 |
+| `editor_handle_keys` | `{ payload: KeySequencePayload }` | `bool` | キーシーケンスをバックエンドへ適用し、`Backend::is_running()` が `false` になった場合のみ `true` を返す。スナップショットは別途 `editor_snapshot` を用いて取得する。 |
 | `editor_open_file` | `{ path: string }` | `EditorSnapshot` | 指定パスのファイルを開き、アクティブバッファを切り替える。 |
 | `editor_save_file` | なし | `SaveResponse` | アクティブバッファを保存し、成功可否とメッセージを返す。 |
 | `editor_shutdown` | なし | `()` | バックエンドを明示的に終了。GUI 終了時の後片付けに利用。 |
@@ -83,7 +83,7 @@
 
 ## 5. 状態管理と更新
 - **初期実装**: Pull 型。React 側で操作後に `editor_get_snapshot` を呼び状態を更新。
-- React 側では 160ms のフラッシュ遅延を設け、押下されたキーを `KeySequencePayload.sequence` に蓄積してからまとめて送信する。
+- React 側ではキー入力を即時に `sendKeySequence` で送信し、独立したポーラー（既定 120ms 間隔）が `editor_snapshot` を呼び出して状態を更新する。キー送信は応答を待たずに完了し、描画は次回ポーリング結果で反映される。
 - **将来拡張**: バックエンドで差分イベントを生成し、`tauri::Window::emit_all` 経由で push 通知。イベント名 `altre://backend-updated` などを想定。
 - React 側では Zustand もしくは React Context を使用し、`EditorSnapshot` をアプリ全体で共有する。
 - ヘッダーに配置した `リロード / 開く… / 保存` ボタンで代表的な操作を呼び出す。`開く…` は Tauri ランタイムで対話ダイアログが取得できない場合、`window.prompt` を用いたパス入力にフォールバックする。`保存` 実行時は `editor_save_file` のレスポンスメッセージをミニバッファ優先で表示する。

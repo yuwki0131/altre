@@ -72,23 +72,16 @@ impl BackendController {
     }
 
     pub fn handle_key_events(&mut self, events: &[KeyEvent]) -> Result<EditorSnapshot> {
-        for event in events {
-            self.backend.handle_key_event(*event)?;
-        }
-        let description: Vec<String> = events.iter().map(describe_key_event).collect();
-        self.log_event("key_sequence", &description)?;
+        self.apply_key_events(events)?;
         self.snapshot()
     }
 
-    pub fn handle_serialized_keys(
-        &mut self,
-        payload: KeySequencePayload,
-    ) -> Result<EditorSnapshot> {
+    pub fn process_serialized_keys(&mut self, payload: KeySequencePayload) -> Result<()> {
         let events = payload.into_key_events()?;
         if events.is_empty() {
-            return self.snapshot();
+            return Ok(());
         }
-        self.handle_key_events(&events)
+        self.apply_key_events(&events)
     }
 
     pub fn open_file(&mut self, path: &str) -> Result<EditorSnapshot> {
@@ -147,6 +140,15 @@ impl BackendController {
         let snapshot =
             EditorSnapshot::new(&text, &cursor, &metadata, view.minibuffer, viewport_state);
         Ok(snapshot)
+    }
+
+    fn apply_key_events(&mut self, events: &[KeyEvent]) -> Result<()> {
+        for event in events {
+            self.backend.handle_key_event(*event)?;
+        }
+        let description: Vec<String> = events.iter().map(describe_key_event).collect();
+        self.log_event("key_sequence", &description)?;
+        Ok(())
     }
 
     fn log_event<T: Serialize>(&self, tag: &str, payload: &T) -> Result<()> {

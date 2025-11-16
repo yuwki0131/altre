@@ -47,10 +47,33 @@ body {
 }
 
 .editor-surface__cursor {
+  position: relative;
   display: inline-block;
-  width: 1ch;
-  background-color: #88aaff;
-  color: #111;
+  color: inherit;
+}
+
+.editor-surface__cursor::after {
+  content: '';
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 0;
+  width: 0.18em;
+  background-color: #a4c8ff;
+  border-radius: 0.08em;
+  animation: editor-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes editor-cursor-blink {
+  0% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .app__minibuffer {

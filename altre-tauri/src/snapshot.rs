@@ -1,6 +1,7 @@
 use altre::buffer::CursorPosition;
 use altre::core::RenderMetadata;
 use altre::minibuffer::{MinibufferMode, MinibufferSystem};
+use altre::search::{SearchDirection, SearchStatus, SearchUiState};
 use altre::ui::viewport::ViewportState;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +11,8 @@ pub struct EditorSnapshot {
     pub minibuffer: MinibufferSnapshot,
     pub status: StatusSnapshot,
     pub viewport: ViewportSnapshot,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search: Option<SearchSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -48,6 +51,19 @@ pub struct ViewportSnapshot {
     pub width: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchSnapshot {
+    pub prompt: String,
+    pub pattern: String,
+    pub status: String,
+    pub current_match: Option<usize>,
+    pub total_matches: usize,
+    pub wrapped: bool,
+    pub message: Option<String>,
+    pub direction: String,
+}
+
 impl EditorSnapshot {
     pub fn new(
         text: &str,
@@ -64,6 +80,7 @@ impl EditorSnapshot {
                 is_modified: metadata.is_modified,
             },
             viewport: ViewportSnapshot::from(viewport),
+            search: metadata.search_ui.as_ref().map(SearchSnapshot::from_state),
         }
     }
 }
@@ -108,6 +125,21 @@ impl MinibufferSnapshot {
     }
 }
 
+impl SearchSnapshot {
+    fn from_state(state: &SearchUiState) -> Self {
+        Self {
+            prompt: state.prompt_label.clone(),
+            pattern: state.pattern.clone(),
+            status: describe_search_status(state.status).to_string(),
+            current_match: state.current_match,
+            total_matches: state.total_matches,
+            wrapped: state.wrapped,
+            message: state.message.clone(),
+            direction: describe_search_direction(state.direction).to_string(),
+        }
+    }
+}
+
 fn describe_mode(mode: &MinibufferMode) -> &'static str {
     use MinibufferMode::*;
     match mode {
@@ -124,5 +156,20 @@ fn describe_mode(mode: &MinibufferMode) -> &'static str {
         QueryReplacePattern => "query-replace-pattern",
         QueryReplaceReplacement => "query-replace-replacement",
         GotoLine => "goto-line",
+    }
+}
+
+fn describe_search_status(status: SearchStatus) -> &'static str {
+    match status {
+        SearchStatus::Active => "active",
+        SearchStatus::NotFound => "not-found",
+        SearchStatus::Wrapped => "wrapped",
+    }
+}
+
+fn describe_search_direction(direction: SearchDirection) -> &'static str {
+    match direction {
+        SearchDirection::Forward => "forward",
+        SearchDirection::Backward => "backward",
     }
 }

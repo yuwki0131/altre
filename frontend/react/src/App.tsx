@@ -22,6 +22,7 @@ export function App() {
   const bufferLines = useMemo(() => snapshot?.buffer.lines ?? [], [snapshot]);
   const cursorLine = snapshot?.buffer.cursor.line ?? 0;
   const cursorColumn = snapshot?.buffer.cursor.column ?? 0;
+  const searchState = snapshot?.search ?? null;
 
   const topLine = snapshot?.viewport?.topLine ?? 0;
   const viewportHeight = Math.max(1, snapshot?.viewport?.height ?? (bufferLines.length || 1));
@@ -89,6 +90,38 @@ export function App() {
 
     const globalError = error ?? null;
     const globalInfo = info ?? null;
+
+    if (searchState) {
+      const patternDisplay = searchState.pattern.length > 0 ? searchState.pattern : '\u00a0';
+      const matchInfo =
+        searchState.totalMatches > 0
+          ? ` ${searchState.currentMatch ?? 0}/${searchState.totalMatches}`
+          : '';
+      const flags: string[] = [];
+      if (searchState.status === 'not-found') {
+        flags.push('Failing');
+      }
+      if (searchState.wrapped) {
+        flags.push('Wrapped');
+      }
+      const suffix = flags.length > 0 ? ` (${flags.join(', ')})` : '';
+
+      lines.push({
+        key: 'search-state',
+        type: searchState.status === 'not-found' ? 'error' : 'info',
+        content: `${searchState.prompt}: ${patternDisplay}${matchInfo}${suffix}`,
+      });
+
+      if (searchState.message) {
+        lines.push({
+          key: 'search-message',
+          type: searchState.status === 'not-found' ? 'error' : 'info',
+          content: searchState.message,
+        });
+      }
+
+      return lines;
+    }
 
     const interactiveModes = new Set([
       'find-file',

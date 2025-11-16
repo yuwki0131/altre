@@ -12,6 +12,7 @@ export interface EditorSnapshot {
   minibuffer: MinibufferSnapshot;
   status: StatusSnapshot;
   viewport: ViewportSnapshot;
+  search?: SearchSnapshot | null;
 }
 
 export interface BufferSnapshot {
@@ -35,6 +36,20 @@ export interface MinibufferSnapshot {
 export interface StatusSnapshot {
   label: string;
   isModified: boolean;
+}
+
+export type SearchStatus = 'active' | 'not-found' | 'wrapped';
+export type SearchDirection = 'forward' | 'backward';
+
+export interface SearchSnapshot {
+  prompt: string;
+  pattern: string;
+  status: SearchStatus;
+  currentMatch?: number | null;
+  totalMatches: number;
+  wrapped: boolean;
+  message?: string | null;
+  direction: SearchDirection;
 }
 
 export interface KeyStrokePayload {
@@ -192,6 +207,7 @@ function createFallbackSnapshot(): EditorSnapshot {
       isModified: false,
     },
     viewport: createFallbackViewport(),
+    search: null,
   };
 }
 

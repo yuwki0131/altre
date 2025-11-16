@@ -1,0 +1,22 @@
+[package]
+name = "altre-tauri-app"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+altre-tauri = { path = "../altre-tauri" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tauri = { version = "2.8.5", features = ["devtools"] }
+
+[build-dependencies]
+tauri-build = { version = "2.4.1", features = [] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[package.metadata.release]
+sign-commit = false
+sign-tag = false

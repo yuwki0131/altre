@@ -13,6 +13,7 @@ Emacs風テキストエディタ実装
 ## 主な現在の実装状況
 - Emacs 互換のバッファ / ポイント / マークとキルリングを実装し、リージョン編集や単語移動をサポート
 - ratatui + crossterm による TUI レイアウトと複数ウィンドウ表示
+- Tauri + React による GUI フロントエンド（バックエンドと編集状態を往復する最小実装を搭載）
 - ミニバッファからのコマンド実行 (`M-x`)
 - ファイル操作
 - インクリメンタル検索
@@ -21,28 +22,53 @@ Emacs風テキストエディタ実装
 
 ## 現在のステータス
 - 開発フェーズ: MVP コア機能に加え、バッファ・ウィンドウ管理と検索機能を統合済み
-- 対応プラットフォーム: ターミナル向け TUI（ratatui）。将来的に GUI (Tauri) 拡張を計画
+- 対応プラットフォーム: GUI (Tauri + React) とターミナル向け TUI（ratatui）。`cargo run -p altre` は GUI を試行し、依存不足などで失敗した場合は TUI へ自動フォールバックする
 
 ## セットアップ
-### 前提条件
+### 必須ツール
 - Rust 1.78 以降（`rustup` 経由のインストールを推奨）
 - 色表示と raw mode に対応した端末
+- （GUI 開発時）Node.js 18 以降 / npm、Tauri CLI（`npm install -g @tauri-apps/cli` を推奨）
 
-### ビルド・テスト
-
-```bash
-cargo build --offline
-cargo test --offline
-```
-
-### 実行
+### リポジトリ取得
 
 ```bash
-cargo run --offline
+git clone <REPO_URL>
+cd altre
 ```
 
-* raw mode が利用できない環境では TUI が正しく起動しない場合あり
-* トラブルシューティングは`manuals/troubleshooting.md` を参照
+### TUI のビルド・テスト
+
+```bash
+# ビルド
+cargo build -p altre --release          # オフライン環境では --offline を付与
+
+# テスト
+cargo test -p altre --release           # 依存取得が不要な環境で実行
+```
+
+### アプリケーションの実行
+
+#### GUI (Tauri + React)
+1. `nix-shell nix/shell.nix` などで GTK / WebKit / libsoup などのネイティブ依存を解決した開発シェルに入ります。（他ディストリビューションでも同等パッケージを用意してください）
+2. `npm install --prefix frontend/react` でフロントエンド依存を取得し、`npm run build --prefix frontend/react` で `dist/` を生成します。
+3. `cargo run -p altre -- --gui` で GUI を起動します。初回は `altre-tauri-app`（Tauri バイナリ）を自動ビルドします。
+   - `cargo run -p altre`（オプションなし）でも同じ挙動で GUI を試行します。GUI バイナリ実行に失敗した場合は自動的に TUI へフォールバックします。
+   - `cargo tauri dev --manifest-path src-tauri/Cargo.toml` を直接実行することでホットリロード環境を利用できます（要ネットワーク）。
+4. `npm run dev --prefix frontend/react` を実行するとブラウザで UI をプレビューできます（この場合は Tauri バックエンド未接続で fallback 表示になります）。
+
+### ビルド・実行スクリプト
+- `./build-run.sh [gui|tui]` : 既定で GUI をビルド・起動します。`tui` を明示すると TUI のみ実行します。
+- `./build-run-tui.sh` : TUI 専用のビルド・起動を行います。
+  - いずれも追加引数は `cargo run` にそのまま渡されます。
+
+#### TUI (ratatui)
+```bash
+cargo run -p altre -- --tui
+```
+
+* raw mode が利用できない環境ではエラーになることがあります。
+* トラブルシューティングは `manuals/troubleshooting.md` を参照してください。
 
 ## 基本操作
 - 文字入力・Backspace/Delete/Enter/Tab による基本編集、`C-d` で前方削除、`C-k` で行キル
@@ -59,10 +85,14 @@ cargo run --offline
 ## リポジトリ構成
 ```
 .
-├── benches/              # Criterion ベンチマーク
-├── src/                  # Rust クレート本体
-├── tests/                # 結合テスト・統合テスト
-├── Cargo.toml            # Cargo マニフェスト
+├── altre-core/           # Rust クレート本体（TUI 実装・ベンチ・テスト）
+│   ├── benches/          # Criterion ベンチマーク
+│   ├── src/              # コア実装
+│   └── tests/            # 結合テスト・統合テスト
+├── altre-tauri/          # Tauri GUI バックエンド（Rust）
+├── frontend/             # GUI フロントエンド資産
+│   └── react/            # React ベース UI 雛形
+├── Cargo.toml            # ワークスペースマニフェスト
 ├── Cargo.lock            # 依存関係ロックファイル
 ├── docs/                 # 設計ドキュメント・ADR
 │   ├── adr/              # アーキテクチャ決定記録

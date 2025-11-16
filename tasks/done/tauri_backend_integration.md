@@ -1,0 +1,42 @@
+# Tauri バックエンド連携実装
+
+## タスク概要
+Tauri コマンド経由で Rust バックエンド (`Backend`) を操作し、TUI 相当の編集機能を GUI から利用できるようにする。
+
+## 目的
+- `tauri::State` にバックエンドを保持し、コマンド／イベント API を実装する。
+- Pull 型スナップショット API を整備し、フロントエンドからの描画データ取得を可能にする。
+- デバッグログ出力と CLI オプションをバックエンドに統合する。
+
+## 成果物
+- `src-tauri/` 側の Rust コードに `Backend` 初期化・共有ロジックを追加。
+- `invoke` コマンド群（ファイル操作、編集操作、状態取得）とイベント送信実装。
+- `~/.altre-log/debug.log` へのログ出力機能と GUI/TUI 共通 CLI オプション。
+- Rust 側ユニットテストまたは統合テスト（可能な範囲で）で API を検証。
+
+## 前提条件
+- Tauri プロジェクト構成整備タスクで最低限のビルド環境が整っている。
+- Tauri GUI アーキテクチャ詳細設計で API/データフォーマットが定義済み。
+
+## 完了条件
+- [x] バックエンドの主要コマンド（ファイル開く/保存、テキスト挿入・削除、カーソル移動）が Tauri コマンド経由で動作する。
+- [x] Pull 型スナップショット API が実装され、React 側から編集中バッファの状態取得が可能。
+- [x] ログ出力先ディレクトリが自動生成され、GUI オプションでログ出力を制御できる。
+- [ ] `cargo test --package src-tauri` 等で最低限の自動テストが成功している（**`cargo test -p altre-tauri` は実行済み。`altre-tauri-app` は crates.io へのアクセス制限により未完了**）。
+
+## メモ
+- キー入力はバックエンドで解決する方針（QA Q31）。React 側からはキーシーケンスをそのまま渡す。
+- ファイル I/O は Rust 側で完結させ、Tauri の `fs` プラグインは使用しない（QA Q33）。
+
+## 進捗メモ
+- 2025-03-15: `altre-tauri` に `BackendController`、キーシーケンス変換、スナップショット生成、デバッグログ基盤を追加。`cargo check` は成功。保存コマンドと Tauri コマンド定義は未着手。
+- 2025-03-16: `BackendController::save_active_buffer` を実装し、Tauri コマンド (`editor_snapshot` / `editor_handle_keys` / `editor_open_file` / `editor_save_file` / `editor_shutdown`) を Rust バックエンドへ接続。`ALTRE_GUI_DEBUG_LOG` でログ出力先を切り替え可能にし、`altre-tauri` / `altre-tauri-app` 双方にユニットテストを追加。ネットワーク制限のため `cargo test -p altre-tauri` / `-p altre-tauri-app` は未実行。ローカル環境での実行が必要。
+
+## 見積もり
+**期間**: 4日  
+**優先度**: 高
+
+## 関連タスク
+- Tauri プロジェクト構成整備
+- Tauri GUI React UI 実装
+- Tauri GUI 動作確認計画

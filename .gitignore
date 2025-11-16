@@ -107,6 +107,7 @@ config.local.*
 temp/*.tmp
 temp/*.log
 temp/*.bak
+log.md
 
 # 開発時のメモや個人的なファイル
 NOTES.md

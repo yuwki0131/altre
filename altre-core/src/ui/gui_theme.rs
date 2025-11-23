@@ -147,20 +147,20 @@ impl GuiThemeConfig {
 impl Default for GuiThemeConfig {
     fn default() -> Self {
         Self {
-            app_background: "#1c1c1c".to_string(),
-            app_foreground: "#f0f0f0".to_string(),
-            focus_ring: "#4466ff33".to_string(),
-            active_line_background: "#2a2a40".to_string(),
-            cursor_background: "#88aaff".to_string(),
-            cursor_foreground: "#111".to_string(),
-            minibuffer_border: "#2c2c2c".to_string(),
-            minibuffer_prompt: "#9fa8ff".to_string(),
-            minibuffer_input: "#ffffff".to_string(),
-            minibuffer_info: "#ffb86c".to_string(),
-            minibuffer_error: "#ff6b6b".to_string(),
-            statusline_border: "#2c2c2c".to_string(),
-            statusline_background: "#202025".to_string(),
-            statusline_foreground: "#d0d0d0".to_string(),
+            app_background: "#FFFFFF".to_string(),
+            app_foreground: "#101010".to_string(),
+            focus_ring: "#0997B633".to_string(),
+            active_line_background: "#F0F0F0".to_string(),
+            cursor_background: "#E5266A".to_string(),
+            cursor_foreground: "#FFFFFF".to_string(),
+            minibuffer_border: "#F0F0F0".to_string(),
+            minibuffer_prompt: "#0997B6".to_string(),
+            minibuffer_input: "#101010".to_string(),
+            minibuffer_info: "#FF4C00".to_string(),
+            minibuffer_error: "#E5266A".to_string(),
+            statusline_border: "#F0F0F0".to_string(),
+            statusline_background: "#F0F0F0".to_string(),
+            statusline_foreground: "#101010".to_string(),
         }
     }
 }

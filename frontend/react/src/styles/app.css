@@ -1,20 +1,20 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
-  --altre-app-background: #1c1c1c;
-  --altre-app-foreground: #f0f0f0;
-  --altre-focus-ring: #4466ff33;
-  --altre-active-line-background: #2a2a40;
-  --altre-cursor-background: #88aaff;
-  --altre-cursor-foreground: #111;
-  --altre-minibuffer-border: #2c2c2c;
-  --altre-minibuffer-prompt: #9fa8ff;
-  --altre-minibuffer-input: #ffffff;
-  --altre-minibuffer-info: #ffb86c;
-  --altre-minibuffer-error: #ff6b6b;
-  --altre-statusline-border: #2c2c2c;
-  --altre-statusline-background: #202025;
-  --altre-statusline-foreground: #d0d0d0;
+  --altre-app-background: #ffffff;
+  --altre-app-foreground: #101010;
+  --altre-focus-ring: #0997b633;
+  --altre-active-line-background: #f0f0f0;
+  --altre-cursor-background: #e5266a;
+  --altre-cursor-foreground: #ffffff;
+  --altre-minibuffer-border: #f0f0f0;
+  --altre-minibuffer-prompt: #0997b6;
+  --altre-minibuffer-input: #101010;
+  --altre-minibuffer-info: #ff4c00;
+  --altre-minibuffer-error: #e5266a;
+  --altre-statusline-border: #f0f0f0;
+  --altre-statusline-background: #f0f0f0;
+  --altre-statusline-foreground: #101010;
   background-color: var(--altre-app-background);
   color: var(--altre-app-foreground);
 }
@@ -71,10 +71,33 @@ body {
 }
 
 .editor-surface__cursor {
+  position: relative;
   display: inline-block;
-  width: 1ch;
+  width: 0;
+  height: 1em;
+  overflow: visible;
+  background: none;
+  color: transparent;
+}
+
+.editor-surface__cursor::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 2px;
   background-color: var(--altre-cursor-background);
-  color: var(--altre-cursor-foreground);
+  animation: altre-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes altre-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .app__minibuffer {

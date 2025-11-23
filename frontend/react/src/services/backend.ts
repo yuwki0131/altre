@@ -56,20 +56,20 @@ export interface GuiThemeSnapshot {
 }
 
 export const DEFAULT_GUI_THEME: GuiThemeSnapshot = {
-  appBackground: '#1c1c1c',
-  appForeground: '#f0f0f0',
-  focusRing: '#4466ff33',
-  activeLineBackground: '#2a2a40',
-  cursorBackground: '#88aaff',
-  cursorForeground: '#111',
-  minibufferBorder: '#2c2c2c',
-  minibufferPrompt: '#9fa8ff',
-  minibufferInput: '#ffffff',
-  minibufferInfo: '#ffb86c',
-  minibufferError: '#ff6b6b',
-  statuslineBorder: '#2c2c2c',
-  statuslineBackground: '#202025',
-  statuslineForeground: '#d0d0d0',
+  appBackground: '#FFFFFF',
+  appForeground: '#101010',
+  focusRing: '#0997B633',
+  activeLineBackground: '#F0F0F0',
+  cursorBackground: '#E5266A',
+  cursorForeground: '#FFFFFF',
+  minibufferBorder: '#F0F0F0',
+  minibufferPrompt: '#0997B6',
+  minibufferInput: '#101010',
+  minibufferInfo: '#FF4C00',
+  minibufferError: '#E5266A',
+  statuslineBorder: '#F0F0F0',
+  statuslineBackground: '#F0F0F0',
+  statuslineForeground: '#101010',
 };
 
 export interface KeyStrokePayload {

@@ -1,8 +1,22 @@
 :root {
   color-scheme: dark;
   font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
-  background-color: #1c1c1c;
-  color: #f0f0f0;
+  --altre-app-background: #1c1c1c;
+  --altre-app-foreground: #f0f0f0;
+  --altre-focus-ring: #4466ff33;
+  --altre-active-line-background: #2a2a40;
+  --altre-cursor-background: #88aaff;
+  --altre-cursor-foreground: #111;
+  --altre-minibuffer-border: #2c2c2c;
+  --altre-minibuffer-prompt: #9fa8ff;
+  --altre-minibuffer-input: #ffffff;
+  --altre-minibuffer-info: #ffb86c;
+  --altre-minibuffer-error: #ff6b6b;
+  --altre-statusline-border: #2c2c2c;
+  --altre-statusline-background: #202025;
+  --altre-statusline-foreground: #d0d0d0;
+  background-color: var(--altre-app-background);
+  color: var(--altre-app-foreground);
 }
 
 body {
@@ -15,7 +29,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #1c1c1c;
+  background-color: var(--altre-app-background);
 }
 
 .editor-surface {
@@ -35,26 +49,36 @@ body {
 }
 
 .editor-surface__buffer:focus {
-  box-shadow: inset 0 0 0 2px #4466ff33;
+  box-shadow: inset 0 0 0 2px var(--altre-focus-ring);
 }
 
 .editor-surface__line {
-  display: block;
+  display: flex;
+  align-items: baseline;
 }
 
 .editor-surface__line--active {
-  background-color: #2a2a40;
+  background-color: var(--altre-active-line-background);
+}
+
+.editor-surface__gutter {
+  display: inline-block;
+  text-align: right;
+  margin-right: 0.75rem;
+  color: var(--altre-app-foreground);
+  opacity: 0.6;
+  user-select: none;
 }
 
 .editor-surface__cursor {
   display: inline-block;
   width: 1ch;
-  background-color: #88aaff;
-  color: #111;
+  background-color: var(--altre-cursor-background);
+  color: var(--altre-cursor-foreground);
 }
 
 .app__minibuffer {
-  border-bottom: 1px solid #2c2c2c;
+  border-bottom: 1px solid var(--altre-minibuffer-border);
   padding: 0.35rem 1rem;
   display: flex;
   flex-direction: column;
@@ -64,13 +88,13 @@ body {
 }
 
 .minibuffer__prompt {
-  color: #9fa8ff;
+  color: var(--altre-minibuffer-prompt);
   white-space: pre;
 }
 
 .minibuffer__input {
   flex: 1;
-  color: #ffffff;
+  color: var(--altre-minibuffer-input);
   white-space: pre;
 }
 
@@ -82,20 +106,20 @@ body {
 }
 
 .minibuffer__message {
-  color: #ffb86c;
+  color: var(--altre-minibuffer-info);
 }
 
 .minibuffer__error {
-  color: #ff6b6b;
+  color: var(--altre-minibuffer-error);
   white-space: pre;
 }
 
 .statusline {
   padding: 0.35rem 1rem;
-  border-top: 1px solid #2c2c2c;
+  border-top: 1px solid var(--altre-statusline-border);
   font-size: 0.85rem;
-  background-color: #202025;
-  color: #d0d0d0;
+  background-color: var(--altre-statusline-background);
+  color: var(--altre-statusline-foreground);
   white-space: pre;
 }
 

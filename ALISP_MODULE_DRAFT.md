@@ -26,17 +26,26 @@ MVP ではキーバインド設定を対象とし、従来ハードコードさ�
 - デフォルトキーバインドは `alisp/init.al` に移植し、Rust 側の静的定義は撤去する。
 - 起動後に alisp 経由で定義されたバインドが従来どおり動作することを回帰テストで保証する。
 
-## 5. 将来拡張（MVP対象外）
-- モードライン／行番号／配色など表示設定の外部化
+## 5. GUI 配色外部化
+- `set-gui-color` プリミティブを追加し、alisp から GUI テーマ色を上書き可能にする。
+- 設定キー（kebab-case）例:  
+  - `app-background`, `app-foreground`, `focus-ring`  
+  - `active-line-background`, `cursor-background`, `cursor-foreground`  
+  - `minibuffer-border`, `minibuffer-prompt`, `minibuffer-input`, `minibuffer-info`, `minibuffer-error`  
+  - `statusline-border`, `statusline-background`, `statusline-foreground`
+- デフォルト値は `alisp/init.al` に記載し、React 側で CSS 変数として適用される。
+
+## 6. 将来拡張（MVP対象外）
+- モードライン／行番号など残りの表示設定の外部化
 - 多言語対応（ローカライズ）
 - 拡張モジュール管理（名前空間、依存解決）
 
-## 6. 実装メモ
+## 7. 実装メモ
 - `load` は極力簡素な仕組みとし、将来の名前空間導入に備えて呼び出し箇所を限定する。
 - ユーザー設定のエラーはアプリケーションを停止させず、ミニバッファ経由で通知する。
 - 今回の成果を基盤とし、後続フェーズで他の設定項目を段階的に外部化する。
 
-## 7. テスト
+## 8. テスト
 - `tests/alisp_keybinding_tests.rs` で、ユーザー `init.al` が既定バインドを上書きできることを検証。
   - デフォルトの `C-n` が保持されることを確認しつつ、`C-x C-f` を `goto-line` に再バインドして動作を確認。
 - 追加で alisp 層のユニットテストを拡張する際は、`Interpreter` へモックホストを注入し `bind-key` の副作用を直接検証する。

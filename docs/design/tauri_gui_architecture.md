@@ -73,6 +73,22 @@
   "status": {
     "label": "README.md",
     "isModified": false
+  },
+  "theme": {
+    "appBackground": "#1c1c1c",
+    "appForeground": "#f0f0f0",
+    "focusRing": "#4466ff33",
+    "activeLineBackground": "#2a2a40",
+    "cursorBackground": "#88aaff",
+    "cursorForeground": "#111",
+    "minibufferBorder": "#2c2c2c",
+    "minibufferPrompt": "#9fa8ff",
+    "minibufferInput": "#ffffff",
+    "minibufferInfo": "#ffb86c",
+    "minibufferError": "#ff6b6b",
+    "statuslineBorder": "#2c2c2c",
+    "statuslineBackground": "#202025",
+    "statuslineForeground": "#d0d0d0"
   }
 }
 ```
@@ -80,6 +96,12 @@
 - `buffers` 配列は未実装。複数ウィンドウやバッファ一覧の表示は将来拡張で対応する。
 - `render_metadata.status_label` を `status.label` に伝播しているため、TUI 側と表示フォーマットを共有できる。
 - 将来の差分更新を見据え、`buffer.lines` は `Vec<String>` のままとし、差分イベントでは `LineUpdate`（要設計）を送る方針。
+
+### 4.4 GUI テーマ配色
+- `EditorSnapshot` に `theme` を追加し、GUI 用のカラーセットを Tauri 経由で React へ伝搬する。
+- 値のソース: alisp `init.al` 内の `(set-gui-color "<key>" "<color>")`。ユーザー設定は `~/.altre/init.al` で上書き。
+- キー一覧（kebab-case）: `app-background`, `app-foreground`, `focus-ring`, `active-line-background`, `cursor-background`, `cursor-foreground`, `minibuffer-border`, `minibuffer-prompt`, `minibuffer-input`, `minibuffer-info`, `minibuffer-error`, `statusline-border`, `statusline-background`, `statusline-foreground`。
+- React 側では `theme` を CSS 変数 `--altre-*` に反映し、`frontend/react/src/styles/app.css` のデフォルト値と同一の配色を初期状態として維持する。
 
 ## 5. 状態管理と更新
 - **初期実装**: Pull 型。React 側で操作後に `editor_get_snapshot` を呼び状態を更新。

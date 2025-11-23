@@ -26,6 +26,7 @@ pub struct PrimitiveRegistry {
     pub string_append: SymbolId,
     pub string_length: SymbolId,
     pub bind_key: SymbolId,
+    pub set_gui_color: SymbolId,
 }
 
 impl PrimitiveRegistry {
@@ -57,6 +58,7 @@ impl PrimitiveRegistry {
             string_append: register!("string-append", primitive_string_append),
             string_length: register!("string-length", primitive_string_length),
             bind_key: register!("bind-key", primitive_bind_key),
+            set_gui_color: register!("set-gui-color", primitive_set_gui_color),
         }
     }
 }
@@ -407,6 +409,28 @@ fn primitive_bind_key(
     })?;
 
     host.bind_key(&key_sequence, &command_name)
+        .map_err(|msg| EvalError::new(EvalErrorKind::Runtime(msg.clone()), None, msg))?;
+
+    Ok(Value::Unit)
+}
+
+fn primitive_set_gui_color(
+    runtime: &mut RuntimeState,
+    _env: EnvHandle,
+    args: &[Value],
+) -> Result<Value, EvalError> {
+    ensure_arity(args, 2)?;
+    let component = expect_string(runtime, &args[0])?.to_string();
+    let color = expect_string(runtime, &args[1])?.to_string();
+    let host = runtime.host_mut().ok_or_else(|| {
+        EvalError::new(
+            EvalErrorKind::Runtime("ホストが未設定です".into()),
+            None,
+            "ホストが未設定です",
+        )
+    })?;
+
+    host.set_gui_color(&component, &color)
         .map_err(|msg| EvalError::new(EvalErrorKind::Runtime(msg.clone()), None, msg))?;
 
     Ok(Value::Unit)

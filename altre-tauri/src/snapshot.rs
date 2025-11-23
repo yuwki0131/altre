@@ -2,6 +2,7 @@ use altre::buffer::CursorPosition;
 use altre::core::RenderMetadata;
 use altre::minibuffer::{MinibufferMode, MinibufferSystem};
 use altre::ui::viewport::ViewportState;
+use altre::ui::GuiThemeConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -10,6 +11,7 @@ pub struct EditorSnapshot {
     pub minibuffer: MinibufferSnapshot,
     pub status: StatusSnapshot,
     pub viewport: ViewportSnapshot,
+    pub theme: GuiThemeSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -48,6 +50,25 @@ pub struct ViewportSnapshot {
     pub width: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GuiThemeSnapshot {
+    pub app_background: String,
+    pub app_foreground: String,
+    pub focus_ring: String,
+    pub active_line_background: String,
+    pub cursor_background: String,
+    pub cursor_foreground: String,
+    pub minibuffer_border: String,
+    pub minibuffer_prompt: String,
+    pub minibuffer_input: String,
+    pub minibuffer_info: String,
+    pub minibuffer_error: String,
+    pub statusline_border: String,
+    pub statusline_background: String,
+    pub statusline_foreground: String,
+}
+
 impl EditorSnapshot {
     pub fn new(
         text: &str,
@@ -55,6 +76,7 @@ impl EditorSnapshot {
         metadata: &RenderMetadata,
         minibuffer: &MinibufferSystem,
         viewport: ViewportState,
+        gui_theme: GuiThemeConfig,
     ) -> Self {
         Self {
             buffer: BufferSnapshot::from_text(text, cursor),
@@ -64,6 +86,7 @@ impl EditorSnapshot {
                 is_modified: metadata.is_modified,
             },
             viewport: ViewportSnapshot::from(viewport),
+            theme: GuiThemeSnapshot::from(gui_theme),
         }
     }
 }
@@ -104,6 +127,27 @@ impl MinibufferSnapshot {
             input: state.input.clone(),
             completions: state.completions.clone(),
             message: state.status_message.clone(),
+        }
+    }
+}
+
+impl From<GuiThemeConfig> for GuiThemeSnapshot {
+    fn from(config: GuiThemeConfig) -> Self {
+        Self {
+            app_background: config.app_background,
+            app_foreground: config.app_foreground,
+            focus_ring: config.focus_ring,
+            active_line_background: config.active_line_background,
+            cursor_background: config.cursor_background,
+            cursor_foreground: config.cursor_foreground,
+            minibuffer_border: config.minibuffer_border,
+            minibuffer_prompt: config.minibuffer_prompt,
+            minibuffer_input: config.minibuffer_input,
+            minibuffer_info: config.minibuffer_info,
+            minibuffer_error: config.minibuffer_error,
+            statusline_border: config.statusline_border,
+            statusline_background: config.statusline_background,
+            statusline_foreground: config.statusline_foreground,
         }
     }
 }

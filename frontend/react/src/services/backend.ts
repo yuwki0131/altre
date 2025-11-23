@@ -12,6 +12,7 @@ export interface EditorSnapshot {
   minibuffer: MinibufferSnapshot;
   status: StatusSnapshot;
   viewport: ViewportSnapshot;
+  theme: GuiThemeSnapshot;
 }
 
 export interface BufferSnapshot {
@@ -36,6 +37,40 @@ export interface StatusSnapshot {
   label: string;
   isModified: boolean;
 }
+
+export interface GuiThemeSnapshot {
+  appBackground: string;
+  appForeground: string;
+  focusRing: string;
+  activeLineBackground: string;
+  cursorBackground: string;
+  cursorForeground: string;
+  minibufferBorder: string;
+  minibufferPrompt: string;
+  minibufferInput: string;
+  minibufferInfo: string;
+  minibufferError: string;
+  statuslineBorder: string;
+  statuslineBackground: string;
+  statuslineForeground: string;
+}
+
+export const DEFAULT_GUI_THEME: GuiThemeSnapshot = {
+  appBackground: '#FFFFFF',
+  appForeground: '#101010',
+  focusRing: '#0997B633',
+  activeLineBackground: '#F0F0F0',
+  cursorBackground: '#E5266A',
+  cursorForeground: '#FFFFFF',
+  minibufferBorder: '#F0F0F0',
+  minibufferPrompt: '#0997B6',
+  minibufferInput: '#101010',
+  minibufferInfo: '#FF4C00',
+  minibufferError: '#E5266A',
+  statuslineBorder: '#F0F0F0',
+  statuslineBackground: '#F0F0F0',
+  statuslineForeground: '#101010',
+};
 
 export interface KeyStrokePayload {
   key: string;
@@ -192,6 +227,7 @@ function createFallbackSnapshot(): EditorSnapshot {
       isModified: false,
     },
     viewport: createFallbackViewport(),
+    theme: { ...DEFAULT_GUI_THEME },
   };
 }
 

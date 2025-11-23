@@ -1,8 +1,22 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
-  background-color: #1c1c1c;
-  color: #f0f0f0;
+  --altre-app-background: #ffffff;
+  --altre-app-foreground: #101010;
+  --altre-focus-ring: #0997b633;
+  --altre-active-line-background: #f0f0f0;
+  --altre-cursor-background: #e5266a;
+  --altre-cursor-foreground: #ffffff;
+  --altre-minibuffer-border: #f0f0f0;
+  --altre-minibuffer-prompt: #0997b6;
+  --altre-minibuffer-input: #101010;
+  --altre-minibuffer-info: #ff4c00;
+  --altre-minibuffer-error: #e5266a;
+  --altre-statusline-border: #f0f0f0;
+  --altre-statusline-background: #f0f0f0;
+  --altre-statusline-foreground: #101010;
+  background-color: var(--altre-app-background);
+  color: var(--altre-app-foreground);
 }
 
 body {
@@ -15,7 +29,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #1c1c1c;
+  background-color: var(--altre-app-background);
 }
 
 .editor-surface {
@@ -35,26 +49,59 @@ body {
 }
 
 .editor-surface__buffer:focus {
-  box-shadow: inset 0 0 0 2px #4466ff33;
+  box-shadow: inset 0 0 0 2px var(--altre-focus-ring);
 }
 
 .editor-surface__line {
-  display: block;
+  display: flex;
+  align-items: baseline;
 }
 
 .editor-surface__line--active {
-  background-color: #2a2a40;
+  background-color: var(--altre-active-line-background);
+}
+
+.editor-surface__gutter {
+  display: inline-block;
+  text-align: right;
+  margin-right: 0.75rem;
+  color: var(--altre-app-foreground);
+  opacity: 0.6;
+  user-select: none;
 }
 
 .editor-surface__cursor {
+  position: relative;
   display: inline-block;
-  width: 1ch;
-  background-color: #88aaff;
-  color: #111;
+  width: 0;
+  height: 1em;
+  overflow: visible;
+  background: none;
+  color: transparent;
+}
+
+.editor-surface__cursor::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 2px;
+  background-color: var(--altre-cursor-background);
+  animation: altre-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes altre-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .app__minibuffer {
-  border-bottom: 1px solid #2c2c2c;
+  border-bottom: 1px solid var(--altre-minibuffer-border);
   padding: 0.35rem 1rem;
   display: flex;
   flex-direction: column;
@@ -64,13 +111,13 @@ body {
 }
 
 .minibuffer__prompt {
-  color: #9fa8ff;
+  color: var(--altre-minibuffer-prompt);
   white-space: pre;
 }
 
 .minibuffer__input {
   flex: 1;
-  color: #ffffff;
+  color: var(--altre-minibuffer-input);
   white-space: pre;
 }
 
@@ -82,20 +129,20 @@ body {
 }
 
 .minibuffer__message {
-  color: #ffb86c;
+  color: var(--altre-minibuffer-info);
 }
 
 .minibuffer__error {
-  color: #ff6b6b;
+  color: var(--altre-minibuffer-error);
   white-space: pre;
 }
 
 .statusline {
   padding: 0.35rem 1rem;
-  border-top: 1px solid #2c2c2c;
+  border-top: 1px solid var(--altre-statusline-border);
   font-size: 0.85rem;
-  background-color: #202025;
-  color: #d0d0d0;
+  background-color: var(--altre-statusline-background);
+  color: var(--altre-statusline-foreground);
   white-space: pre;
 }
 

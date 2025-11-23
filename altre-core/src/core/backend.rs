@@ -14,7 +14,7 @@ use crate::search::{
     HighlightKind, QueryReplaceController, ReplaceProgress, ReplaceSummary, SearchController,
     SearchDirection, SearchHighlight, SearchUiState,
 };
-use crate::ui::{SplitOrientation, ViewportState, WindowManager};
+use crate::ui::{GuiThemeConfig, GuiThemeKey, SplitOrientation, ViewportState, WindowManager};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::cell::RefCell;
 use std::env;
@@ -115,6 +115,8 @@ pub struct Backend {
     last_yank_range: Option<(usize, usize)>,
     /// ウィンドウ管理
     window_manager: WindowManager,
+    /// GUI 向けのカラーテーマ
+    gui_theme: Rc<RefCell<GuiThemeConfig>>,
     /// 開いているバッファ一覧
     buffers: Vec<OpenBuffer>,
     /// 現在アクティブなバッファID
@@ -180,6 +182,7 @@ impl Backend {
             kill_context: KillContext::None,
             last_yank_range: None,
             window_manager: WindowManager::new(),
+            gui_theme: Rc::new(RefCell::new(GuiThemeConfig::new())),
             buffers: Vec::new(),
             current_buffer_id: None,
             last_buffer_id: None,
@@ -235,6 +238,11 @@ impl Backend {
             minibuffer: &self.minibuffer,
             window_manager: &mut self.window_manager,
         }
+    }
+
+    /// GUI テーマ設定を取得
+    pub fn gui_theme(&self) -> GuiThemeConfig {
+        self.gui_theme.borrow().clone()
     }
 
     /// ファイルを開く
@@ -357,9 +365,10 @@ impl Backend {
             .unwrap_or_else(|| PathBuf::from("."));
 
         let mut interpreter = Interpreter::new();
-        interpreter
-            .runtime_mut()
-            .set_host(Box::new(KeymapHost::new(Rc::clone(&self.keymap))));
+        interpreter.runtime_mut().set_host(Box::new(KeymapHost::new(
+            Rc::clone(&self.keymap),
+            Rc::clone(&self.gui_theme),
+        )));
         interpreter.set_load_root(default_root.clone());
 
         {
@@ -2449,11 +2458,12 @@ impl Backend {
 
 struct KeymapHost {
     keymap: Rc<RefCell<ModernKeyMap>>,
+    gui_theme: Rc<RefCell<GuiThemeConfig>>,
 }
 
 impl KeymapHost {
-    fn new(keymap: Rc<RefCell<ModernKeyMap>>) -> Self {
-        Self { keymap }
+    fn new(keymap: Rc<RefCell<ModernKeyMap>>, gui_theme: Rc<RefCell<GuiThemeConfig>>) -> Self {
+        Self { keymap, gui_theme }
     }
 }
 
@@ -2473,6 +2483,13 @@ impl HostBridge for KeymapHost {
                     .map_err(|err| err.to_string())
             }
         }
+    }
+
+    fn set_gui_color(&mut self, component: &str, color: &str) -> std::result::Result<(), String> {
+        let key = GuiThemeKey::from_str(component)
+            .ok_or_else(|| format!("未知のGUIカラーキーです: {}", component))?;
+        let mut theme = self.gui_theme.borrow_mut();
+        theme.set_color(key, color)
     }
 }
 

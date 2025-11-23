@@ -125,6 +125,7 @@ impl BackendController {
     }
 
     fn create_snapshot(&mut self) -> Result<EditorSnapshot> {
+        let gui_theme = self.backend.gui_theme();
         let metadata = self.backend.render_metadata();
         let view = self.backend.render_view();
         if let Some(viewport) = view.window_manager.focused_viewport_mut() {
@@ -137,8 +138,14 @@ impl BackendController {
             .focused_viewport()
             .cloned()
             .unwrap_or_else(ViewportState::new);
-        let snapshot =
-            EditorSnapshot::new(&text, &cursor, &metadata, view.minibuffer, viewport_state);
+        let snapshot = EditorSnapshot::new(
+            &text,
+            &cursor,
+            &metadata,
+            view.minibuffer,
+            viewport_state,
+            gui_theme,
+        );
         Ok(snapshot)
     }
 

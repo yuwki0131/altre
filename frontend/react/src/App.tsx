@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEditor } from './hooks/useEditor';
+import { DEFAULT_GUI_THEME, GuiThemeSnapshot } from './services/backend';
 
 export function App() {
   const {
@@ -22,6 +23,38 @@ export function App() {
   const bufferLines = useMemo(() => snapshot?.buffer.lines ?? [], [snapshot]);
   const cursorLine = snapshot?.buffer.cursor.line ?? 0;
   const cursorColumn = snapshot?.buffer.cursor.column ?? 0;
+  const guiTheme = useMemo<GuiThemeSnapshot>(
+    () => snapshot?.theme ?? DEFAULT_GUI_THEME,
+    [snapshot],
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const entries: Array<[string, string]> = [
+      ['--altre-app-background', guiTheme.appBackground],
+      ['--altre-app-foreground', guiTheme.appForeground],
+      ['--altre-focus-ring', guiTheme.focusRing],
+      ['--altre-active-line-background', guiTheme.activeLineBackground],
+      ['--altre-cursor-background', guiTheme.cursorBackground],
+      ['--altre-cursor-foreground', guiTheme.cursorForeground],
+      ['--altre-minibuffer-border', guiTheme.minibufferBorder],
+      ['--altre-minibuffer-prompt', guiTheme.minibufferPrompt],
+      ['--altre-minibuffer-input', guiTheme.minibufferInput],
+      ['--altre-minibuffer-info', guiTheme.minibufferInfo],
+      ['--altre-minibuffer-error', guiTheme.minibufferError],
+      ['--altre-statusline-border', guiTheme.statuslineBorder],
+      ['--altre-statusline-background', guiTheme.statuslineBackground],
+      ['--altre-statusline-foreground', guiTheme.statuslineForeground],
+    ];
+
+    for (const [name, value] of entries) {
+      if (value) {
+        root.style.setProperty(name, value);
+      } else {
+        root.style.removeProperty(name);
+      }
+    }
+  }, [guiTheme]);
 
   const topLine = snapshot?.viewport?.topLine ?? 0;
   const viewportHeight = Math.max(1, snapshot?.viewport?.height ?? (bufferLines.length || 1));
@@ -48,6 +81,22 @@ export function App() {
     }
     return Math.max(1, bufferLines.length);
   }, [snapshot, bufferLines.length]);
+
+  const lineNumberDigits = useMemo(() => {
+    const effective = Math.max(1, lineCount);
+    return Math.max(3, String(effective).length);
+  }, [lineCount]);
+
+  const lineNumberWidth = useMemo(() => `${lineNumberDigits + 1}ch`, [lineNumberDigits]);
+
+  const formatLineNumber = useMemo(() => {
+    return (index: number | null) => {
+      if (index === null) {
+        return '';
+      }
+      return (index + 1).toString().padStart(lineNumberDigits, ' ');
+    };
+  }, [lineNumberDigits]);
 
   const statusText = useMemo(() => {
     if (!snapshot) {
@@ -243,6 +292,7 @@ export function App() {
               const actualIndex = line.index;
               const key = actualIndex ?? `placeholder-${visibleStart + index}`;
               const isActive = actualIndex !== null && actualIndex === cursorLine;
+              const lineNumberText = formatLineNumber(actualIndex);
 
               const content = line.content;
               const safeColumn = Math.min(cursorColumn, content.length);
@@ -261,6 +311,12 @@ export function App() {
                       }
                     }}
                   >
+                    <span
+                      className="editor-surface__gutter"
+                      style={{ width: lineNumberWidth }}
+                    >
+                      {lineNumberText}
+                    </span>
                     {before === '\u00a0' && after === '' ? '\u00a0' : content || '\u00a0'}
                   </span>
                 );
@@ -277,6 +333,12 @@ export function App() {
                     activeLineRef.current = el;
                   }}
                 >
+                  <span
+                    className="editor-surface__gutter"
+                    style={{ width: lineNumberWidth }}
+                  >
+                    {lineNumberText}
+                  </span>
                   <span>{before}</span>
                   <span className="editor-surface__cursor">{cursorChar}</span>
                   <span>{after}</span>

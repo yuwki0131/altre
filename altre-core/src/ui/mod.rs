@@ -2,6 +2,7 @@
 //!
 //! ratatuiベースのターミナルUI機能
 
+pub mod gui_theme;
 pub mod layout;
 pub mod minibuffer;
 pub mod renderer;
@@ -11,6 +12,7 @@ pub mod viewport;
 pub mod window_manager;
 
 // 公開API
+pub use gui_theme::{GuiThemeConfig, GuiThemeKey};
 pub use layout::{AppLayout, AreaType, LayoutManager};
 pub use minibuffer::MinibufferRenderer;
 pub use renderer::{AdvancedRenderer, FrameRateStats, RenderStats, StatusLineInfo};

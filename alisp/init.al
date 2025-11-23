@@ -1,3 +1,20 @@
+;; GUI配色（デフォルト）
+(set-gui-color "app-background" "#FFFFFF")
+(set-gui-color "app-foreground" "#101010")
+(set-gui-color "focus-ring" "#0997B633")
+(set-gui-color "active-line-background" "#F0F0F0")
+(set-gui-color "cursor-background" "#E5266A")
+(set-gui-color "cursor-foreground" "#FFFFFF")
+(set-gui-color "minibuffer-border" "#F0F0F0")
+(set-gui-color "minibuffer-prompt" "#0997B6")
+(set-gui-color "minibuffer-input" "#101010")
+(set-gui-color "minibuffer-info" "#FF4C00")
+(set-gui-color "minibuffer-error" "#E5266A")
+(set-gui-color "statusline-border" "#F0F0F0")
+(set-gui-color "statusline-background" "#F0F0F0")
+(set-gui-color "statusline-foreground" "#101010")
+
+;; キーバインド
 (bind-key "C-n" "next-line")
 (bind-key "C-p" "previous-line")
 (bind-key "C-f" "forward-char")

@@ -284,6 +284,11 @@ pub trait HostBridge {
         key_sequence: &str,
         command_name: &str,
     ) -> std::result::Result<(), String>;
+
+    fn set_gui_color(&mut self, _component: &str, _color: &str) -> std::result::Result<(), String> {
+        let _ = (_component, _color);
+        Err("GUIカラー設定は未実装です".to_string())
+    }
 }
 
 pub struct RuntimeState {

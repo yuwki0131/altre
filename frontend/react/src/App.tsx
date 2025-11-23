@@ -50,6 +50,22 @@ export function App() {
     return Math.max(1, bufferLines.length);
   }, [snapshot, bufferLines.length]);
 
+  const lineNumberDigits = useMemo(() => {
+    const effective = Math.max(1, lineCount);
+    return Math.max(3, String(effective).length);
+  }, [lineCount]);
+
+  const lineNumberWidth = useMemo(() => `${lineNumberDigits + 1}ch`, [lineNumberDigits]);
+
+  const formatLineNumber = useMemo(() => {
+    return (index: number | null) => {
+      if (index === null) {
+        return '';
+      }
+      return (index + 1).toString().padStart(lineNumberDigits, ' ');
+    };
+  }, [lineNumberDigits]);
+
   const statusText = useMemo(() => {
     if (!snapshot) {
       return ' 起動中...';
@@ -276,6 +292,15 @@ export function App() {
               const actualIndex = line.index;
               const key = actualIndex ?? `placeholder-${visibleStart + index}`;
               const isActive = actualIndex !== null && actualIndex === cursorLine;
+              const isPlaceholder = actualIndex === null;
+              const lineNumberText = formatLineNumber(actualIndex);
+              const lineClassNames = [
+                'editor-surface__line',
+                isActive ? 'editor-surface__line--active' : null,
+                isPlaceholder ? 'editor-surface__line--placeholder' : null,
+              ]
+                .filter(Boolean)
+                .join(' ');
 
               const content = line.content;
               const safeColumn = Math.min(cursorColumn, content.length);
@@ -287,14 +312,22 @@ export function App() {
                 return (
                   <span
                     key={key}
-                    className="editor-surface__line"
+                    className={lineClassNames}
                     ref={(el) => {
                       if (index === 0) {
                         firstVisibleLineRef.current = el;
                       }
                     }}
                   >
-                    {before === '\u00a0' && after === '' ? '\u00a0' : content || '\u00a0'}
+                    <span
+                      className="editor-surface__gutter"
+                      style={{ width: lineNumberWidth }}
+                    >
+                      {lineNumberText}
+                    </span>
+                    <span className="editor-surface__content">
+                      {before === '\u00a0' && after === '' ? '\u00a0' : content || '\u00a0'}
+                    </span>
                   </span>
                 );
               }
@@ -302,7 +335,7 @@ export function App() {
               return (
                 <span
                   key={key}
-                  className="editor-surface__line editor-surface__line--active"
+                  className={lineClassNames}
                   ref={(el) => {
                     if (index === 0) {
                       firstVisibleLineRef.current = el;
@@ -310,9 +343,17 @@ export function App() {
                     activeLineRef.current = el;
                   }}
                 >
-                  <span>{before}</span>
-                  <span className="editor-surface__cursor">{cursorChar}</span>
-                  <span>{after}</span>
+                  <span
+                    className="editor-surface__gutter"
+                    style={{ width: lineNumberWidth }}
+                  >
+                    {lineNumberText}
+                  </span>
+                  <span className="editor-surface__content">
+                    <span>{before}</span>
+                    <span className="editor-surface__cursor">{cursorChar}</span>
+                    <span>{after}</span>
+                  </span>
                 </span>
               );
             })

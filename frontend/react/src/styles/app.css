@@ -39,11 +39,40 @@ body {
 }
 
 .editor-surface__line {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 1.25em;
 }
 
 .editor-surface__line--active {
   background-color: #2a2a40;
+}
+
+.editor-surface__line--placeholder .editor-surface__content {
+  color: #4a4a58;
+}
+
+.editor-surface__gutter {
+  flex-shrink: 0;
+  text-align: right;
+  color: #5c637a;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
+  padding-right: 0.75rem;
+}
+
+.editor-surface__line--active .editor-surface__gutter {
+  color: #9aaee9;
+}
+
+.editor-surface__line--placeholder .editor-surface__gutter {
+  color: #3d4155;
+}
+
+.editor-surface__content {
+  flex: 1;
+  white-space: pre;
 }
 
 .editor-surface__cursor {

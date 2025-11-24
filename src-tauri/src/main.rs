@@ -102,6 +102,18 @@ fn editor_save_file(state: State<BackendState>) -> Result<SaveResponse, String> 
 }
 
 #[tauri::command]
+fn editor_resize_viewport(
+    state: State<BackendState>,
+    height: usize,
+    width: Option<usize>,
+) -> Result<EditorSnapshot, String> {
+    state.with_controller(|controller| {
+        controller.resize_viewport(height, width)?;
+        controller.snapshot()
+    })
+}
+
+#[tauri::command]
 fn editor_shutdown(state: State<BackendState>) -> Result<(), String> {
     state.with_controller(|controller| {
         controller.shutdown();
@@ -166,6 +178,7 @@ fn main() {
             editor_handle_keys,
             editor_open_file,
             editor_save_file,
+            editor_resize_viewport,
             editor_shutdown
         ])
         .run(tauri::generate_context!())

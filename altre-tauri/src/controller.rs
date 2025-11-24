@@ -124,6 +124,22 @@ impl BackendController {
         self.backend.is_running()
     }
 
+    /// フロントエンドから通知された実表示サイズ（行・列）でビューポートを更新
+    pub fn resize_viewport(&mut self, height: usize, width: Option<usize>) -> Result<()> {
+        let new_height = height.max(1);
+        self.viewport_height = new_height;
+        if let Some(w) = width {
+            self.viewport_width = w.max(1);
+        }
+
+        // フォーカスウィンドウのビューポート寸法を即時反映
+        let view = self.backend.render_view();
+        if let Some(viewport) = view.window_manager.focused_viewport_mut() {
+            viewport.update_dimensions(self.viewport_height, self.viewport_width);
+        }
+        Ok(())
+    }
+
     fn create_snapshot(&mut self) -> Result<EditorSnapshot> {
         let gui_theme = self.backend.gui_theme();
         let metadata = self.backend.render_metadata();

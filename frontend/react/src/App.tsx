@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from './hooks/useEditor';
-import { DEFAULT_GUI_THEME, GuiThemeSnapshot } from './services/backend';
+import { DEFAULT_GUI_THEME, GuiThemeSnapshot, resizeViewport } from './services/backend';
 
 export function App() {
   const {
@@ -57,7 +57,51 @@ export function App() {
   }, [guiTheme]);
 
   const topLine = snapshot?.viewport?.topLine ?? 0;
-  const viewportHeight = Math.max(1, snapshot?.viewport?.height ?? (bufferLines.length || 1));
+
+  // DOM 計測に基づく行高・列幅から viewport を再計算
+  const [measuredRows, setMeasuredRows] = useState<number>(snapshot?.viewport?.height ?? 1);
+  const [measuredCols, setMeasuredCols] = useState<number>(snapshot?.viewport?.width ?? 80);
+
+  // エディタ表示領域のサイズ変化を監視し、行数・列数を算出
+  useLayoutEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      // 1行の高さを測定
+      const probe = document.createElement('span');
+      probe.textContent = 'A';
+      probe.style.visibility = 'hidden';
+      probe.style.position = 'absolute';
+      probe.style.whiteSpace = 'pre';
+      probe.style.lineHeight = getComputedStyle(el).lineHeight;
+      probe.style.fontFamily = getComputedStyle(el).fontFamily;
+      probe.style.fontSize = getComputedStyle(el).fontSize;
+      el.appendChild(probe);
+      const lineH = probe.getBoundingClientRect().height || 16;
+      // 1桁の幅（近似値）
+      probe.textContent = 'M';
+      const chW = probe.getBoundingClientRect().width || 8;
+      el.removeChild(probe);
+
+      const rows = Math.max(1, Math.floor(rect.height / Math.max(1, lineH)));
+      const cols = Math.max(8, Math.floor(rect.width / Math.max(1, chW)));
+
+      setMeasuredRows(rows);
+      setMeasuredCols(cols);
+
+      // バックエンドへ通知（内部計算とスナップショット整合のため）
+      resizeViewport(rows, cols).catch(() => {/* 非致命 */});
+    };
+
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [editorRef]);
+
+  const viewportHeight = Math.max(1, measuredRows);
   const visibleStart = useMemo(() => {
     const maxStart = Math.max(0, bufferLines.length - viewportHeight);
     return Math.min(Math.max(0, topLine), maxStart);

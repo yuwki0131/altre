@@ -149,6 +149,30 @@ export async function saveFile(): Promise<SaveResult> {
   }
 }
 
+export async function resizeViewport(height: number, width?: number): Promise<EditorSnapshot> {
+  if (!isTauriRuntime()) {
+    // fallback: 高さだけ反映したスナップショットを返す
+    const snap = createFallbackSnapshot();
+    return {
+      ...snap,
+      viewport: {
+        ...snap.viewport,
+        height: Math.max(1, Math.floor(height) || 1),
+        width: width && width > 0 ? Math.floor(width) : snap.viewport.width,
+      },
+    };
+  }
+
+  try {
+    return await invoke<EditorSnapshot>('editor_resize_viewport', {
+      height: Math.max(1, Math.floor(height) || 1),
+      width: width && width > 0 ? Math.floor(width) : null,
+    });
+  } catch (error) {
+    throw formatBackendError('editor_resize_viewport', error);
+  }
+}
+
 export async function pickOpenFile(): Promise<string | null> {
   try {
     if (!isTauriRuntime()) {

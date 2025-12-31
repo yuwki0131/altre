@@ -341,8 +341,10 @@ export function App() {
               const content = line.content;
               const safeColumn = Math.min(cursorColumn, content.length);
               const before = content.slice(0, safeColumn);
-              const cursorChar = content.charAt(safeColumn) || '\u00a0';
-              const after = content.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
+              // カーソル位置の文字を消さずに表示するため、
+              // カーソルスパン自体には文字を入れず、
+              // 残りのテキストはカーソル位置からそのまま描画する
+              const after = content.slice(safeColumn);
 
               if (!isActive) {
                 return (
@@ -384,8 +386,8 @@ export function App() {
                     {lineNumberText}
                   </span>
                   <span>{before}</span>
-                  <span className="editor-surface__cursor">{cursorChar}</span>
-                  <span>{after}</span>
+                  <span className="editor-surface__cursor" aria-hidden="true"></span>
+                  <span>{after || ''}</span>
                 </span>
               );
             })

@@ -13,6 +13,7 @@ export interface EditorSnapshot {
   status: StatusSnapshot;
   viewport: ViewportSnapshot;
   theme: GuiThemeSnapshot;
+  searchUi?: SearchUISnapshot | null;
 }
 
 export interface BufferSnapshot {
@@ -53,6 +54,17 @@ export interface GuiThemeSnapshot {
   statuslineBorder: string;
   statuslineBackground: string;
   statuslineForeground: string;
+}
+
+export interface SearchUISnapshot {
+  promptLabel: string;
+  pattern: string;
+  status: 'active' | 'not-found' | 'wrapped';
+  currentMatch?: number | null;
+  totalMatches: number;
+  wrapped: boolean;
+  message?: string | null;
+  direction: 'forward' | 'backward';
 }
 
 export const DEFAULT_GUI_THEME: GuiThemeSnapshot = {

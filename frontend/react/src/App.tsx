@@ -197,7 +197,42 @@ export function App() {
       ];
     }
 
+    // I-search の表示（最優先で先頭に挿入）
     const lines: Array<{
+      key: string;
+      type: 'prompt' | 'info' | 'error';
+      prompt?: string;
+      input?: string;
+      content?: string;
+    }> = [];
+
+    const search = snapshot.searchUi;
+    if (search && typeof search.pattern === 'string') {
+      const isError = search.status === 'not-found';
+      const label = search.promptLabel && search.promptLabel.trim().length > 0
+        ? search.promptLabel
+        : (search.direction === 'backward' ? 'I-search backward' : 'I-search');
+      const prompt = `${label}: `;
+      const input = search.pattern.length > 0 ? search.pattern : '\u00a0';
+      lines.push({
+        key: 'isearch',
+        // not-found は error、wrapped は info、それ以外は prompt として出す
+        type: isError ? 'error' : (search.status === 'wrapped' ? 'info' : 'prompt'),
+        prompt,
+        input,
+      });
+      // 件数などの補助情報を1行で表示（TUIに合わせた簡易表示）
+      if (typeof search.totalMatches === 'number') {
+        const current = typeof search.currentMatch === 'number' ? search.currentMatch : 0;
+        const stats = `(${current}/${search.totalMatches})`;
+        lines.push({ key: 'isearch-stats', type: 'info', content: stats });
+      }
+      if (search.message && search.message.trim().length > 0) {
+        lines.push({ key: 'isearch-msg', type: isError ? 'error' : 'info', content: search.message });
+      }
+    }
+
+    const restLines: Array<{
       key: string;
       type: 'prompt' | 'info' | 'error';
       prompt?: string;
@@ -227,7 +262,7 @@ export function App() {
     ]);
 
     if (interactiveModes.has(mode)) {
-      lines.push({
+      restLines.push({
         key: 'prompt',
         type: 'prompt',
         prompt,
@@ -235,7 +270,7 @@ export function App() {
       });
 
       if (mode === 'goto-line' && statusMessage) {
-        lines.push({
+        restLines.push({
           key: 'goto-status',
           type: 'info',
           content: statusMessage,
@@ -243,44 +278,44 @@ export function App() {
       }
     } else if (mode === 'error') {
       if (statusMessage) {
-        lines.push({
+        restLines.push({
           key: 'minibuffer-error',
           type: 'error',
           content: statusMessage,
         });
       }
     } else if (mode === 'info' && statusMessage) {
-      lines.push({
+      restLines.push({
         key: 'minibuffer-info',
         type: 'info',
         content: statusMessage,
       });
     }
 
-    if (lines.length === 0) {
+    if (lines.length === 0 && restLines.length === 0) {
       const message = globalError ?? globalInfo ?? statusMessage;
       if (message) {
-        lines.push({
+        restLines.push({
           key: 'fallback-message',
           type: globalError ? 'error' : 'info',
           content: message,
         });
       }
     } else if (globalError) {
-      lines.push({
+      restLines.push({
         key: 'global-error',
         type: 'error',
         content: globalError,
       });
     } else if (globalInfo) {
-      lines.push({
+      restLines.push({
         key: 'global-info',
         type: 'info',
         content: globalInfo,
       });
     }
 
-    if (lines.length === 0) {
+    if (lines.length === 0 && restLines.length === 0) {
       return [
         {
           key: 'inactive',
@@ -290,7 +325,7 @@ export function App() {
       ];
     }
 
-    return lines;
+    return [...lines, ...restLines];
   }, [snapshot, error, info, loading]);
 
   const bufferLineCount = bufferLines.length;

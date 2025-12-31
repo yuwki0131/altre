@@ -156,6 +156,11 @@ body {
   white-space: pre;
 }
 
+/* I-search の視認性を上げる（エラー時は既存のerror色を使用） */
+.minibuffer__line .minibuffer__prompt:has(+ .minibuffer__input) {
+  font-weight: 600;
+}
+
 .statusline {
   padding: 0.35rem 1rem;
   border-top: 1px solid var(--altre-statusline-border);

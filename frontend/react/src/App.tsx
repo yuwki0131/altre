@@ -13,7 +13,7 @@ export function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLSpanElement | null>(null);
   const firstVisibleLineRef = useRef<HTMLSpanElement | null>(null);
-  const previousCursorLineRef = useRef<number>(0);
+  const previousDisplayIndexRef = useRef<number>(0);
   const previousTopLineRef = useRef<number>(0);
 
   useEffect(() => {
@@ -69,15 +69,16 @@ export function App() {
 
     const measure = () => {
       const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
       // 1行の高さを測定
       const probe = document.createElement('span');
       probe.textContent = 'A';
       probe.style.visibility = 'hidden';
       probe.style.position = 'absolute';
       probe.style.whiteSpace = 'pre';
-      probe.style.lineHeight = getComputedStyle(el).lineHeight;
-      probe.style.fontFamily = getComputedStyle(el).fontFamily;
-      probe.style.fontSize = getComputedStyle(el).fontSize;
+      probe.style.lineHeight = style.lineHeight;
+      probe.style.fontFamily = style.fontFamily;
+      probe.style.fontSize = style.fontSize;
       el.appendChild(probe);
       const lineH = probe.getBoundingClientRect().height || 16;
       // 1桁の幅（近似値）
@@ -85,8 +86,16 @@ export function App() {
       const chW = probe.getBoundingClientRect().width || 8;
       el.removeChild(probe);
 
-      const rows = Math.max(1, Math.floor(rect.height / Math.max(1, lineH)));
-      const cols = Math.max(8, Math.floor(rect.width / Math.max(1, chW)));
+      // WebView での端数発生により最終行が見切れないよう、
+      // 計測値は切り上げ、行数・列数は安全側（過小見積もり）で算出
+      const lineHPx = Math.max(1, Math.ceil(lineH));
+      const chWPx = Math.max(1, Math.ceil(chW));
+      const paddingV = (parseFloat(style.paddingTop || '0') || 0) + (parseFloat(style.paddingBottom || '0') || 0);
+      const paddingH = (parseFloat(style.paddingLeft || '0') || 0) + (parseFloat(style.paddingRight || '0') || 0);
+      const contentH = Math.max(0, rect.height - paddingV - 1); // 1px 安全マージン
+      const contentW = Math.max(0, rect.width - paddingH - 1);
+      const rows = Math.max(1, Math.floor(contentH / lineHPx));
+      const cols = Math.max(8, Math.floor(contentW / chWPx));
 
       setMeasuredRows(rows);
       setMeasuredCols(cols);
@@ -102,10 +111,31 @@ export function App() {
   }, [editorRef]);
 
   const viewportHeight = Math.max(1, measuredRows);
+  // 表示上のカーソル行インデックス（EOF+1 を仮想行として扱う）
+  const displayCursorIndex = useMemo(() => {
+    if (bufferLines.length === 0) return 0;
+    const lastIdx = Math.max(0, bufferLines.length - 1);
+    const lastLen = bufferLines[lastIdx]?.length ?? 0;
+    const isAtVirtualEOF = cursorLine === lastIdx && cursorColumn >= lastLen && bufferLines[lastIdx] !== '';
+    return isAtVirtualEOF ? bufferLines.length : cursorLine;
+  }, [bufferLines, cursorLine, cursorColumn]);
+
   const visibleStart = useMemo(() => {
-    const maxStart = Math.max(0, bufferLines.length - viewportHeight);
-    return Math.min(Math.max(0, topLine), maxStart);
-  }, [bufferLines.length, topLine, viewportHeight]);
+    // 末尾に 1 行ぶんの余白（仮想行）を加味してスクロール可能範囲を計算
+    const totalWithPadding = Math.max(1, bufferLines.length + 1);
+    const maxStart = Math.max(0, totalWithPadding - viewportHeight);
+    let start = Math.min(Math.max(0, topLine), maxStart);
+
+    // カーソル表示行が確実に見えるように start を補正
+    const lastVisible = start + viewportHeight - 1;
+    if (displayCursorIndex < start) {
+      start = displayCursorIndex;
+    } else if (displayCursorIndex > lastVisible) {
+      start = Math.min(maxStart, displayCursorIndex - (viewportHeight - 1));
+    }
+
+    return Math.min(maxStart, Math.max(0, start));
+  }, [bufferLines, topLine, viewportHeight, displayCursorIndex]);
   const visibleLines = useMemo(() => {
     const result: Array<{ content: string; index: number | null }> = [];
     for (let offset = 0; offset < viewportHeight; offset += 1) {
@@ -277,24 +307,25 @@ export function App() {
 
   useEffect(() => {
     if (!activeLineRef.current) {
-      previousCursorLineRef.current = cursorLine;
+      previousDisplayIndexRef.current = displayCursorIndex;
       return;
     }
 
-    const previousLine = previousCursorLineRef.current;
-    const delta = cursorLine - previousLine;
+    const prev = previousDisplayIndexRef.current;
+    const delta = displayCursorIndex - prev;
 
+    // 大きく下方向へ移動（M-> など）した場合は末尾に合わせてスクロール
     let block: ScrollLogicalPosition = 'nearest';
-    if (delta > 1) {
+    if (delta >= 1) {
       block = 'end';
-    } else if (delta < -1) {
+    } else if (delta <= -1) {
       block = 'start';
     }
 
     activeLineRef.current.scrollIntoView({ block, inline: 'nearest' });
 
-    previousCursorLineRef.current = cursorLine;
-  }, [cursorLine, cursorColumn, bufferLineCount]);
+    previousDisplayIndexRef.current = displayCursorIndex;
+  }, [displayCursorIndex, bufferLineCount]);
 
   activeLineRef.current = null;
   firstVisibleLineRef.current = null;
@@ -335,14 +366,28 @@ export function App() {
             visibleLines.map((line, index) => {
               const actualIndex = line.index;
               const key = actualIndex ?? `placeholder-${visibleStart + index}`;
-              const isActive = actualIndex !== null && actualIndex === cursorLine;
-              const lineNumberText = formatLineNumber(actualIndex);
+              const displayIndex = visibleStart + index;
+              // 実在行: インデックス一致でアクティブ
+              const isRealActive = actualIndex !== null && actualIndex === cursorLine;
+              // 仮想行: 最終行の末尾（改行なしEOF）にカーソルがある場合に表示
+              const lastIdx = Math.max(0, bufferLines.length - 1);
+              const lastLen = bufferLines.length > 0 ? bufferLines[lastIdx].length : 0;
+              const isAtVirtualEOF =
+                bufferLines.length > 0 && cursorLine === lastIdx && cursorColumn >= lastLen && bufferLines[lastIdx] !== '';
+              const isEmptyBufferPhantom = bufferLines.length === 0 && cursorLine === 0 && displayIndex === 0;
+              const isPhantomActive =
+                actualIndex === null && (isAtVirtualEOF || isEmptyBufferPhantom) && displayIndex === bufferLines.length;
+              const isActive = isRealActive || isPhantomActive;
+              const isPhantomLine = actualIndex === null;
+              const lineNumberText = isPhantomLine ? '' : formatLineNumber(actualIndex);
 
               const content = line.content;
               const safeColumn = Math.min(cursorColumn, content.length);
               const before = content.slice(0, safeColumn);
-              const cursorChar = content.charAt(safeColumn) || '\u00a0';
-              const after = content.slice(cursorChar === '\u00a0' ? safeColumn : safeColumn + 1);
+              // カーソル位置の文字を消さずに表示するため、
+              // カーソルスパン自体には文字を入れず、
+              // 残りのテキストはカーソル位置からそのまま描画する
+              const after = content.slice(safeColumn);
 
               if (!isActive) {
                 return (
@@ -356,7 +401,7 @@ export function App() {
                     }}
                   >
                     <span
-                      className="editor-surface__gutter"
+                      className={`editor-surface__gutter ${isPhantomLine ? 'editor-surface__gutter--phantom' : ''}`}
                       style={{ width: lineNumberWidth }}
                     >
                       {lineNumberText}
@@ -378,14 +423,14 @@ export function App() {
                   }}
                 >
                   <span
-                    className="editor-surface__gutter"
+                    className={`editor-surface__gutter ${isPhantomLine ? 'editor-surface__gutter--phantom' : ''}`}
                     style={{ width: lineNumberWidth }}
                   >
                     {lineNumberText}
                   </span>
                   <span>{before}</span>
-                  <span className="editor-surface__cursor">{cursorChar}</span>
-                  <span>{after}</span>
+                  <span className="editor-surface__cursor" aria-hidden="true"></span>
+                  <span>{after || ''}</span>
                 </span>
               );
             })

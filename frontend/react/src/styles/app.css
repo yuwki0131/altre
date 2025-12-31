@@ -1,6 +1,8 @@
 :root {
   color-scheme: light;
   font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
+  /* 行高（em倍率）を変数化: カーソル高さ計算などに利用 */
+  --altre-line-height: 1.4;
   --altre-app-background: #ffffff;
   --altre-app-foreground: #101010;
   --altre-focus-ring: #0997b633;
@@ -45,7 +47,9 @@ body {
   outline: none;
   white-space: pre;
   tab-size: 4;
-  line-height: 1.4;
+  line-height: var(--altre-line-height);
+  /* 1 行分の px を em から計算して下位要素で使い回す */
+  --altre-line-height-em: calc(var(--altre-line-height) * 1em);
 }
 
 .editor-surface__buffer:focus {
@@ -74,7 +78,9 @@ body {
   position: relative;
   display: inline-block;
   width: 0;
-  height: 1em;
+  /* カーソルの高さを行ボックス高に一致させる */
+  height: var(--altre-line-height-em);
+  vertical-align: text-bottom;
   overflow: visible;
   background: none;
   color: transparent;

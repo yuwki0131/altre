@@ -3,6 +3,8 @@
   font-family: "JetBrains Mono", "Fira Code", "Source Code Pro", monospace;
   /* 行高（em倍率）を変数化: カーソル高さ計算などに利用 */
   --altre-line-height: 1.4;
+  /* カーソル縦棒の上下余白(px)。フォントメトリクス差の吸収用 */
+  --altre-caret-vertical-inset: 1px;
   --altre-app-background: #ffffff;
   --altre-app-foreground: #101010;
   --altre-focus-ring: #0997b633;
@@ -43,6 +45,8 @@ body {
 .editor-surface__buffer {
   flex: 1;
   padding: 0.5rem 1rem;
+  /* ステータスバーに被らないよう下側に追加の余白を確保 */
+  padding-bottom: calc(0.5rem + var(--altre-line-height-em));
   overflow: auto;
   outline: none;
   white-space: pre;
@@ -50,6 +54,8 @@ body {
   line-height: var(--altre-line-height);
   /* 1 行分の px を em から計算して下位要素で使い回す */
   --altre-line-height-em: calc(var(--altre-line-height) * 1em);
+  /* scrollIntoView の終端位置に余裕を持たせる（末尾見切れ防止） */
+  scroll-padding-bottom: var(--altre-line-height-em);
 }
 
 .editor-surface__buffer:focus {
@@ -59,6 +65,8 @@ body {
 .editor-surface__line {
   display: flex;
   align-items: baseline;
+  /* テキストが空でも行の高さを一定に保つ */
+  min-height: var(--altre-line-height-em);
 }
 
 .editor-surface__line--active {
@@ -74,13 +82,17 @@ body {
   user-select: none;
 }
 
+/* 仮想行（EOF+1）では行番号を非表示（スペースは確保） */
+.editor-surface__gutter--phantom {
+  color: transparent;
+}
+
 .editor-surface__cursor {
   position: relative;
   display: inline-block;
   width: 0;
-  /* カーソルの高さを行ボックス高に一致させる */
-  height: var(--altre-line-height-em);
-  vertical-align: text-bottom;
+  /* 行ボックスの高さに自動で一致させる */
+  align-self: stretch;
   overflow: visible;
   background: none;
   color: transparent;
@@ -89,7 +101,8 @@ body {
 .editor-surface__cursor::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 -1px;
+  /* カーソル縦棒を行ボックスよりわずかに短くする */
+  inset: var(--altre-caret-vertical-inset) auto var(--altre-caret-vertical-inset) -1px;
   width: 2px;
   background-color: var(--altre-cursor-background);
   animation: altre-cursor-blink 1s steps(2, start) infinite;

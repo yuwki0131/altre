@@ -137,17 +137,22 @@ export function App() {
     return Math.min(maxStart, Math.max(0, start));
   }, [bufferLines, topLine, viewportHeight, displayCursorIndex]);
   const visibleLines = useMemo(() => {
-    const result: Array<{ content: string; index: number | null }> = [];
+    const result: Array<{ content: string; index: number | null; highlights?: Array<{ start: number; end: number; current: boolean }> }> = [];
     for (let offset = 0; offset < viewportHeight; offset += 1) {
       const actualIndex = visibleStart + offset;
       if (actualIndex < bufferLines.length) {
-        result.push({ content: bufferLines[actualIndex], index: actualIndex });
+        // 該当行のハイライトを抽出
+        const lineHighlights = (snapshot?.highlights || [])
+          .filter((h) => h.line === actualIndex && h.kind === 'search')
+          .map((h) => ({ start: h.startColumn, end: h.endColumn, current: !!h.isCurrent }))
+          .sort((a, b) => a.start - b.start);
+        result.push({ content: bufferLines[actualIndex], index: actualIndex, highlights: lineHighlights });
       } else {
         result.push({ content: '', index: null });
       }
     }
     return result;
-  }, [bufferLines, visibleStart, viewportHeight]);
+  }, [bufferLines, visibleStart, viewportHeight, snapshot]);
 
   const lineCount = useMemo(() => {
     if (!snapshot) {
@@ -197,7 +202,44 @@ export function App() {
       ];
     }
 
+    // I-search の表示（最優先で先頭に挿入）
     const lines: Array<{
+      key: string;
+      type: 'prompt' | 'info' | 'error';
+      prompt?: string;
+      input?: string;
+      content?: string;
+      suffix?: string;
+      suffixClass?: 'info' | 'error';
+    }> = [];
+
+    const search = snapshot.searchUi;
+    if (search && typeof search.pattern === 'string') {
+      const isError = search.status === 'not-found';
+      const label = search.promptLabel && search.promptLabel.trim().length > 0
+        ? search.promptLabel
+        : (search.direction === 'backward' ? 'I-search backward' : 'I-search');
+      const prompt = `${label}: `;
+      const input = search.pattern.length > 0 ? search.pattern : '\u00a0';
+      const suffix =
+        typeof search.totalMatches === 'number'
+          ? ` (${typeof search.currentMatch === 'number' ? search.currentMatch : 0}/${search.totalMatches})`
+          : undefined;
+      lines.push({
+        key: 'isearch',
+        // 常にプロンプト形式で表示し、件数はサフィックスに出す
+        type: 'prompt',
+        prompt,
+        input,
+        suffix,
+        suffixClass: isError ? 'error' : 'info',
+      });
+      if (search.message && search.message.trim().length > 0) {
+        lines.push({ key: 'isearch-msg', type: isError ? 'error' : 'info', content: search.message });
+      }
+    }
+
+    const restLines: Array<{
       key: string;
       type: 'prompt' | 'info' | 'error';
       prompt?: string;
@@ -227,7 +269,7 @@ export function App() {
     ]);
 
     if (interactiveModes.has(mode)) {
-      lines.push({
+      restLines.push({
         key: 'prompt',
         type: 'prompt',
         prompt,
@@ -235,7 +277,7 @@ export function App() {
       });
 
       if (mode === 'goto-line' && statusMessage) {
-        lines.push({
+        restLines.push({
           key: 'goto-status',
           type: 'info',
           content: statusMessage,
@@ -243,44 +285,44 @@ export function App() {
       }
     } else if (mode === 'error') {
       if (statusMessage) {
-        lines.push({
+        restLines.push({
           key: 'minibuffer-error',
           type: 'error',
           content: statusMessage,
         });
       }
     } else if (mode === 'info' && statusMessage) {
-      lines.push({
+      restLines.push({
         key: 'minibuffer-info',
         type: 'info',
         content: statusMessage,
       });
     }
 
-    if (lines.length === 0) {
+    if (lines.length === 0 && restLines.length === 0) {
       const message = globalError ?? globalInfo ?? statusMessage;
       if (message) {
-        lines.push({
+        restLines.push({
           key: 'fallback-message',
           type: globalError ? 'error' : 'info',
           content: message,
         });
       }
     } else if (globalError) {
-      lines.push({
+      restLines.push({
         key: 'global-error',
         type: 'error',
         content: globalError,
       });
     } else if (globalInfo) {
-      lines.push({
+      restLines.push({
         key: 'global-info',
         type: 'info',
         content: globalInfo,
       });
     }
 
-    if (lines.length === 0) {
+    if (lines.length === 0 && restLines.length === 0) {
       return [
         {
           key: 'inactive',
@@ -290,7 +332,7 @@ export function App() {
       ];
     }
 
-    return lines;
+    return [...lines, ...restLines];
   }, [snapshot, error, info, loading]);
 
   const bufferLineCount = bufferLines.length;
@@ -330,6 +372,32 @@ export function App() {
   activeLineRef.current = null;
   firstVisibleLineRef.current = null;
 
+  function renderWithHighlights(text: string, highlights: Array<{ start: number; end: number; current: boolean }>): (string | JSX.Element)[] {
+    if (!highlights || highlights.length === 0) {
+      return [text || '\u00a0'];
+    }
+    const parts: (string | JSX.Element)[] = [];
+    let cursor = 0;
+    highlights.forEach((h, idx) => {
+      const start = Math.max(0, Math.min(h.start, text.length));
+      const end = Math.max(start, Math.min(h.end, text.length));
+      if (cursor < start) {
+        parts.push(text.slice(cursor, start));
+      }
+      const className = h.current ? 'editor-surface__highlight editor-surface__highlight--current' : 'editor-surface__highlight';
+      parts.push(
+        <span key={`hl-${idx}-${start}-${end}`} className={className}>
+          {text.slice(start, end)}
+        </span>
+      );
+      cursor = end;
+    });
+    if (cursor < text.length) {
+      parts.push(text.slice(cursor));
+    }
+    if (parts.length === 0) return ['\u00a0'];
+    return parts;
+  }
   return (
     <div className="app">
       <div className="app__minibuffer">
@@ -339,6 +407,13 @@ export function App() {
               <div key={line.key} className="minibuffer__line">
                 <span className="minibuffer__prompt">{line.prompt ?? ''}</span>
                 <span className="minibuffer__input">{line.input ?? '\u00a0'}</span>
+                {('suffix' in line) && (line as any).suffix ? (
+                  <span
+                    className={`${(line as any).suffixClass === 'error' ? 'minibuffer__error' : 'minibuffer__message'} minibuffer__suffix`}
+                  >
+                    {(line as any).suffix}
+                  </span>
+                ) : null}
               </div>
             );
           }
@@ -406,7 +481,9 @@ export function App() {
                     >
                       {lineNumberText}
                     </span>
-                    {before === '\u00a0' && after === '' ? '\u00a0' : content || '\u00a0'}
+                    <span>
+                      {renderWithHighlights(content || '\u00a0', line.highlights || [])}
+                    </span>
                   </span>
                 );
               }
@@ -428,9 +505,13 @@ export function App() {
                   >
                     {lineNumberText}
                   </span>
-                  <span>{before}</span>
+                  <span>
+                    {renderWithHighlights(before, line.highlights || [])}
+                  </span>
                   <span className="editor-surface__cursor" aria-hidden="true"></span>
-                  <span>{after || ''}</span>
+                  <span>
+                    {renderWithHighlights(after || '', (line.highlights || []).map(h => ({ start: h.start - safeColumn, end: h.end - safeColumn, current: h.current })).filter(h => h.end > 0))}
+                  </span>
                 </span>
               );
             })

@@ -13,6 +13,8 @@ export interface EditorSnapshot {
   status: StatusSnapshot;
   viewport: ViewportSnapshot;
   theme: GuiThemeSnapshot;
+  searchUi?: SearchUISnapshot | null;
+  highlights?: HighlightSnapshot[];
 }
 
 export interface BufferSnapshot {
@@ -53,6 +55,25 @@ export interface GuiThemeSnapshot {
   statuslineBorder: string;
   statuslineBackground: string;
   statuslineForeground: string;
+}
+
+export interface SearchUISnapshot {
+  promptLabel: string;
+  pattern: string;
+  status: 'active' | 'not-found' | 'wrapped';
+  currentMatch?: number | null;
+  totalMatches: number;
+  wrapped: boolean;
+  message?: string | null;
+  direction: 'forward' | 'backward';
+}
+
+export interface HighlightSnapshot {
+  line: number;
+  startColumn: number;
+  endColumn: number;
+  isCurrent: boolean;
+  kind: 'search' | 'selection';
 }
 
 export const DEFAULT_GUI_THEME: GuiThemeSnapshot = {

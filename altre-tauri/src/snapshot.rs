@@ -4,6 +4,8 @@ use altre::minibuffer::{MinibufferMode, MinibufferSystem};
 use altre::ui::viewport::ViewportState;
 use altre::ui::GuiThemeConfig;
 use serde::{Deserialize, Serialize};
+use altre::search::{HighlightKind, SearchHighlight};
+use altre::search::{SearchDirection, SearchStatus, SearchUiState};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EditorSnapshot {
@@ -12,6 +14,9 @@ pub struct EditorSnapshot {
     pub status: StatusSnapshot,
     pub viewport: ViewportSnapshot,
     pub theme: GuiThemeSnapshot,
+    #[serde(rename = "searchUi")]
+    pub search_ui: Option<SearchUISnapshot>,
+    pub highlights: Vec<HighlightSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -87,6 +92,72 @@ impl EditorSnapshot {
             },
             viewport: ViewportSnapshot::from(viewport),
             theme: GuiThemeSnapshot::from(gui_theme),
+            search_ui: metadata.search_ui.as_ref().map(SearchUISnapshot::from),
+            highlights: metadata
+                .highlights
+                .iter()
+                .map(HighlightSnapshot::from)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HighlightSnapshot {
+    pub line: usize,
+    pub start_column: usize,
+    pub end_column: usize,
+    pub is_current: bool,
+    pub kind: String,
+}
+
+impl From<&SearchHighlight> for HighlightSnapshot {
+    fn from(h: &SearchHighlight) -> Self {
+        Self {
+            line: h.line,
+            start_column: h.start_column,
+            end_column: h.end_column,
+            is_current: h.is_current,
+            kind: match h.kind {
+                HighlightKind::Search => "search".to_string(),
+                HighlightKind::Selection => "selection".to_string(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchUISnapshot {
+    pub prompt_label: String,
+    pub pattern: String,
+    pub status: String,
+    pub current_match: Option<usize>,
+    pub total_matches: usize,
+    pub wrapped: bool,
+    pub message: Option<String>,
+    pub direction: String,
+}
+
+impl From<&SearchUiState> for SearchUISnapshot {
+    fn from(s: &SearchUiState) -> Self {
+        Self {
+            prompt_label: s.prompt_label.clone(),
+            pattern: s.pattern.clone(),
+            status: match s.status {
+                SearchStatus::Active => "active".to_string(),
+                SearchStatus::NotFound => "not-found".to_string(),
+                SearchStatus::Wrapped => "wrapped".to_string(),
+            },
+            current_match: s.current_match,
+            total_matches: s.total_matches,
+            wrapped: s.wrapped,
+            message: s.message.clone(),
+            direction: match s.direction {
+                SearchDirection::Forward => "forward".to_string(),
+                SearchDirection::Backward => "backward".to_string(),
+            },
         }
     }
 }

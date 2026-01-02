@@ -73,6 +73,14 @@ body {
   background-color: var(--altre-active-line-background);
 }
 
+/* 検索ハイライト用 */
+.editor-surface__highlight {
+  background-color: rgba(9, 151, 182, 0.18);
+}
+.editor-surface__highlight--current {
+  background-color: rgba(229, 38, 106, 0.22);
+}
+
 .editor-surface__gutter {
   display: inline-block;
   text-align: right;
@@ -145,6 +153,11 @@ body {
   gap: 0.5rem;
   align-items: baseline;
   white-space: pre;
+}
+
+.minibuffer__suffix {
+  margin-left: 0.5rem;
+  opacity: 0.85;
 }
 
 .minibuffer__message {

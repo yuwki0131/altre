@@ -14,6 +14,7 @@ export interface EditorSnapshot {
   viewport: ViewportSnapshot;
   theme: GuiThemeSnapshot;
   searchUi?: SearchUISnapshot | null;
+  highlights?: HighlightSnapshot[];
 }
 
 export interface BufferSnapshot {
@@ -65,6 +66,14 @@ export interface SearchUISnapshot {
   wrapped: boolean;
   message?: string | null;
   direction: 'forward' | 'backward';
+}
+
+export interface HighlightSnapshot {
+  line: number;
+  startColumn: number;
+  endColumn: number;
+  isCurrent: boolean;
+  kind: 'search' | 'selection';
 }
 
 export const DEFAULT_GUI_THEME: GuiThemeSnapshot = {
